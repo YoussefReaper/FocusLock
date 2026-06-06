@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/videoLibraryRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0D0D0D">
+
+    <!-- Header -->
+    <LinearLayout
+        android:id="@+id/videoLibraryHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#111111">
+
+        <TextView
+            android:id="@+id/tvLibraryHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Video Library"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLibrarySubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Loading..."
+            android:textColor="#888888"
+            android:textSize="13sp"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/videoLibraryDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1E1E1E" />
+
+    <!-- Video list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvVideos"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:padding="8dp" />
+
+</LinearLayout>

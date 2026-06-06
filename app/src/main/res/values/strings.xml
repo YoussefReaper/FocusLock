@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FocusLock</string>
+    <string name="whatsapp_guard_accessibility_label">FocusLock WhatsApp Guard</string>
+    <string name="whatsapp_guard_accessibility_description">Detects Meta AI and Updates in WhatsApp to keep FocusLock enforced.</string>
+</resources>

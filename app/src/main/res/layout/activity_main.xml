@@ -1,0 +1,783 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F0F0F"
+    android:orientation="vertical">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/mainScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+        android:id="@+id/mainContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <LinearLayout
+            android:id="@+id/sectionDashboard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="FOCUSLOCK • ACTIVE"
+            android:textAlignment="center"
+            android:textColor="#737373"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textStyle="bold"
+            android:layout_marginBottom="32dp"/>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/progressCircle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                app:indicatorColor="#3B82F6"
+                app:trackColor="#1A1A1A"
+                app:trackThickness="12dp"
+                app:indicatorSize="180dp"
+                app:trackCornerRadius="6dp"
+                android:progress="33"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvDaysLeft"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="60"
+                    android:textColor="#FFFFFF"
+                    android:textSize="48sp"
+                    android:textStyle="bold"
+                    android:includeFontPadding="false"/>
+
+                <TextView
+                    android:id="@+id/tvDaysLeftLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DAYS LEFT"
+                    android:textColor="#737373"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05" />
+            </LinearLayout>
+        </FrameLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:id="@+id/cardDaysDone"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:gravity="center"
+                android:paddingVertical="16dp"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:id="@+id/tvDaysDone"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="30"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/tvDaysDoneLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DONE"
+                    android:textColor="#737373"
+                    android:textSize="10sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/cardProgress"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:gravity="center"
+                android:paddingVertical="16dp"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:id="@+id/tvProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="33%"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/tvProgressLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PROGRESS"
+                    android:textColor="#737373"
+                    android:textSize="10sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/cardUnlock"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:gravity="center"
+                android:paddingVertical="16dp">
+
+                <TextView
+                    android:id="@+id/tvUnlockDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="6 Jun"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/tvUnlockLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="UNLOCKS"
+                    android:textColor="#737373"
+                    android:textSize="10sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/kioskCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvKioskTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="KIOSK CONTROL"
+                android:textColor="#737373"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <EditText
+                    android:id="@+id/etKioskDays"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:hint="Days"
+                    android:inputType="number"
+                    android:background="#1A1A1A"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#666666"
+                    android:padding="12dp"
+                    android:layout_marginEnd="8dp" />
+
+                <EditText
+                    android:id="@+id/etKioskHours"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:hint="Hours"
+                    android:inputType="number"
+                    android:background="#1A1A1A"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#666666"
+                    android:padding="12dp" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnStartKiosk"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Start Kiosk"
+                android:backgroundTint="#3A7BFF"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnDisableAdb"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Disable ADB Debugging"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+        </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/sectionTasks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvTasksSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TASKS"
+                android:textColor="#737373"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/btnSchedule"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="#1A1A1A">
+
+                <TextView
+                    android:id="@+id/tvScheduleTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tasks &amp; Schedule"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/sectionQuick"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
+
+        <LinearLayout
+            android:id="@+id/quickSettingsSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvQuickSettingsTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="QUICK SETTINGS"
+                android:textColor="#737373"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/quickSettingsRow1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <Button
+                    android:id="@+id/btnWifi"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Wi-Fi"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A1A1A"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnHotspot"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Hotspot"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A1A1A"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnMobileData"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Data"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A1A1A"
+                    android:textColor="#FFFFFF" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/quickSettingsRow2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="24dp">
+
+                <Button
+                    android:id="@+id/btnBluetooth"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Bluetooth"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A1A1A"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnSound"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Sound"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A1A1A"
+                    android:textColor="#FFFFFF" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/sectionTools"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
+
+        <TextView
+            android:id="@+id/tvMediaSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="MEDIA"
+            android:textColor="#737373"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/btnVideoLibrary"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#1A1A1A"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/tvVideoLibraryTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎬  Video Library"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+        <View
+            android:id="@+id/dividerAfterVideo"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1A1A1A"
+            android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:id="@+id/tvSearchSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SEARCH"
+            android:textColor="#737373"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/btnTextSearch"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_card"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tvTextSearchIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="T"
+                android:textSize="18sp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvTextSearchTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Text Search"
+                android:textColor="#3B82F6"
+                android:textSize="16sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnBrowse"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_card"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_marginBottom="32dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tvBrowseIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🌐"
+                android:textSize="18sp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvBrowseTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Browse Safe Web"
+                android:textColor="#3B82F6"
+                android:textSize="16sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/sectionManage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvPersonalizeSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PERSONALIZE"
+            android:textColor="#737373"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/btnPersonalize"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#1A1A1A"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvPersonalizeTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Personalize"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvSetupSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SETUP AND HELP"
+            android:textColor="#737373"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/btnSetupPermissions"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#1A1A1A"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvSetupPermissionsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Setup and Permissions"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnDeviceOwnerHelp"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#1A1A1A"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvDeviceOwnerHelpTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Device Owner Help"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvManageSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="MANAGE"
+            android:textColor="#737373"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/editButtonsSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:id="@+id/btnEditApps"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="#1A1A1A"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/tvEditAppsTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Edit Allowed Apps"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnEditWeb"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="#1A1A1A"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/tvEditWebTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Edit Web Allowlist"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnFactoryReset"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#1A1A1A"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvFactoryResetTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Factory Reset"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/allowedAppsSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvAllowedAppsTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="ALLOWED APPS"
+                android:textColor="#737373"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvApps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <HorizontalScrollView
+        android:id="@+id/bottomTabs"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#0F0F0F"
+        android:padding="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/bottomTabsRow"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tabDashboard"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:minWidth="96dp"
+                android:paddingHorizontal="14dp"
+                android:text="Dashboard"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/tabTasks"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:minWidth="84dp"
+                android:paddingHorizontal="14dp"
+                android:text="Tasks"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:layout_marginStart="8dp"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/tabTools"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:minWidth="84dp"
+                android:paddingHorizontal="14dp"
+                android:text="Tools"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:layout_marginStart="8dp"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/tabQuick"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:minWidth="84dp"
+                android:paddingHorizontal="14dp"
+                android:text="Quick"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:layout_marginStart="8dp"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/tabManage"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:minWidth="96dp"
+                android:paddingHorizontal="14dp"
+                android:text="Manage"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:layout_marginStart="8dp"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF" />
+
+        </LinearLayout>
+
+    </HorizontalScrollView>
+
+</LinearLayout>

@@ -1,0 +1,14 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.FocusLock" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Use true fullscreen so app content can occupy the entire screen. -->
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="Theme.FocusLock" parent="Base.Theme.FocusLock" />
+</resources>

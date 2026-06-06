@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#0D0D0D">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Video Folder"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="This folder is permanent and cannot be changed after you confirm.\nAll videos inside will be available to unlock one per day."
+        android:textColor="#888888"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:layout_marginBottom="40dp" />
+
+    <Button
+        android:id="@+id/btnPickFolder"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Choose Folder"
+        android:backgroundTint="#1A1A1A"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvChosenPath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#3A7BFF"
+        android:textSize="13sp"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+
+    <Button
+        android:id="@+id/btnConfirm"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Lock In This Folder"
+        android:backgroundTint="#3A7BFF"
+        android:textColor="#FFFFFF"
+        android:enabled="false" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⚠ This cannot be undone without a factory reset."
+        android:textColor="#555555"
+        android:textSize="11sp"
+        android:gravity="center"
+        android:layout_marginTop="16dp" />
+
+</LinearLayout>
