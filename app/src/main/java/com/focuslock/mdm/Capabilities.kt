@@ -146,6 +146,8 @@ object Capabilities {
             blurb = "Your normal home screen stays. Distracting apps disappear from it and go quiet.",
             group = CapabilityGroup.MODES,
             default = true,
+            weakenNote = "Off: Sanctuary disappears from the mode picker. Block still stops apps " +
+                "opening, it just leaves them sitting on your home screen.",
             needsDeviceOwner = true
         ),
         CapabilitySpec(
@@ -221,6 +223,7 @@ object Capabilities {
             blurb = "A few slow seconds before a distracting app opens, with a way out. Often that is enough.",
             group = CapabilityGroup.BLOCKING,
             default = true,
+            weakenNote = "Off: apps you set to pause first open immediately, with no breath in between.",
             needsUsageAccess = true
         ),
         CapabilitySpec(
@@ -228,7 +231,10 @@ object Capabilities {
             label = "Take a break",
             blurb = "Unlock a blocked app for a few minutes instead of abandoning the whole session.",
             group = CapabilityGroup.BLOCKING,
-            default = true
+            default = true,
+            weakenNote = "Off: a blocked app stays blocked for the whole session, with no exceptions. " +
+                "Some people need exactly that. Others end the whole session instead of taking " +
+                "five minutes."
         ),
         CapabilitySpec(
             id = PER_APP_LIMITS,
@@ -236,6 +242,8 @@ object Capabilities {
             blurb = "Give an app a budget of minutes a day. When it runs out, it closes until tomorrow.",
             group = CapabilityGroup.BLOCKING,
             default = false,
+            weakenNote = "Off: daily minute budgets stop counting. Apps you limited open for as long as " +
+                "you like.",
             needsUsageAccess = true,
             detailScreen = Screens.LIMITS
         ),
@@ -257,6 +265,8 @@ object Capabilities {
             blurb = "Finish real tasks to unlock leisure time. You set the rate, the reward and what counts as done.",
             group = CapabilityGroup.MODES,
             default = false,
+            weakenNote = "Off: tasks stay a plain to-do list and finishing one earns nothing. The list " +
+                "still works, it just does not pay.",
             needsUsageAccess = true,
             detailScreen = Screens.TASKS
         ),
@@ -267,6 +277,8 @@ object Capabilities {
             blurb = "Reads what is on screen and backs out of the surfaces you named, inside apps you still want.",
             group = CapabilityGroup.CONTENT,
             default = true,
+            weakenNote = "Off: FocusLock stops reading the screen. An app you allowed is allowed " +
+                "entirely, including the parts of it you were trying to avoid.",
             needsAccessibility = true
         ),
         CapabilitySpec(
@@ -317,6 +329,8 @@ object Capabilities {
             blurb = "Windows of the week where the phone goes quiet on its own.",
             group = CapabilityGroup.ENVIRONMENT,
             default = true,
+            weakenNote = "Off: quiet windows stop firing. Every session becomes something you have to " +
+                "remember to start.",
             detailScreen = Screens.SCHEDULES
         ),
         CapabilitySpec(
@@ -325,6 +339,8 @@ object Capabilities {
             blurb = "Dims the screen, switches to a dark quiet theme and locks social after your cut-off.",
             group = CapabilityGroup.ENVIRONMENT,
             default = false,
+            weakenNote = "Off: nothing changes at night. The phone is as available at 2am as it is at " +
+                "2pm.",
             detailScreen = Screens.BEDTIME
         ),
         CapabilitySpec(
@@ -350,6 +366,8 @@ object Capabilities {
             blurb = "Holds back alerts from blocked apps during a session. Always-allowed apps still get through.",
             group = CapabilityGroup.ENVIRONMENT,
             default = true,
+            weakenNote = "Off: blocked apps can still buzz. The icon is out of reach but the pull is " +
+                "not.",
             needsNotificationAccess = true
         ),
 
@@ -436,6 +454,8 @@ object Capabilities {
             blurb = "Blocked apps vanish from the launcher during a session. Out of sight, out of reach.",
             group = CapabilityGroup.HARDENING,
             default = false,
+            weakenNote = "With this off, blocked apps stay on your home screen. They still will not " +
+                "open, but you see them every time you look.",
             needsDeviceOwner = true
         ),
         CapabilitySpec(
