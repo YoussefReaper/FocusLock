@@ -4,54 +4,108 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * Lock-task package assembly.
+ *
+ * [KioskPolicy.buildLockTaskPackages] is deliberately pure so the rule that
+ * matters most — what a kiosk session will and will not let through — can be
+ * checked without a device.
+ */
 class KioskAllowlistTest {
 
-    @Test
-    fun userLaunchableWhitelist_excludesKernelEscapePackages() {
-        assertTrue(Constants.USER_LAUNCHABLE_WHITELIST.contains(Constants.OWN_PACKAGE))
-
-        Constants.KIOSK_ESCAPE_SURFACES.forEach { pkg ->
-            assertFalse(Constants.USER_LAUNCHABLE_WHITELIST.contains(pkg))
-        }
-
-        Constants.SETTINGS_ESCAPE_PACKAGES.forEach { pkg ->
-            assertFalse(Constants.USER_LAUNCHABLE_WHITELIST.contains(pkg))
-        }
-    }
+    private val own = "com.focuslock.mdm"
 
     @Test
-    fun lockTaskPackages_preBaseline_includesOnboardingSettings() {
-        val lockTaskPackages = Constants.lockTaskPackagesForBaseline(
-            baselineReady = false,
-            ownPackage = Constants.OWN_PACKAGE
-        )
-
-        assertTrue(lockTaskPackages.contains(Constants.OWN_PACKAGE))
-
-        Constants.ONBOARDING_SETTINGS_PACKAGES.forEach { pkg ->
-            assertTrue(lockTaskPackages.contains(pkg))
-        }
-
-        Constants.KIOSK_ESCAPE_SURFACES.forEach { pkg ->
-            assertFalse(lockTaskPackages.contains(pkg))
-        }
-    }
-
-    @Test
-    fun lockTaskPackages_postBaseline_excludesSettingsAndEscapeSurfaces() {
-        val lockTaskPackages = Constants.lockTaskPackagesForBaseline(
+    fun ownPackageIsAlwaysPermitted() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
             baselineReady = true,
-            ownPackage = Constants.OWN_PACKAGE
+            allowLauncherEscape = false
+        )
+        assertTrue(packages.contains(own))
+    }
+
+    @Test
+    fun alwaysAllowedAppsSurviveKiosk() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = setOf("com.android.phone", "com.google.android.apps.maps"),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false
+        )
+        assertTrue(packages.contains("com.android.phone"))
+        assertTrue(packages.contains("com.google.android.apps.maps"))
+    }
+
+    @Test
+    fun launcherIsExcludedWhenFocusLockIsHome() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false
+        )
+        SystemSurfaces.launchers.forEach { launcher ->
+            assertFalse(packages.contains(launcher))
+        }
+    }
+
+    @Test
+    fun launcherIsIncludedWhenPersistentHomeIsOff() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = true
+        )
+        SystemSurfaces.launchers.forEach { launcher ->
+            assertTrue(packages.contains(launcher))
+        }
+    }
+
+    @Test
+    fun settingsOnlyReachableBeforeTheBaselineIsComplete() {
+        val duringSetup = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = false,
+            allowLauncherEscape = false
+        )
+        val afterSetup = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false
         )
 
-        assertTrue(lockTaskPackages.contains(Constants.OWN_PACKAGE))
+        assertTrue(duringSetup.contains("com.android.settings"))
+        assertFalse(afterSetup.contains("com.android.settings"))
+    }
 
-        Constants.SETTINGS_ESCAPE_PACKAGES.forEach { pkg ->
-            assertFalse(lockTaskPackages.contains(pkg))
-        }
-
-        Constants.KIOSK_ESCAPE_SURFACES.forEach { pkg ->
-            assertFalse(lockTaskPackages.contains(pkg))
-        }
+    @Test
+    fun systemSurfacesAreNeverLockedOut() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false
+        )
+        assertTrue(packages.contains("com.android.systemui"))
+        assertTrue(packages.contains("android"))
     }
 }

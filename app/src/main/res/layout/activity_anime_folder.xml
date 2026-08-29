@@ -1,68 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Structure only; colour and type come from UiPrefs.Tokens at runtime. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/folderRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="32dp"
-    android:background="#0D0D0D">
+    android:padding="28dp">
 
     <TextView
+        android:id="@+id/tvFolderTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Select Video Folder"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold"
+        android:text="Choose your video folder"
         android:gravity="center"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="14dp" />
 
     <TextView
+        android:id="@+id/tvFolderSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="This folder is permanent and cannot be changed after you confirm.\nAll videos inside will be available to unlock one per day."
-        android:textColor="#888888"
-        android:textSize="14sp"
         android:gravity="center"
         android:lineSpacingExtra="4dp"
-        android:layout_marginBottom="40dp" />
+        android:layout_marginBottom="36dp" />
 
-    <Button
+    <TextView
         android:id="@+id/btnPickFolder"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="Choose Folder"
-        android:backgroundTint="#1A1A1A"
-        android:textColor="#FFFFFF"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="Choose a folder"
         android:layout_marginBottom="16dp" />
 
     <TextView
         android:id="@+id/tvChosenPath"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text=""
-        android:textColor="#3A7BFF"
-        android:textSize="13sp"
         android:gravity="center"
-        android:layout_marginBottom="32dp" />
-
-    <Button
-        android:id="@+id/btnConfirm"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="Lock In This Folder"
-        android:backgroundTint="#3A7BFF"
-        android:textColor="#FFFFFF"
-        android:enabled="false" />
+        android:layout_marginBottom="28dp" />
 
     <TextView
+        android:id="@+id/btnConfirm"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚠ This cannot be undone without a factory reset."
-        android:textColor="#555555"
-        android:textSize="11sp"
         android:gravity="center"
-        android:layout_marginTop="16dp" />
+        android:text="Use this folder" />
+
+    <TextView
+        android:id="@+id/tvFolderWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_marginTop="18dp" />
 
 </LinearLayout>

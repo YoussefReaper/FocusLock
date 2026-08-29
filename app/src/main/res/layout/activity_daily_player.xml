@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The one deliberately un-themed screen in the app. Video is watched on black
+    whatever palette the rest of FocusLock is wearing; letterboxing a film in
+    someone's accent colour would be worse, not more consistent.
+-->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@color/black">
 
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"

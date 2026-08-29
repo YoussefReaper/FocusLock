@@ -1,35 +1,51 @@
 package com.focuslock.mdm
 
 import android.content.Intent
-import android.content.res.ColorStateList
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.View
-import android.webkit.*
-import android.widget.*
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.ByteArrayInputStream
 
+/**
+ * The safe browser.
+ *
+ * A curated internet rather than no internet: only hosts on the user's own list
+ * load, there is no address bar to wander out of, and the media stripper turns
+ * any page into something you read instead of scroll. This is the substitution
+ * half of the product — blocking without a replacement is what people route
+ * around.
+ */
 class WebViewActivity : AppCompatActivity() {
 
-    private lateinit var webView        : WebView
-    private lateinit var webRoot        : LinearLayout
-    private lateinit var pickerLayout   : LinearLayout
-    private lateinit var categoryTabs   : LinearLayout
-    private lateinit var rvLinks        : RecyclerView
-    private lateinit var bottomBar      : LinearLayout
-    private lateinit var btnBack        : Button
-    private lateinit var switchTextOnly : Switch
-    private lateinit var tvTextOnlyTitle: TextView
-    private lateinit var tvTextOnlySubtitle: TextView
-    private lateinit var webDivider: View
+    private lateinit var tokens: UiPrefs.Tokens
 
-    private var currentUrl     : String? = null
+    private lateinit var webView: WebView
+    private lateinit var webRoot: LinearLayout
+    private lateinit var pickerLayout: LinearLayout
+    private lateinit var categoryTabs: LinearLayout
+    private lateinit var rvLinks: RecyclerView
+    private lateinit var bottomBar: LinearLayout
+    private lateinit var btnBack: TextView
+    private lateinit var tvCurrentSite: TextView
+    private lateinit var switchTextOnly: SwitchCompat
 
     private var selectedCategory = "All"
     private var textOnlyMode = false
+    private var currentUrl: String? = null
 
     private val imageExtensions = setOf(
         ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".avif"
@@ -38,33 +54,29 @@ class WebViewActivity : AppCompatActivity() {
         ".mp4", ".webm", ".mkv", ".mov", ".m4v", ".3gp", ".m3u8", ".ts", ".avi"
     )
 
-    // ── Lifecycle ─────────────────────────────────────────────────
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_webview)
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+
+        webRoot = findViewById(R.id.webRoot)
+        pickerLayout = findViewById(R.id.pickerLayout)
+        categoryTabs = findViewById(R.id.categoryTabs)
+        rvLinks = findViewById(R.id.rvLinks)
+        bottomBar = findViewById(R.id.bottomBar)
+        btnBack = findViewById(R.id.btnBack)
+        tvCurrentSite = findViewById(R.id.tvCurrentSite)
+        webView = findViewById(R.id.webView)
+        switchTextOnly = findViewById(R.id.switchTextOnly)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // If the website can go back a page (e.g., leaving Google Login), go back
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    // Otherwise, close the browser and return to the main FocusLock dashboard
-                    finish()
+                when {
+                    webView.visibility == View.VISIBLE && webView.canGoBack() -> webView.goBack()
+                    webView.visibility == View.VISIBLE -> closeWebView()
+                    else -> finish()
                 }
             }
         })
-        webRoot = findViewById(R.id.webRoot)
-        pickerLayout  = findViewById(R.id.pickerLayout)
-        categoryTabs  = findViewById(R.id.categoryTabs)
-        rvLinks       = findViewById(R.id.rvLinks)
-        bottomBar     = findViewById(R.id.bottomBar)
-        btnBack       = findViewById(R.id.btnBack)
-        webView       = findViewById(R.id.webView)
-        switchTextOnly = findViewById(R.id.switchTextOnly)
-        tvTextOnlyTitle = findViewById(R.id.tvTextOnlyTitle)
-        tvTextOnlySubtitle = findViewById(R.id.tvTextOnlySubtitle)
-        webDivider = findViewById(R.id.webDivider)
 
         textOnlyMode = AllowlistStore.isWebTextOnlyEnabled(this)
         switchTextOnly.isChecked = textOnlyMode
@@ -72,29 +84,23 @@ class WebViewActivity : AppCompatActivity() {
             textOnlyMode = isChecked
             AllowlistStore.setWebTextOnlyEnabled(this, isChecked)
             applyWebViewSafetyMode()
-            if (webView.visibility == View.VISIBLE) {
-                webView.reload()
-            }
+            if (webView.visibility == View.VISIBLE) webView.reload()
         }
 
+        btnBack.setOnClickListener { closeWebView() }
+
         setupWebView()
+        applyTheme()
         buildCategoryTabs()
         buildLinkList()
-        applyPersonalization()
-
-        bottomBar.visibility  = View.GONE
-        btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-    }
-
-    override fun onPause() {
-        super.onPause()
+        bottomBar.visibility = View.GONE
     }
 
     override fun onResume() {
         super.onResume()
         KioskPolicy.syncLockTaskState(this)
         syncTextOnlyMode()
-        applyPersonalization()
+        applyTheme()
         buildCategoryTabs()
         buildLinkList()
     }
@@ -104,13 +110,57 @@ class WebViewActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    // ── Theming ───────────────────────────────────────────────────
+
+    private fun applyTheme() {
+        tokens = UiPrefs.resolve(this)
+        FocusUi.applySystemBars(window, tokens, tokens.surface)
+
+        if (tokens.wallpaperRes != 0) {
+            webRoot.setBackgroundResource(tokens.wallpaperRes)
+        } else {
+            webRoot.setBackgroundColor(tokens.background)
+        }
+
+        styleText(findViewById(R.id.tvWebTitle), 22f, tokens.textPrimary, bold = true)
+        styleText(findViewById(R.id.tvWebSubtitle), 13.5f, tokens.textSecondary)
+        styleText(findViewById(R.id.tvTextOnlyTitle), 15f, tokens.textPrimary, bold = true)
+        styleText(findViewById(R.id.tvTextOnlySubtitle), 12.5f, tokens.textSecondary)
+
+        findViewById<View>(R.id.webDivider).setBackgroundColor(tokens.divider)
+
+        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        switchTextOnly.thumbTintList = android.content.res.ColorStateList(
+            states,
+            intArrayOf(tokens.accent, UiPrefs.blend(tokens.textMuted, tokens.surface, 0.3f))
+        )
+        switchTextOnly.trackTintList = android.content.res.ColorStateList(
+            states,
+            intArrayOf(UiPrefs.withAlpha(tokens.accent, 110), tokens.track)
+        )
+
+        bottomBar.setBackgroundColor(tokens.surface)
+        styleText(btnBack, 14f, tokens.accent, bold = true)
+        val pad = FocusUi.dp(this, 10)
+        btnBack.setPadding(pad, pad, pad, pad)
+        styleText(tvCurrentSite, 12f, tokens.textMuted)
+
+        webView.setBackgroundColor(tokens.background)
+    }
+
+    private fun styleText(view: TextView, sizeSp: Float, color: Int, bold: Boolean = false) {
+        view.setTextColor(color)
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(sizeSp))
+        view.typeface = if (bold) Typeface.create(tokens.typeface, Typeface.BOLD) else tokens.typeface
+    }
+
     // ── WebView ───────────────────────────────────────────────────
 
     @Suppress("SetJavaScriptEnabled")
     private fun setupWebView() {
         webView.settings.apply {
-            javaScriptEnabled   = true
-            domStorageEnabled   = true
+            javaScriptEnabled = true
+            domStorageEnabled = true
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
@@ -121,16 +171,17 @@ class WebViewActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return true
-                if (request?.isForMainFrame == false) return false
+                if (request.isForMainFrame == false) return false
 
-                // 1. DEEP LINK BYPASS: If the URL is an app intent (like handing auth back to ChatGPT), let it through.
+                // Deep links back into apps (auth handoffs) are allowed only for
+                // apps the user has not blocked.
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
                     return try {
                         val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                         if (isDeepLinkIntentAllowed(intent)) {
-                            view?.context?.startActivity(intent)
+                            startActivity(intent)
                         } else {
-                            Toast.makeText(this@WebViewActivity, "This link target is blocked", Toast.LENGTH_SHORT).show()
+                            FocusDialog.toast(this@WebViewActivity, "That link points somewhere blocked.")
                         }
                         true
                     } catch (_: Exception) {
@@ -140,32 +191,34 @@ class WebViewActivity : AppCompatActivity() {
 
                 if (textOnlyMode) {
                     if (isMediaNavigationBlocked(url)) {
-                        Toast.makeText(this@WebViewActivity, "Images and videos are disabled", Toast.LENGTH_SHORT).show()
+                        FocusDialog.toast(this@WebViewActivity, "Text only is on, so image and video pages are off.")
                         return true
                     }
-                    val safeUrl = enforceGoogleSafeSearch(url)
-                    if (safeUrl != null && safeUrl != url) {
-                        view?.loadUrl(safeUrl)
-                        return true
+                    enforceGoogleSafeSearch(url)?.let { safe ->
+                        if (safe != url) {
+                            view?.loadUrl(safe)
+                            return true
+                        }
                     }
                 }
 
-                // 2. STANDARD WEB CHECK: Use our VIP domain logic
                 if (isUrlAllowed(url)) {
-                    return false // Let the WebView load the allowed page normally
-                } else {
-                    // THE TOAST: Only fire this if they actually try to escape to Reddit or Wikipedia
-                    Toast.makeText(this@WebViewActivity, "External links aren't allowed", Toast.LENGTH_SHORT).show()
-                    return true // Block the load
+                    currentUrl = url
+                    updateCurrentSiteLabel()
+                    return false
                 }
+
+                FocusDialog.toast(this@WebViewActivity, "That address is not on your list.")
+                return true
             }
 
             override fun shouldInterceptRequest(
                 view: WebView?,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
-                if (!textOnlyMode) return null
                 val url = request?.url?.toString() ?: return null
+                if (isAdultHost(url)) return emptyResponse()
+                if (!textOnlyMode) return null
                 return if (isMediaResourceUrl(url)) emptyResponse() else null
             }
 
@@ -173,156 +226,134 @@ class WebViewActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 if (view != null && !url.isNullOrBlank()) {
                     hideGoogleMediaTabs(view, url)
+                    currentUrl = url
+                    updateCurrentSiteLabel()
                 }
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
-                wv: WebView?, cb: ValueCallback<Array<Uri>>?,
-                params: FileChooserParams?
+                webView: WebView?,
+                filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
             ): Boolean = false
         }
 
         webView.visibility = View.GONE
     }
 
-    /**
-     * A URL is allowed if it starts with any of the configured link URLs,
-     * or if it is a same-domain navigation (contains the host of a whitelisted URL).
-     */
-    private fun isUrlAllowed(target: String): Boolean {
-        try {
-            val targetUri = Uri.parse(target)
-            val scheme = targetUri.scheme?.lowercase() ?: return false
-            if (scheme != "https" && scheme != "http") return false
-
-            val targetHost = targetUri.host?.lowercase()?.removePrefix("www.") ?: return false
-
-            // 1. VIP PASS: Allow Google Login & Authentication domains
-            val authDomains = listOf(
-                "accounts.google.com",
-                "accounts.youtube.com",
-                "gstatic.com",
-                "openai.com",       // ChatGPT auth router
-                "auth0.openai.com", // ChatGPT backend auth
-                "chatgpt.com"
-            )
-
-            // If the URL matches an auth domain, let it through immediately
-            if (authDomains.any { domain -> hostMatches(targetHost, domain) }) {
-                return true
-            }
-
-            // 2. STANDARD CHECK: Verify against your custom allowlist
-            return AllowlistStore.getWebAllowlistUrls(this).any { url ->
-                val allowedUri = Uri.parse(url)
-                val allowedHost = allowedUri.host?.lowercase()?.removePrefix("www.") ?: ""
-
-                allowedHost.isNotBlank() && hostMatches(targetHost, allowedHost)
-            }
-        } catch (e: Exception) {
-            return false
+    private fun updateCurrentSiteLabel() {
+        tvCurrentSite.text = try {
+            Uri.parse(currentUrl.orEmpty()).host?.removePrefix("www.").orEmpty()
+        } catch (_: Exception) {
+            ""
         }
     }
 
-    private fun hostMatches(targetHost: String, allowedHost: String): Boolean {
-        return targetHost == allowedHost || targetHost.endsWith(".$allowedHost")
+    /**
+     * Allowed when the host matches something on the user's list, or is one of
+     * the sign-in domains the listed sites hand off to. The adult filter always
+     * wins, even over an explicitly listed host.
+     */
+    private fun isUrlAllowed(target: String): Boolean {
+        return try {
+            val uri = Uri.parse(target)
+            val scheme = uri.scheme?.lowercase() ?: return false
+            if (scheme != "https" && scheme != "http") return false
+
+            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return false
+            if (AllowlistStore.isBlockedHost(this, host)) return false
+
+            if (SystemSurfaces.authDomains.any { hostMatches(host, it) }) return true
+
+            AllowlistStore.getWebAllowlistUrls(this).any { allowed ->
+                val allowedHost = try {
+                    Uri.parse(allowed).host?.lowercase()?.removePrefix("www.").orEmpty()
+                } catch (_: Exception) {
+                    ""
+                }
+                allowedHost.isNotBlank() && hostMatches(host, allowedHost)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hostMatches(targetHost: String, allowedHost: String): Boolean =
+        targetHost == allowedHost || targetHost.endsWith("." + allowedHost)
+
+    private fun isAdultHost(url: String): Boolean = try {
+        val host = Uri.parse(url).host?.lowercase() ?: ""
+        host.isNotBlank() && AllowlistStore.isBlockedHost(this, host)
+    } catch (_: Exception) {
+        false
     }
 
     private fun isDeepLinkIntentAllowed(intent: Intent): Boolean {
-        val explicitPackage = intent.`package`
-        val componentPackage = intent.component?.packageName
-        val resolvedPackage = packageManager.resolveActivity(intent, 0)?.activityInfo?.packageName
+        val target = intent.`package`
+            ?: intent.component?.packageName
+            ?: packageManager.resolveActivity(intent, 0)?.activityInfo?.packageName
+            ?: return false
 
-        val targetPackage = explicitPackage ?: componentPackage ?: resolvedPackage
-        if (targetPackage.isNullOrBlank()) return false
-        if (targetPackage == packageName) return true
-        if (targetPackage in Constants.SETTINGS_ESCAPE_PACKAGES) return false
-
-        return targetPackage in AllowlistStore.getAppAllowlist(this) ||
-            targetPackage in Constants.SYSTEM_USAGE_SURFACES
+        if (target == packageName) return true
+        if (SystemSurfaces.isSettings(target)) return false
+        return RuleEngine.isAllowed(this, target)
     }
 
-    // ── Category tabs ─────────────────────────────────────────────
+    // ── Picker ────────────────────────────────────────────────────
 
     private fun buildCategoryTabs() {
-        val theme = UiPrefs.getTheme(this)
         categoryTabs.removeAllViews()
-        val categories = listOf("All") +
-            AllowlistStore.getWebLinks(this)
-                .map { it.category }
-                .distinct()
-                .filter { it.isNotBlank() }
+        val categories = listOf("All") + AllowlistStore.getWebCategories(this)
+        if (selectedCategory !in categories) selectedCategory = "All"
 
-        if (selectedCategory !in categories) {
-            selectedCategory = "All"
-        }
-
-        categories.forEach { cat ->
-            val btn = Button(this).apply {
-                text      = cat
-                textSize  = 11f
-                isAllCaps = false
-                setTextColor(theme.textPrimary)
-                backgroundTintList = ColorStateList.valueOf(theme.card)
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 8, 0) }
-                layoutParams = lp
-                setOnClickListener {
-                    selectedCategory = cat
-                    buildCategoryTabs()   // re-render to show active state
+        categories.forEach { category ->
+            categoryTabs.addView(
+                FocusUi.chip(this, tokens, category, category == selectedCategory) {
+                    selectedCategory = category
+                    buildCategoryTabs()
                     buildLinkList()
                 }
-                alpha = if (cat == selectedCategory) 1f else 0.4f
-            }
-            categoryTabs.addView(btn)
+            )
         }
     }
-
-    private fun applyPersonalization() {
-        val theme = UiPrefs.getTheme(this)
-        val font = UiPrefs.getFont(this)
-        val wallpaper = UiPrefs.getWallpaper(this)
-
-        UiStyler.applyWallpaperOrColor(webRoot, theme, wallpaper)
-        UiStyler.applyTypefaceRecursive(webRoot, font.typeface)
-
-        window.statusBarColor = theme.background
-        window.navigationBarColor = theme.background
-
-        tvTextOnlyTitle.setTextColor(theme.textPrimary)
-        tvTextOnlySubtitle.setTextColor(theme.textSecondary)
-        webDivider.setBackgroundColor(theme.divider)
-
-        bottomBar.setBackgroundColor(theme.card)
-        btnBack.backgroundTintList = ColorStateList.valueOf(theme.card)
-        btnBack.setTextColor(theme.textPrimary)
-
-        webView.setBackgroundColor(theme.background)
-    }
-
-    // ── Link list ─────────────────────────────────────────────────
 
     private fun buildLinkList() {
         val links = AllowlistStore.getWebLinks(this)
-        val filtered = if (selectedCategory == "All") links
-        else links.filter { it.category == selectedCategory }
+        val filtered = if (selectedCategory == "All") {
+            links
+        } else {
+            links.filter { it.category == selectedCategory }
+        }
 
         rvLinks.layoutManager = LinearLayoutManager(this)
-        rvLinks.adapter = LinkAdapter(filtered, this) { link ->
-            openLink(link)
-        }
+        rvLinks.adapter = LinkAdapter(filtered, this) { link -> openLink(link) }
     }
 
-    // ── Text-only Safe Search ──────────────────────────────────
+    private fun openLink(link: Constants.WebLink) {
+        currentUrl = link.url
+        pickerLayout.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        bottomBar.visibility = View.VISIBLE
+        updateCurrentSiteLabel()
+        webView.loadUrl(link.url)
+    }
+
+    private fun closeWebView() {
+        currentUrl = null
+        webView.loadUrl("about:blank")
+        webView.visibility = View.GONE
+        bottomBar.visibility = View.GONE
+        pickerLayout.visibility = View.VISIBLE
+        buildLinkList()
+    }
+
+    // ── Media stripping ───────────────────────────────────────────
 
     private fun syncTextOnlyMode() {
         val enabled = AllowlistStore.isWebTextOnlyEnabled(this)
         if (enabled == textOnlyMode) return
-
         textOnlyMode = enabled
         switchTextOnly.isChecked = enabled
         applyWebViewSafetyMode()
@@ -333,47 +364,40 @@ class WebViewActivity : AppCompatActivity() {
         webView.settings.blockNetworkImage = textOnlyMode
     }
 
-    private fun enforceGoogleSafeSearch(url: String): String? {
-        return try {
-            val uri = Uri.parse(url)
-            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
-            if (host != "google.com") return null
-            if (uri.path != "/search") return null
-
-            val currentSafe = uri.getQueryParameter("safe")?.lowercase()
-            if (currentSafe == "active") return null
-
+    private fun enforceGoogleSafeSearch(url: String): String? = try {
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase()?.removePrefix("www.")
+        if (host != "google.com" || uri.path != "/search") {
+            null
+        } else if (uri.getQueryParameter("safe")?.lowercase() == "active") {
+            null
+        } else {
             val builder = uri.buildUpon().clearQuery()
             uri.queryParameterNames.forEach { name ->
-                if (name == "safe") return@forEach
-                val value = uri.getQueryParameter(name)
-                if (value != null) builder.appendQueryParameter(name, value)
+                if (name != "safe") {
+                    uri.getQueryParameter(name)?.let { builder.appendQueryParameter(name, it) }
+                }
             }
-            builder.appendQueryParameter("safe", "active")
-            builder.build().toString()
-        } catch (_: Exception) {
-            null
+            builder.appendQueryParameter("safe", "active").build().toString()
         }
+    } catch (_: Exception) {
+        null
     }
 
-    private fun isMediaNavigationBlocked(url: String): Boolean {
-        return try {
-            val uri = Uri.parse(url)
-            val host = uri.host?.lowercase() ?: return false
-            val path = uri.path?.lowercase() ?: ""
-            val tbm = uri.getQueryParameter("tbm")?.lowercase()
+    private fun isMediaNavigationBlocked(url: String): Boolean = try {
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase() ?: ""
+        val path = uri.path?.lowercase() ?: ""
+        val tbm = uri.getQueryParameter("tbm")?.lowercase()
 
-            if (isGoogleHost(host)) {
-                if (tbm == "isch" || tbm == "vid") return true
-                if (path.contains("/imghp") || path.contains("/imgres")) return true
-            }
-
-            host.endsWith("youtube.com") ||
-                host == "youtu.be" ||
-                host.endsWith("googlevideo.com")
-        } catch (_: Exception) {
-            false
+        when {
+            isGoogleHost(host) && (tbm == "isch" || tbm == "vid") -> true
+            isGoogleHost(host) && (path.contains("/imghp") || path.contains("/imgres")) -> true
+            host.endsWith("youtube.com") || host == "youtu.be" || host.endsWith("googlevideo.com") -> true
+            else -> false
         }
+    } catch (_: Exception) {
+        false
     }
 
     private fun isMediaResourceUrl(url: String): Boolean {
@@ -386,37 +410,37 @@ class WebViewActivity : AppCompatActivity() {
             val path = uri.path?.lowercase() ?: ""
             val query = uri.query?.lowercase() ?: ""
 
-            if (hasMediaExtension(path)) return true
-            if (host.endsWith("gstatic.com") && (path.contains("/images") || query.contains("tbn"))) {
-                return true
+            when {
+                hasMediaExtension(path) -> true
+                host.endsWith("gstatic.com") && (path.contains("/images") || query.contains("tbn")) -> true
+                host.endsWith("googleusercontent.com") &&
+                    (query.contains("tbn") || path.contains("/imgres")) -> true
+                host.endsWith("ytimg.com") || host.endsWith("googlevideo.com") -> true
+                else -> false
             }
-            if (host.endsWith("googleusercontent.com") && (query.contains("tbn") || path.contains("/imgres"))) {
-                return true
-            }
-            if (host.endsWith("ytimg.com") || host.endsWith("googlevideo.com")) return true
-
-            false
         } catch (_: Exception) {
             false
         }
     }
 
-    private fun hasMediaExtension(path: String): Boolean {
-        return imageExtensions.any { path.endsWith(it) } || videoExtensions.any { path.endsWith(it) }
-    }
+    private fun hasMediaExtension(path: String): Boolean =
+        imageExtensions.any { path.endsWith(it) } || videoExtensions.any { path.endsWith(it) }
 
     private fun isGoogleHost(host: String): Boolean {
         val normalized = host.removePrefix("www.")
         return normalized == "google.com" || normalized.endsWith(".google.com")
     }
 
-    private fun emptyResponse(): WebResourceResponse {
-        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-    }
+    private fun emptyResponse(): WebResourceResponse =
+        WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
 
     private fun hideGoogleMediaTabs(view: WebView, url: String) {
         if (!textOnlyMode) return
-        val host = Uri.parse(url).host?.lowercase() ?: return
+        val host = try {
+            Uri.parse(url).host?.lowercase() ?: return
+        } catch (_: Exception) {
+            return
+        }
         if (!isGoogleHost(host)) return
 
         val script = """
@@ -428,33 +452,10 @@ class WebViewActivity : AppCompatActivity() {
                     'a[aria-label="Videos"]'
                 ];
                 selectors.forEach(function(sel){
-                    var nodes = document.querySelectorAll(sel);
-                    nodes.forEach(function(n){ n.style.display = 'none'; });
+                    document.querySelectorAll(sel).forEach(function(n){ n.style.display = 'none'; });
                 });
             })();
         """.trimIndent()
         view.evaluateJavascript(script, null)
-    }
-
-    // ── Open / close ──────────────────────────────────────────────
-
-    private fun openLink(link: Constants.WebLink) {
-        currentUrl     = link.url
-
-        pickerLayout.visibility = View.GONE
-        webView.visibility      = View.VISIBLE
-        bottomBar.visibility    = View.VISIBLE
-        webView.loadUrl(link.url)
-    }
-
-    private fun closeWebView() {
-        currentUrl = null
-
-        webView.loadUrl("about:blank")
-        webView.visibility      = View.GONE
-        bottomBar.visibility    = View.GONE
-        pickerLayout.visibility = View.VISIBLE
-
-        buildLinkList()
     }
 }

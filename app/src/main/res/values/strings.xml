@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">FocusLock</string>
-    <string name="whatsapp_guard_accessibility_label">FocusLock WhatsApp Guard</string>
-    <string name="whatsapp_guard_accessibility_description">Detects Meta AI and Updates in WhatsApp to keep FocusLock enforced.</string>
+
+    <string name="content_guard_label">FocusLock Content Guard</string>
+    <string name="content_guard_description">Reads on-screen text so FocusLock can step back out of the surfaces you chose to avoid, such as Shorts, Reels, WhatsApp Channels, or your own keywords. It only ever reads text: it never types, taps, or sends anything anywhere, and everything it sees stays on this phone.</string>
+
+    <string name="notification_shield_label">FocusLock Notification Shield</string>
 </resources>

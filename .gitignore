@@ -13,3 +13,13 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing config. Points at a keystore kept outside the repo.
+keystore.properties
+*.jks
+*.keystore
+
+# Gradle's project-local cache (-g .gradle-local). Tens of thousands of
+# generated files; never belongs in the repo.
+/.gradle-local/
+/.kotlin/

@@ -1,11 +1,13 @@
 package com.focuslock.mdm
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
+import android.view.View
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -13,57 +15,43 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 /**
- * The dedicated video library screen.
+ * The video library: a reward that arrives on a timer.
  *
- * On first ever open: launches AnimeFolderActivity to pick the permanent folder.
- * After folder is set: shows all videos with lock/unlock/play state.
- *
- * Rules displayed here:
- *  - Gray + locked icon  → locked, no unlock available yet
- *  - Blue "Unlock" badge → locked, but today's 24h slot is available
- *  - Green "Play" badge  → unlocked forever, tap to watch
+ * One new video unlocks every 24 hours and stays unlocked afterwards. Delayed
+ * gratification is the whole mechanic, so the countdown is shown prominently
+ * rather than hidden — waiting is easier when you can see the wait shrinking.
  */
 class VideoLibraryActivity : AppCompatActivity() {
 
-    private lateinit var tvHeader   : TextView
-    private lateinit var tvSubtitle : TextView
-    private lateinit var rvVideos   : RecyclerView
+    private lateinit var tokens: UiPrefs.Tokens
+    private lateinit var tvHeader: TextView
+    private lateinit var tvSubtitle: TextView
+    private lateinit var rvVideos: RecyclerView
 
-    private val countdownHandler  = Handler(Looper.getMainLooper())
+    private val countdownHandler = Handler(Looper.getMainLooper())
     private val countdownRunnable = object : Runnable {
         override fun run() {
             refreshSubtitle()
-            // Refresh every minute so the countdown ticks
             countdownHandler.postDelayed(this, 60_000)
         }
     }
 
-    // Launched when we need the user to pick a folder
     private val folderPicker =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                loadLibrary()
-            } else {
-                // User somehow escaped folder picker — send back to home
-                finish()
-            }
+            if (result.resultCode == Activity.RESULT_OK) loadLibrary() else finish()
         }
-
-    // ── Lifecycle ─────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_library)
 
-        tvHeader   = findViewById(R.id.tvLibraryHeader)
+        tvHeader = findViewById(R.id.tvLibraryHeader)
         tvSubtitle = findViewById(R.id.tvLibrarySubtitle)
-        rvVideos   = findViewById(R.id.rvVideos)
-
+        rvVideos = findViewById(R.id.rvVideos)
         rvVideos.layoutManager = LinearLayoutManager(this)
 
-        applyPersonalization()
+        applyTheme()
 
-        // First launch: pick folder
         if (!VideoManager.isFolderSelected(this)) {
             folderPicker.launch(Intent(this, AnimeFolderActivity::class.java))
         } else {
@@ -74,8 +62,8 @@ class VideoLibraryActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         KioskPolicy.syncLockTaskState(this)
-        applyPersonalization()
-        loadLibrary()
+        applyTheme()
+        if (VideoManager.isFolderSelected(this)) loadLibrary()
         countdownHandler.post(countdownRunnable)
     }
 
@@ -84,87 +72,81 @@ class VideoLibraryActivity : AppCompatActivity() {
         countdownHandler.removeCallbacks(countdownRunnable)
     }
 
-    private fun applyPersonalization() {
-        val theme = UiPrefs.getTheme(this)
-        val font = UiPrefs.getFont(this)
-        val density = UiPrefs.getDensity(this)
-        val wallpaper = UiPrefs.getWallpaper(this)
+    private fun applyTheme() {
+        tokens = UiPrefs.resolve(this)
+        FocusUi.applySystemBars(window, tokens)
 
-        val root = findViewById<android.view.View>(R.id.videoLibraryRoot)
-        val header = findViewById<android.view.View>(R.id.videoLibraryHeader)
-        val divider = findViewById<android.view.View>(R.id.videoLibraryDivider)
+        val root = findViewById<View>(R.id.videoLibraryRoot)
+        if (tokens.wallpaperRes != 0) {
+            root.setBackgroundResource(tokens.wallpaperRes)
+        } else {
+            root.setBackgroundColor(tokens.background)
+        }
 
-        UiStyler.applyWallpaperOrColor(root, theme, wallpaper)
-        UiStyler.applyTypefaceRecursive(root, font.typeface)
+        findViewById<View>(R.id.videoLibraryDivider).setBackgroundColor(tokens.divider)
 
-        window.statusBarColor = theme.background
-        window.navigationBarColor = theme.background
+        tvHeader.setTextColor(tokens.textPrimary)
+        tvHeader.typeface = Typeface.create(tokens.typeface, Typeface.BOLD)
+        tvHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(22f))
 
-        header.setBackgroundColor(theme.card)
-        divider.setBackgroundColor(theme.divider)
+        tvSubtitle.setTextColor(tokens.textSecondary)
+        tvSubtitle.typeface = tokens.typeface
+        tvSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13.5f))
 
-        tvHeader.setTextColor(theme.textPrimary)
-        tvSubtitle.setTextColor(theme.textSecondary)
-
-        val padding = UiStyler.dpToPx(this, density.contentPaddingDp / 2)
-        rvVideos.setPadding(padding, padding, padding, padding)
+        val padding = FocusUi.dp(this, tokens.density.contentPaddingDp - 4)
+        rvVideos.setPadding(padding, FocusUi.dp(this, 8), padding, padding)
     }
-
-    // ── Library loading ───────────────────────────────────────────
 
     private fun loadLibrary() {
         if (!VideoManager.isFolderSelected(this)) return
 
-        val videos       = VideoManager.getAllVideos(this)
-        val canUnlock    = VideoManager.canUnlockToday(this)
-        val unlockedCnt  = VideoManager.unlockedCount(this)
+        val videos = VideoManager.getAllVideos(this)
+        val canUnlock = VideoManager.canUnlockToday(this)
 
-        tvHeader.text = "Video Library  ·  ${videos.size} videos"
+        tvHeader.text = "Video library"
         refreshSubtitle()
 
         rvVideos.adapter = VideoAdapter(
-            context      = this,
-            items        = videos,
+            context = this,
+            items = videos,
             canUnlockNow = canUnlock,
-            onUnlock     = { item -> confirmUnlock(item) },
-            onPlay       = { item -> openPlayer(item) }
+            onUnlock = { item -> confirmUnlock(item) },
+            onPlay = { item -> openPlayer(item) }
         )
     }
 
     private fun refreshSubtitle() {
-        val unlockedCnt = VideoManager.unlockedCount(this)
+        if (!this::tvSubtitle.isInitialized) return
+        val unlocked = VideoManager.unlockedCount(this)
         tvSubtitle.text = if (VideoManager.canUnlockToday(this)) {
-            "$unlockedCnt unlocked  ·  Unlock available now!"
+            unlocked.toString() + " already yours. One more is ready to open."
         } else {
-            "$unlockedCnt unlocked  ·  Next in ${VideoManager.nextUnlockFormatted(this)}"
+            unlocked.toString() + " already yours. The next one opens in " +
+                VideoManager.nextUnlockFormatted(this) + "."
         }
     }
-
-    // ── Unlock confirmation ───────────────────────────────────────
 
     private fun confirmUnlock(item: VideoItem) {
-        AlertDialog.Builder(this)
-            .setTitle("Unlock this video?")
-            .setMessage(
-                "\"${item.name}\"\n\n" +
-                        "This uses your unlock for the next 24 hours.\n" +
-                        "Once unlocked it stays accessible for the rest of the 90-day period."
-            )
-            .setPositiveButton("Unlock") { _, _ ->
+        FocusDialog.alert(
+            this,
+            title = "Open " + item.name + "?",
+            message = "This uses the unlock for the next 24 hours. Once opened it stays yours, " +
+                "so there is no rush and nothing expires.",
+            confirmLabel = "Open it",
+            cancelLabel = "Not yet",
+            onConfirm = {
                 VideoManager.unlockVideo(this, item.uri)
-                loadLibrary()   // refresh the list
+                loadLibrary()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
-    // ── Player launch ─────────────────────────────────────────────
-
     private fun openPlayer(item: VideoItem) {
-        val intent = Intent(this, DailyPlayerActivity::class.java).apply {
-            putExtra(DailyPlayerActivity.EXTRA_VIDEO_URI,  item.uri.toString())
-            putExtra(DailyPlayerActivity.EXTRA_VIDEO_NAME, item.name)
-        }
-        startActivity(intent)
+        startActivity(
+            Intent(this, DailyPlayerActivity::class.java).apply {
+                putExtra(DailyPlayerActivity.EXTRA_VIDEO_URI, item.uri.toString())
+                putExtra(DailyPlayerActivity.EXTRA_VIDEO_NAME, item.name)
+            }
+        )
     }
 }

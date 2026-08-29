@@ -1,113 +1,233 @@
 package com.focuslock.mdm
 
-import android.net.Uri
-import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import android.widget.LinearLayout
+import java.util.Locale
 
-class WebAllowlistEditorActivity : AppCompatActivity() {
+/**
+ * The site allowlist.
+ *
+ * The old version was one textarea holding two hundred URLs, which is fine for
+ * writing and useless for finding. This is a searchable, categorised list with
+ * one-tap removal, and the textarea is still there for anyone who wants to
+ * paste a whole set in at once.
+ *
+ * During a session the list can only shrink. Being able to add sites mid-lock
+ * would make the lock decorative.
+ */
+class WebAllowlistEditorActivity : FocusScreenActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_web_allowlist_editor)
+    private var query = ""
+    private var category = 0
 
-        val editText = findViewById<EditText>(R.id.etWebAllowlist)
-        val saveButton = findViewById<Button>(R.id.btnSaveWebAllowlist)
+    override fun screenTitle(): String = "Websites"
 
-        val locked = AllowlistStore.isWebAllowlistLocked(this) || LockManager.isKioskActive(this)
-        if (locked) {
-            editText.isEnabled = false
-            saveButton.isEnabled = false
-            Toast.makeText(this, "Web allowlist is locked while kiosk is active", Toast.LENGTH_LONG)
-                .show()
+    override fun screenSubtitle(): String =
+        "The only addresses the safe browser will load, and the only ones Chrome is allowed."
+
+    override fun buildContent(column: LinearLayout) {
+        column.addView(buildStateCard())
+        column.addView(buildSearch())
+        column.addView(buildCategoryStrip())
+        column.addView(buildList())
+        column.addView(sectionLabel("Bulk edit"))
+        column.addView(buildBulkCard())
+    }
+
+    private fun locked(): Boolean = SessionManager.isActive(this)
+
+    private fun buildStateCard(): View = card { card ->
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                "Web blocking",
+                "Holds every managed browser to this list.",
+                CapabilityRegistry.isEnabled(this, Capabilities.WEB_BLOCK)
+            ) { value ->
+                CapabilityRegistry.setEnabled(this, Capabilities.WEB_BLOCK, value)
+                if (!value) {
+                    Capabilities.spec(Capabilities.WEB_BLOCK)?.let { FocusDialog.weakenNotice(this, it) }
+                }
+                refresh()
+            }
+        )
+
+        if (locked()) {
+            card.addView(FocusUi.spacer(this, 8))
+            card.addView(
+                FocusUi.caption(
+                    this,
+                    tokens,
+                    "A session is running, so sites can be removed but not added. " +
+                        "That is what stops the list becoming a back door."
+                )
+            )
         }
 
-        val lines = AllowlistStore.getWebAllowlistUrls(this)
-            .sorted()
-            .joinToString("\n")
-        editText.setText(lines)
+        card.addView(FocusUi.spacer(this, 10))
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                "Strip images and video",
+                "Text-only browsing. Pages load faster and stop being a feed.",
+                AllowlistStore.isWebTextOnlyEnabled(this)
+            ) { value -> AllowlistStore.setWebTextOnlyEnabled(this, value) }
+        )
+    }
 
-        saveButton.setOnClickListener {
-            val raw = editText.text?.toString().orEmpty()
-            val urls = raw
-                .split("\n")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .map { normalizeUrl(it) }
-                .filter { isValidUrl(it) }
-                .toSet()
+    private fun buildSearch(): View {
+        val field = FocusUi.input(this, tokens, "Search sites", query)
+        field.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                query = s?.toString().orEmpty()
+                renderList()
+            }
+        })
+        return field
+    }
 
-            if (urls.isEmpty()) {
-                Toast.makeText(this, "Add at least one valid URL", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+    private fun categories(): List<String> = listOf("All") + AllowlistStore.getWebCategories(this)
+
+    private fun buildCategoryStrip(): View =
+        FocusUi.chipStrip(this, tokens, categories(), category) { index ->
+            category = index
+            renderList()
+        }
+
+    private lateinit var listHost: LinearLayout
+
+    private fun buildList(): View {
+        listHost = FocusUi.column(this)
+        renderList()
+        return listHost
+    }
+
+    private fun renderList() {
+        if (!this::listHost.isInitialized) return
+        listHost.removeAllViews()
+
+        val cats = categories()
+        val selectedCategory = cats.getOrElse(category) { "All" }
+        val needle = query.trim().lowercase(Locale.getDefault())
+
+        val links = AllowlistStore.getWebLinks(this)
+            .filter { selectedCategory == "All" || it.category == selectedCategory }
+            .filter {
+                needle.isEmpty() ||
+                    it.title.lowercase(Locale.getDefault()).contains(needle) ||
+                    it.url.lowercase(Locale.getDefault()).contains(needle)
             }
 
-            AllowlistStore.setWebAllowlistUrls(this, urls)
-            Toast.makeText(this, "Web allowlist saved", Toast.LENGTH_SHORT).show()
-            finish()
+        val card = FocusUi.card(this, tokens)
+
+        if (links.isEmpty()) {
+            card.addView(FocusUi.emptyState(this, tokens, "No sites match that."))
+        } else {
+            links.forEachIndexed { index, link ->
+                card.addView(
+                    FocusUi.listRow(
+                        this,
+                        tokens,
+                        link.title,
+                        link.url.removePrefix("https://").removePrefix("http://"),
+                        trailing = FocusUi.smallButton(this, tokens, "Remove") { remove(link.url) }
+                    )
+                )
+                if (index < links.size - 1) card.addView(FocusUi.divider(this, tokens))
+            }
         }
 
-        applyPersonalization()
+        card.addView(FocusUi.spacer(this, 12))
+        card.addView(
+            FocusUi.primaryButton(this, tokens, "Add a site") { addSite() }
+        )
+        listHost.addView(card)
     }
 
-    override fun onResume() {
-        super.onResume()
-        KioskPolicy.syncLockTaskState(this)
-        applyPersonalization()
+    private fun remove(url: String) {
+        AllowlistStore.removeWebUrl(this, url)
+        renderList()
     }
 
-    private fun applyPersonalization() {
-        val theme = UiPrefs.getTheme(this)
-        val font = UiPrefs.getFont(this)
-        val density = UiPrefs.getDensity(this)
-        val wallpaper = UiPrefs.getWallpaper(this)
-
-        val root = findViewById<View>(R.id.webAllowlistRoot)
-        val content = findViewById<View>(R.id.webAllowlistContent)
-        UiStyler.applyWallpaperOrColor(root, theme, wallpaper)
-        UiStyler.applyTypefaceRecursive(root, font.typeface)
-
-        val padding = UiStyler.dpToPx(this, density.contentPaddingDp)
-        content.setPadding(padding, padding, padding, padding)
-
-        window.statusBarColor = theme.background
-        window.navigationBarColor = theme.background
-
-        findViewById<TextView>(R.id.tvWebAllowlistTitle).setTextColor(theme.textPrimary)
-        findViewById<TextView>(R.id.tvWebAllowlistHint).setTextColor(theme.textSecondary)
-
-        val editText = findViewById<EditText>(R.id.etWebAllowlist)
-        editText.setBackgroundColor(theme.input)
-        editText.setTextColor(theme.textPrimary)
-        editText.setHintTextColor(theme.textSecondary)
-
-        val saveButton = findViewById<Button>(R.id.btnSaveWebAllowlist)
-        saveButton.backgroundTintList = android.content.res.ColorStateList.valueOf(theme.accent)
-        saveButton.setTextColor(theme.textPrimary)
-        setHeightDp(saveButton, density.buttonHeightDp)
-    }
-
-    private fun setHeightDp(view: View, heightDp: Int) {
-        val params = view.layoutParams
-        params.height = UiStyler.dpToPx(this, heightDp)
-        view.layoutParams = params
-    }
-
-    private fun normalizeUrl(value: String): String {
-        return if (value.startsWith("http://") || value.startsWith("https://")) value
-        else "https://$value"
-    }
-
-    private fun isValidUrl(value: String): Boolean {
-        return try {
-            val uri = Uri.parse(value)
-            !uri.host.isNullOrBlank() && (uri.scheme == "http" || uri.scheme == "https")
-        } catch (_: Exception) {
-            false
+    private fun addSite() {
+        if (locked()) {
+            FocusDialog.info(
+                this,
+                "Not while a session runs",
+                "Sites can be removed at any time, but new ones wait until the session ends."
+            )
+            return
         }
+        FocusDialog.textInput(
+            this,
+            title = "Add a site",
+            subtitle = "Just the address. Everything on that domain will load.",
+            hint = "example.com",
+            confirmLabel = "Add"
+        ) { value ->
+            val normalized = AllowlistStore.normalizeUrl(value)
+            if (!AllowlistStore.isValidUrl(normalized)) {
+                FocusDialog.toast(this, "That does not look like an address.")
+                return@textInput
+            }
+            AllowlistStore.addWebUrl(this, normalized)
+            refresh()
+        }
+    }
+
+    /** Kept for the paste-a-list case, which the row editor genuinely cannot beat. */
+    private fun buildBulkCard(): View = card { card ->
+        card.addView(
+            FocusUi.secondary(
+                this,
+                tokens,
+                "One address per line. Saving replaces the whole list."
+            )
+        )
+        card.addView(FocusUi.spacer(this, 10))
+
+        val field = FocusUi.input(
+            this,
+            tokens,
+            "https://example.com",
+            AllowlistStore.getWebAllowlistUrls(this).sorted().joinToString("\n"),
+            multiline = true
+        )
+        field.minLines = 8
+        card.addView(field)
+
+        card.addView(
+            FocusUi.secondaryButton(this, tokens, "Save the whole list") {
+                val original = AllowlistStore.getWebAllowlistUrls(this)
+                val urls = field.text.toString()
+                    .split("\n")
+                    .map { AllowlistStore.normalizeUrl(it) }
+                    .filter { it.isNotBlank() && AllowlistStore.isValidUrl(it) }
+                    .toSet()
+
+                if (locked() && urls.any { it !in original }) {
+                    FocusDialog.info(
+                        this,
+                        "Not while a session runs",
+                        "Removing sites is fine. Adding waits until the session ends."
+                    )
+                    return@secondaryButton
+                }
+                if (urls.isEmpty()) {
+                    FocusDialog.toast(this, "That would leave the browser with nowhere to go.")
+                    return@secondaryButton
+                }
+
+                AllowlistStore.setWebAllowlistUrls(this, urls)
+                FocusDialog.toast(this, urls.size.toString() + " sites saved.")
+                refresh()
+            }
+        )
     }
 }

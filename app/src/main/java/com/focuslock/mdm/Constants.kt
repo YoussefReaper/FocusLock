@@ -1,13 +1,25 @@
 package com.focuslock.mdm
 
+/**
+ * Identifiers, storage keys and seed data.
+ *
+ * What is deliberately NOT here any more: policy. The allow list, the kill list
+ * and the WhatsApp phrases used to live in this file and were read directly by
+ * the enforcement loop, which meant the app's behaviour was a constant the user
+ * could not touch. They are now migration seeds only, copied once into the
+ * user-owned stores by [Migration] and never consulted again. Live policy comes
+ * from [AppRules], [KeywordRules], [RuleStore] and [CapabilityRegistry].
+ */
 object Constants {
 
     const val OWN_PACKAGE = "com.focuslock.mdm"
 
     // ─────────────────────────────────────────────────────────────
-    //  WHITELIST  – verified against your real device package list
+    //  LEGACY SEEDS - read exactly once, by Migration
     // ─────────────────────────────────────────────────────────────
-    val WHITELIST: Set<String> = setOf(
+
+    /** The old hardcoded allow list. Becomes "open freely" for each entry. */
+    val LEGACY_WHITELIST: Set<String> = setOf(
         OWN_PACKAGE,
 
         // ── Communication ──────────────────────────────────────
@@ -96,28 +108,8 @@ object Constants {
         "com.ichi2.anki"
     )
 
-    // WhatsApp variants supported by FocusLock guards.
-    val WHATSAPP_PACKAGES: Set<String> = setOf(
-        "com.whatsapp",
-        "com.whatsapp.w4b"
-    )
-
-    // WhatsApp UI text matchers (lowercase, normalized spacing).
-    val WHATSAPP_BLOCKED_PHRASES: Set<String> = setOf(
-        "find channels to follow",
-        "explore channels",
-        "meta ai",
-        "app language"
-    )
-
-    val WHATSAPP_ALLOWED_PHRASES: Set<String> = setOf(
-        "ask meta ai or search"
-    )
-
-    // ─────────────────────────────────────────────────────────────
-    //  KILL LIST
-    // ─────────────────────────────────────────────────────────────
-    val KILL_LIST: List<String> = listOf(
+    /** The old hardcoded kill list. Becomes "blocked" for each entry. */
+    val LEGACY_KILL_LIST: List<String> = listOf(
         "com.android.vending",
         "com.android.chrome",
         "com.google.android.youtube",
@@ -145,149 +137,13 @@ object Constants {
         "com.android.chrome",
     )
 
-    // Settings surfaces commonly used to force-stop apps or revoke overlay permission.
-    val SETTINGS_ESCAPE_PACKAGES: Set<String> = setOf(
-        "com.android.settings",
-        "com.google.android.permissioncontroller",
-        "com.miui.securitycenter",
-        "com.miui.permcenter",
-        "com.miui.powerkeeper",
-        "com.miui.packageinstaller",
-        "com.google.android.packageinstaller"
-    )
-
-    // Surfaces that allow leaving kiosk shell (home/launcher/system shade hosts).
-    val KIOSK_ESCAPE_SURFACES: Set<String> = setOf(
-        "com.miui.home",
-        "com.mi.android.globallauncher",
-        "com.android.launcher3",
-        "com.google.android.apps.nexuslauncher",
-        "com.sec.android.app.launcher"
-    )
-
-    // System surfaces that must remain accessible during kiosk for daily usage.
-    val SYSTEM_USAGE_SURFACES: Set<String> = setOf(
-        "android",
-        "com.android.systemui",
-        "com.android.keyguard",
-        "com.miui.systemui",
-        "com.miui.systemui.plugin",
-        "com.samsung.android.app.systemui",
-        "com.oneplus.systemui",
-        "com.coloros.systemui",
-        "com.oplus.systemui",
-        "com.vivo.systemui",
-        "com.huawei.systemui",
-        "com.android.intentresolver",
-        "com.android.documentsui",
-        "com.google.android.documentsui",
-        "com.android.permissioncontroller",
-        "com.google.android.permissioncontroller",
-        "com.android.packageinstaller",
-        "com.google.android.packageinstaller",
-        "com.miui.packageinstaller"
-    )
-
-    // Settings packages that are allowed only in a short, user-triggered window.
-    val SETTINGS_SHORTCUT_PACKAGES: Set<String> = setOf(
-        "com.android.settings",
-        "com.android.permissioncontroller",
-        "com.google.android.permissioncontroller",
-        "com.miui.securitycenter",
-        "com.miui.permcenter",
-        "com.miui.powerkeeper",
-        "com.miui.packageinstaller",
-        "com.google.android.packageinstaller"
-    )
-
-    // Settings destinations needed only during pre-baseline onboarding.
-    // Once baseline is complete, these must be removed from lock-task packages.
-    val ONBOARDING_SETTINGS_PACKAGES: Set<String> = setOf(
-        "com.android.settings",
-        "com.google.android.permissioncontroller",
-        "com.miui.securitycenter",
-        "com.miui.permcenter",
-        "com.miui.powerkeeper",
-        "com.miui.packageinstaller",
-        "com.google.android.packageinstaller"
-    )
-
-    // Overlay-permission controllers we never want visible during active lock.
-    val OVERLAY_PERMISSION_SURFACE_PACKAGES: Set<String> = setOf(
-        "com.android.settings",
-        "com.google.android.permissioncontroller",
-        "com.miui.securitycenter",
-        "com.miui.permcenter"
-    )
-
-    // Keyword signatures from common OEM activity class names for
-    // "display over other apps" / "draw over apps" pages.
-    val OVERLAY_PERMISSION_CLASS_KEYWORDS: Set<String> = setOf(
-        "overlay",
-        "drawover",
-        "systemalertwindow",
-        "manageoverlay",
-        "floatwindow",
-        "displaypopup"
-    )
-
-    // USB / file transfer settings surfaces that should remain accessible.
-    val USB_SETTINGS_PACKAGES: Set<String> = setOf(
-        "com.android.settings",
-        "com.miui.securitycenter",
-        "com.miui.permcenter",
-        "com.samsung.android.settings"
-    )
-
-    val USB_SETTINGS_CLASS_KEYWORDS: Set<String> = setOf(
-        "usb",
-        "filetransfer",
-        "mtp",
-        "ptp",
-        "usbmode",
-        "usbpreferences",
-        "usbprefs",
-        "usbdetails",
-        "usbsettings",
-        "storageusb"
-    )
-
-    // Packages that should never remain in the kernel kiosk domain.
-    val KIOSK_KERNEL_EXCLUDED_PACKAGES: Set<String> =
-        KIOSK_ESCAPE_SURFACES + SETTINGS_ESCAPE_PACKAGES
-
-    // User-launchable packages in kiosk mode. This keeps UI and enforcement aligned.
-    val USER_LAUNCHABLE_WHITELIST: Set<String> =
-        (WHITELIST + OWN_PACKAGE) - KIOSK_KERNEL_EXCLUDED_PACKAGES
-
-    val APP_GRID_PACKAGES: Set<String> = USER_LAUNCHABLE_WHITELIST - OWN_PACKAGE
-
-    fun lockTaskPackagesForBaseline(
-        baselineReady: Boolean,
-        ownPackage: String = OWN_PACKAGE
-    ): Set<String> {
-        val allowed = mutableSetOf<String>()
-        allowed.add(ownPackage)
-        allowed.addAll(USER_LAUNCHABLE_WHITELIST)
-        allowed.addAll(SYSTEM_USAGE_SURFACES)
-        allowed.addAll(SETTINGS_SHORTCUT_PACKAGES)
-        allowed.addAll(KIOSK_ESCAPE_SURFACES)
-
-        if (!baselineReady) {
-            allowed.addAll(ONBOARDING_SETTINGS_PACKAGES)
-        }
-
-        return allowed
-    }
 
     // ─────────────────────────────────────────────────────────────
-    //  WEB LINKS — shown as buttons in the WebView picker
-    //  The WebView enforces: only URLs that START WITH one of these
-    //  are allowed to load. Everything else is blocked mid-browse.
+    //  WEB LINK SEED
     //
-    //  localhost / 127.0.0.1 entries open in the phone browser
-    //  only when you are actively developing with USB — they will
-    //  simply fail to connect otherwise, which is fine.
+    //  Copied into AllowlistStore on first run and editable from there.
+    //  The safe browser only loads URLs whose host matches an entry the user
+    //  currently has in their own list.
     // ─────────────────────────────────────────────────────────────
     data class WebLink(val title: String, val url: String, val category: String = "")
 
@@ -486,11 +342,16 @@ object Constants {
     )
 
     // ─────────────────────────────────────────────────────────────
-    //  TIME & LOCK SETTINGS    
+    //  TIME
     // ─────────────────────────────────────────────────────────────
+
     const val DAILY_LIMIT_MS     = 2L * 60 * 60 * 1000
     const val LOCK_DURATION_DAYS = 90L
     const val LOCK_DURATION_MS   = LOCK_DURATION_DAYS * 24L * 60 * 60 * 1000
+
+    // ─────────────────────────────────────────────────────────────
+    //  STORAGE KEYS
+    // ─────────────────────────────────────────────────────────────
 
     const val PREFS_MAIN       = "focuslock_main"
     const val PREFS_TIME       = "focuslock_time"
@@ -519,6 +380,8 @@ object Constants {
     const val KEY_UI_BACKGROUND        = "ui_background"
     const val KEY_UI_CARD_RADIUS_DP    = "ui_card_radius_dp"
     const val KEY_UI_TEXT_SCALE        = "ui_text_scale"
+    const val KEY_UI_REDUCED_MOTION    = "ui_reduced_motion"
+    const val KEY_UI_HIGH_CONTRAST     = "ui_high_contrast"
     const val KEY_UI_SHOW_KIOSK        = "ui_show_kiosk"
     const val KEY_UI_SHOW_QUICK        = "ui_show_quick"
     const val KEY_UI_SHOW_ALLOWED_APPS = "ui_show_allowed_apps"
@@ -526,9 +389,11 @@ object Constants {
     const val KEY_UI_SHOW_VIDEO        = "ui_show_video"
     const val KEY_UI_SHOW_EDIT_BUTTONS = "ui_show_edit_buttons"
     const val KEY_UI_SHOW_SCHEDULE     = "ui_show_schedule"
+    const val KEY_UI_SHOW_STATS        = "ui_show_stats"
 
     const val KEY_SCHEDULE_JSON = "schedule_json"
+    const val KEY_SCHEDULE_ALWAYS_ALLOWED_APPS = "schedule_always_allowed_apps"
     const val KEY_PLAN_TEXT     = "plan_text"
-    const val KEY_TASKS_JSON    = "tasks_json"
-    const val KEY_TASK_PROGRESS_JSON = "task_progress_json"
+
+    const val KEY_ONBOARDING_DONE = "onboarding_done"
 }

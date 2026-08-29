@@ -1,31 +1,36 @@
 package com.focuslock.mdm
 
-import android.content.Intent
-import android.content.res.ColorStateList
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.webkit.*
-import android.widget.Button
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 
+/**
+ * Search without the scroll.
+ *
+ * Google with SafeSearch forced on and every image, video and thumbnail
+ * stripped at the network layer. It answers a question and then stops, which is
+ * the difference between looking something up and losing an hour.
+ */
 class TextSearchActivity : AppCompatActivity() {
 
+    private lateinit var tokens: UiPrefs.Tokens
     private lateinit var root: View
-    private lateinit var header: View
-    private lateinit var divider: View
     private lateinit var webView: WebView
     private lateinit var etSearch: EditText
-    private lateinit var btnSearch: Button
-    private lateinit var tvTitle: TextView
-    private lateinit var tvSubtitle: TextView
+    private lateinit var btnSearch: TextView
 
     private val imageExtensions = setOf(
         ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".avif"
@@ -39,22 +44,18 @@ class TextSearchActivity : AppCompatActivity() {
         setContentView(R.layout.activity_text_search)
 
         root = findViewById(R.id.textSearchRoot)
-        header = findViewById(R.id.textSearchHeader)
-        divider = findViewById(R.id.textSearchDivider)
         webView = findViewById(R.id.textSearchWebView)
         etSearch = findViewById(R.id.etSearchQuery)
         btnSearch = findViewById(R.id.btnSearch)
-        tvTitle = findViewById(R.id.tvTextSearchTitle)
-        tvSubtitle = findViewById(R.id.tvTextSearchSubtitle)
 
         setupWebView()
-        applyPersonalization()
+        applyTheme()
 
         btnSearch.setOnClickListener { runSearch() }
         etSearch.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
-                (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-            ) {
+            val enterPressed = event?.keyCode == KeyEvent.KEYCODE_ENTER &&
+                event.action == KeyEvent.ACTION_DOWN
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || enterPressed) {
                 runSearch()
                 true
             } else {
@@ -66,7 +67,86 @@ class TextSearchActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         KioskPolicy.syncLockTaskState(this)
-        applyPersonalization()
+        applyTheme()
+    }
+
+    override fun onDestroy() {
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    // ── Theming ───────────────────────────────────────────────────
+
+    private fun applyTheme() {
+        tokens = UiPrefs.resolve(this)
+        FocusUi.applySystemBars(window, tokens)
+
+        if (tokens.wallpaperRes != 0) {
+            root.setBackgroundResource(tokens.wallpaperRes)
+        } else {
+            root.setBackgroundColor(tokens.background)
+        }
+
+        val title = findViewById<TextView>(R.id.tvTextSearchTitle)
+        title.setTextColor(tokens.textPrimary)
+        title.typeface = Typeface.create(tokens.typeface, Typeface.BOLD)
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(22f))
+
+        val subtitle = findViewById<TextView>(R.id.tvTextSearchSubtitle)
+        subtitle.setTextColor(tokens.textSecondary)
+        subtitle.typeface = tokens.typeface
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
+
+        findViewById<View>(R.id.textSearchDivider).setBackgroundColor(tokens.divider)
+
+        etSearch.setTextColor(tokens.textPrimary)
+        etSearch.setHintTextColor(tokens.textMuted)
+        etSearch.typeface = tokens.typeface
+        etSearch.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(15f))
+        etSearch.background = FocusUi.roundedShape(
+            this,
+            tokens.input,
+            minOf(tokens.radiusDp, 14),
+            UiPrefs.blend(tokens.divider, tokens.input, 0.2f)
+        )
+        val inputPadding = FocusUi.dp(this, 14)
+        etSearch.setPadding(inputPadding, inputPadding, inputPadding, inputPadding)
+
+        btnSearch.setTextColor(tokens.onAccent)
+        btnSearch.typeface = Typeface.create(tokens.typeface, Typeface.BOLD)
+        btnSearch.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(15f))
+        btnSearch.background = FocusUi.withRipple(
+            this,
+            FocusUi.roundedShape(this, tokens.accent, minOf(tokens.radiusDp, 14)),
+            tokens
+        )
+        val buttonPaddingH = FocusUi.dp(this, 20)
+        btnSearch.setPadding(buttonPaddingH, inputPadding, buttonPaddingH, inputPadding)
+
+        webView.setBackgroundColor(tokens.background)
+    }
+
+    // ── Search ────────────────────────────────────────────────────
+
+    private fun runSearch() {
+        val query = etSearch.text?.toString()?.trim().orEmpty()
+        if (query.isBlank()) {
+            FocusDialog.toast(this, "Type something to look up.")
+            return
+        }
+        if (isAdultQuery(query)) {
+            FocusDialog.toast(this, "The adult filter is holding that one.")
+            return
+        }
+
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        webView.loadUrl("https://www.google.com/search?q=" + encoded + "&safe=active&num=20")
+    }
+
+    private fun isAdultQuery(query: String): Boolean {
+        if (!CapabilityRegistry.isEnabled(this, Capabilities.ADULT_BLOCK)) return false
+        val lower = query.lowercase()
+        return Seed.adultKeywords.any { lower.contains(it) }
     }
 
     @Suppress("SetJavaScriptEnabled")
@@ -85,104 +165,89 @@ class TextSearchActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return true
-                if (request?.isForMainFrame == false) return false
+                if (request.isForMainFrame == false) return false
 
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                    Toast.makeText(this@TextSearchActivity, "This link type is blocked", Toast.LENGTH_SHORT).show()
+                    FocusDialog.toast(this@TextSearchActivity, "That link type is not allowed here.")
                     return true
                 }
-
+                if (isBlockedHost(url)) {
+                    FocusDialog.toast(this@TextSearchActivity, "The adult filter is holding that one.")
+                    return true
+                }
                 if (isMediaNavigationBlocked(url)) {
-                    Toast.makeText(this@TextSearchActivity, "Images and videos are disabled", Toast.LENGTH_SHORT).show()
+                    FocusDialog.toast(this@TextSearchActivity, "Images and video are off in text search.")
                     return true
                 }
 
-                val safeUrl = enforceGoogleSafeSearch(url)
-                if (safeUrl != null && safeUrl != url) {
-                    view?.loadUrl(safeUrl)
-                    return true
+                enforceGoogleSafeSearch(url)?.let { safe ->
+                    if (safe != url) {
+                        view?.loadUrl(safe)
+                        return true
+                    }
                 }
-
                 return false
             }
 
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
+                if (isBlockedHost(url)) return emptyResponse()
                 return if (isMediaResourceUrl(url)) emptyResponse() else null
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (view != null && !url.isNullOrBlank()) {
-                    hideGoogleMediaTabs(view, url)
                     hideMediaElements(view)
                 }
             }
         }
-
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onShowFileChooser(
-                wv: WebView?, cb: ValueCallback<Array<Uri>>?,
-                params: FileChooserParams?
-            ): Boolean = false
-        }
     }
 
-    private fun runSearch() {
-        val query = etSearch.text?.toString()?.trim().orEmpty()
-        if (query.isBlank()) {
-            Toast.makeText(this, "Enter a search query", Toast.LENGTH_SHORT).show()
-            return
-        }
-        webView.loadUrl(buildSearchUrl(query))
+    private fun isBlockedHost(url: String): Boolean = try {
+        val host = Uri.parse(url).host?.lowercase() ?: ""
+        host.isNotBlank() && AllowlistStore.isBlockedHost(this, host)
+    } catch (_: Exception) {
+        false
     }
 
-    private fun buildSearchUrl(query: String): String {
-        val encoded = URLEncoder.encode(query, "UTF-8")
-        return "https://www.google.com/search?q=$encoded&safe=active"
-    }
-
-    private fun enforceGoogleSafeSearch(url: String): String? {
-        return try {
-            val uri = Uri.parse(url)
-            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
-            if (!isGoogleHost(host)) return null
-            if (uri.path != "/search") return null
-
-            val currentSafe = uri.getQueryParameter("safe")?.lowercase()
-            if (currentSafe == "active") return null
-
+    private fun enforceGoogleSafeSearch(url: String): String? = try {
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase()?.removePrefix("www.")
+        if (host != "google.com" || uri.path != "/search") {
+            null
+        } else if (uri.getQueryParameter("safe")?.lowercase() == "active") {
+            null
+        } else {
             val builder = uri.buildUpon().clearQuery()
             uri.queryParameterNames.forEach { name ->
-                if (name == "safe") return@forEach
-                val value = uri.getQueryParameter(name)
-                if (value != null) builder.appendQueryParameter(name, value)
+                if (name != "safe") {
+                    uri.getQueryParameter(name)?.let { builder.appendQueryParameter(name, it) }
+                }
             }
-            builder.appendQueryParameter("safe", "active")
-            builder.build().toString()
-        } catch (_: Exception) {
-            null
+            builder.appendQueryParameter("safe", "active").build().toString()
         }
+    } catch (_: Exception) {
+        null
     }
 
-    private fun isMediaNavigationBlocked(url: String): Boolean {
-        return try {
-            val uri = Uri.parse(url)
-            val host = uri.host?.lowercase() ?: return false
-            val path = uri.path?.lowercase() ?: ""
-            val tbm = uri.getQueryParameter("tbm")?.lowercase()
+    private fun isMediaNavigationBlocked(url: String): Boolean = try {
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase() ?: ""
+        val path = uri.path?.lowercase() ?: ""
+        val tbm = uri.getQueryParameter("tbm")?.lowercase()
 
-            if (isGoogleHost(host)) {
-                if (tbm == "isch" || tbm == "vid") return true
-                if (path.contains("/imghp") || path.contains("/imgres")) return true
-            }
-
-            host.endsWith("youtube.com") ||
-                host == "youtu.be" ||
-                host.endsWith("googlevideo.com")
-        } catch (_: Exception) {
-            false
+        when {
+            isGoogleHost(host) && (tbm == "isch" || tbm == "vid") -> true
+            isGoogleHost(host) && (path.contains("/imghp") || path.contains("/imgres")) -> true
+            host.endsWith("youtube.com") || host == "youtu.be" || host.endsWith("googlevideo.com") -> true
+            else -> false
         }
+    } catch (_: Exception) {
+        false
     }
 
     private fun isMediaResourceUrl(url: String): Boolean {
@@ -195,23 +260,17 @@ class TextSearchActivity : AppCompatActivity() {
             val path = uri.path?.lowercase() ?: ""
             val query = uri.query?.lowercase() ?: ""
 
-            if (hasMediaExtension(path)) return true
-            if (host.endsWith("gstatic.com") && (path.contains("/images") || query.contains("tbn"))) {
-                return true
+            when {
+                imageExtensions.any { path.endsWith(it) } -> true
+                videoExtensions.any { path.endsWith(it) } -> true
+                host.endsWith("gstatic.com") && (path.contains("/images") || query.contains("tbn")) -> true
+                host.endsWith("googleusercontent.com") && query.contains("tbn") -> true
+                host.endsWith("ytimg.com") || host.endsWith("googlevideo.com") -> true
+                else -> false
             }
-            if (host.endsWith("googleusercontent.com") && (query.contains("tbn") || path.contains("/imgres"))) {
-                return true
-            }
-            if (host.endsWith("ytimg.com") || host.endsWith("googlevideo.com")) return true
-
-            false
         } catch (_: Exception) {
             false
         }
-    }
-
-    private fun hasMediaExtension(path: String): Boolean {
-        return imageExtensions.any { path.endsWith(it) } || videoExtensions.any { path.endsWith(it) }
     }
 
     private fun isGoogleHost(host: String): Boolean {
@@ -219,78 +278,30 @@ class TextSearchActivity : AppCompatActivity() {
         return normalized == "google.com" || normalized.endsWith(".google.com")
     }
 
-    private fun emptyResponse(): WebResourceResponse {
-        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-    }
+    private fun emptyResponse(): WebResourceResponse =
+        WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
 
-    private fun hideGoogleMediaTabs(view: WebView, url: String) {
-        val host = Uri.parse(url).host?.lowercase() ?: return
-        if (!isGoogleHost(host)) return
-
+    /**
+     * Belt and braces: the network layer already refuses the bytes, this removes
+     * the empty frames so the page reads as a clean list of results.
+     */
+    private fun hideMediaElements(view: WebView) {
         val script = """
             (function(){
-                var selectors = [
+                ['img','video','picture','svg','canvas'].forEach(function(tag){
+                    document.querySelectorAll(tag).forEach(function(n){ n.style.display = 'none'; });
+                });
+                var tabs = [
                     'a[href*="tbm=isch"]',
                     'a[href*="tbm=vid"]',
                     'a[aria-label="Images"]',
                     'a[aria-label="Videos"]'
                 ];
-                selectors.forEach(function(sel){
-                    var nodes = document.querySelectorAll(sel);
-                    nodes.forEach(function(n){ n.style.display = 'none'; });
+                tabs.forEach(function(sel){
+                    document.querySelectorAll(sel).forEach(function(n){ n.style.display = 'none'; });
                 });
             })();
         """.trimIndent()
         view.evaluateJavascript(script, null)
-    }
-
-    private fun hideMediaElements(view: WebView) {
-        val script = """
-            (function(){
-                var imgs = document.querySelectorAll('img');
-                imgs.forEach(function(n){ n.style.display = 'none'; });
-                var vids = document.querySelectorAll('video');
-                vids.forEach(function(n){ n.style.display = 'none'; });
-                var iframes = document.querySelectorAll('iframe');
-                iframes.forEach(function(n){ n.style.display = 'none'; });
-            })();
-        """.trimIndent()
-        view.evaluateJavascript(script, null)
-    }
-
-    private fun applyPersonalization() {
-        val theme = UiPrefs.getTheme(this)
-        val font = UiPrefs.getFont(this)
-        val density = UiPrefs.getDensity(this)
-        val wallpaper = UiPrefs.getWallpaper(this)
-
-        UiStyler.applyWallpaperOrColor(root, theme, wallpaper)
-        UiStyler.applyTypefaceRecursive(root, font.typeface)
-
-        window.statusBarColor = theme.background
-        window.navigationBarColor = theme.background
-
-        header.setBackgroundColor(theme.card)
-        divider.setBackgroundColor(theme.divider)
-
-        tvTitle.setTextColor(theme.textPrimary)
-        tvSubtitle.setTextColor(theme.textSecondary)
-
-        etSearch.setBackgroundColor(theme.input)
-        etSearch.setTextColor(theme.textPrimary)
-        etSearch.setHintTextColor(theme.textSecondary)
-
-        btnSearch.backgroundTintList = ColorStateList.valueOf(theme.accent)
-        btnSearch.setTextColor(theme.textPrimary)
-        setHeightDp(btnSearch, density.buttonHeightDp)
-        setHeightDp(etSearch, density.buttonHeightDp)
-
-        webView.setBackgroundColor(theme.background)
-    }
-
-    private fun setHeightDp(view: View, heightDp: Int) {
-        val params = view.layoutParams
-        params.height = UiStyler.dpToPx(this, heightDp)
-        view.layoutParams = params
     }
 }
