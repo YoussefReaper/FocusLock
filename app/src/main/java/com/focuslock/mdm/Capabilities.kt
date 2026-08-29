@@ -73,6 +73,13 @@ object Capabilities {
     const val SANCTUARY_MODE = "sanctuaryMode"
     const val KIOSK_MODE = "kioskMode"
 
+    // How a running session behaves. These used to be decided by the FocusMode
+    // enum, which meant a mode was a cage: pick Kiosk and you could not soften
+    // any part of it. They are ordinary switches now, so a mode is a starting
+    // point you can edit afterwards in You -> Advanced.
+    const val CAN_END_EARLY = "canEndEarly"
+    const val HARD_BLOCK = "hardBlock"
+
     // Blocking
     const val APP_BLOCK = "appBlock"
     const val WEB_BLOCK = "webBlock"
@@ -149,6 +156,26 @@ object Capabilities {
             default = true,
             weakenNote = "Kiosk is the only mode that closes Safe Mode and the launcher. Without it there is a way back out.",
             needsDeviceOwner = true
+        ),
+
+        CapabilitySpec(
+            id = CAN_END_EARLY,
+            label = "Let me end a session early",
+            blurb = "Shows an \"End this session\" button while a session is running.",
+            group = CapabilityGroup.MODES,
+            default = true,
+            weakenNote = "Off: there is no early exit. The session runs to the end of its timer, " +
+                "and in Kiosk the only way out before then is a factory reset, which wipes the phone."
+        ),
+        CapabilitySpec(
+            id = HARD_BLOCK,
+            label = "Actually stop blocked apps",
+            blurb = "A blocked app does not open at all. Turn this off and you get a pause screen " +
+                "you can walk through instead.",
+            group = CapabilityGroup.MODES,
+            default = true,
+            weakenNote = "Off: blocked apps still open. You get a reminder first, and then you " +
+                "decide. That is Soft mode's behaviour, applied to whatever mode you are in."
         ),
 
         CapabilitySpec(
@@ -494,6 +521,22 @@ object CapabilityRegistry {
         overrides.put(id, enabled)
         FocusStore.setJsonObject(context, KEY_ENABLED, overrides)
         PolicySync.request(context, "capability:" + id)
+    }
+
+    /**
+     * Loads a mode's template.
+     *
+     * Same merge as [applySet] but deliberately does NOT mark the registry
+     * seeded: seeding means "this person has been through setup", and picking
+     * a mode on the dashboard is not that. Conflating the two would skip
+     * onboarding for someone who had never seen it.
+     */
+    fun applyPreset(context: Context, values: Map<String, Boolean>) {
+        if (values.isEmpty()) return
+        val overrides = FocusStore.getJsonObject(context, KEY_ENABLED)
+        values.forEach { entry -> overrides.put(entry.key, entry.value) }
+        FocusStore.setJsonObject(context, KEY_ENABLED, overrides)
+        PolicySync.request(context, "capability:preset")
     }
 
     /** Applies a whole proposed set at once. Used only by onboarding, on confirm. */

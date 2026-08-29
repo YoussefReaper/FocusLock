@@ -43,8 +43,24 @@ class MainActivity : AppCompatActivity() {
     private var handingOffToOnboarding = false
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * The last lock-task state we acted on, so the ticker can notice a change
+     * without asking the framework twice a second.
+     */
+    private var lastLockTaskWanted: Boolean? = null
+
     private val ticker = object : Runnable {
         override fun run() {
+            // A session can end while this screen is already resumed — the timer
+            // runs out, or the person taps End. onResume will not fire again to
+            // release the pin, and while pinned they cannot easily go elsewhere
+            // to trigger one. So watch for the transition here and release it.
+            val wanted = SessionManager.shouldLockTask(this@MainActivity)
+            if (lastLockTaskWanted != wanted) {
+                lastLockTaskWanted = wanted
+                KioskPolicy.syncLockTaskState(this@MainActivity)
+            }
             tabs[currentTab]?.onTick()
             handler.postDelayed(this, 1_000L)
         }
@@ -109,6 +125,7 @@ class MainActivity : AppCompatActivity() {
     // ── Policy ────────────────────────────────────────────────────
 
     private fun applyPolicyOnResume() {
+        lastLockTaskWanted = SessionManager.shouldLockTask(this)
         KioskPolicy.syncLockTaskState(this)
         PolicySync.request(this, "mainResume")
         // The service decides for itself whether there is anything to watch and

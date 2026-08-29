@@ -24,8 +24,11 @@ android {
         applicationId = "com.focuslock.mdm"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Bump both on every build that reaches a real phone. People are running
+        // 1.0 already; without this, two different APKs both report "1.0" and the
+        // only way to tell them apart is a checksum.
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

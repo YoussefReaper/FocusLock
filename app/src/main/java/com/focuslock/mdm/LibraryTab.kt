@@ -20,6 +20,9 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
 
     private lateinit var container: LinearLayout
 
+    private var cachedApps: List<InstalledApp>? = null
+    private var cachedAppsRevision = -1L
+
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
         return FocusUi.scroll(activity, container)
@@ -219,18 +222,36 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
 
     // ── App grid ──────────────────────────────────────────────────
 
+    /**
+     * The grid's contents, memoised against the policy revision.
+     *
+     * Filtering every installed app and asking for each one's effective policy
+     * is not free, and this runs on every tab open. Nothing here can change
+     * without PolicySync ticking, so the revision is a sound cache key.
+     */
     private fun openableApps(): List<InstalledApp> {
+        val revision = PolicySync.revision()
+        val cached = cachedApps
+        if (cached != null && cachedAppsRevision == revision) return cached
+
         val blocked = AppRules.blockedPackages(activity)
-        return AppCatalog.launchable(activity)
+        val lockTask = SessionManager.shouldLockTask(activity)
+        val allowlist = if (lockTask) AppRules.kioskAllowlist(activity) else emptySet()
+
+        val computed = AppCatalog.launchable(activity)
             .filter { app ->
                 if (app.packageName in blocked) return@filter false
-                if (SessionManager.shouldLockTask(activity)) {
-                    app.packageName in AppRules.kioskAllowlist(activity)
+                if (lockTask) {
+                    app.packageName in allowlist
                 } else {
                     AppRules.effectivePolicy(activity, app.packageName) != AppPolicy.HIDE
                 }
             }
             .take(60)
+
+        cachedApps = computed
+        cachedAppsRevision = revision
+        return computed
     }
 
     /**

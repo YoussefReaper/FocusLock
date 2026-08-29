@@ -206,7 +206,17 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
                 FocusUi.secondaryButton(activity, tokens, "End this session") { confirmEndSession() }
             )
         } else {
-            val note = FocusUi.secondary(activity, tokens, mode.exitLine)
+            // Not mode.exitLine any more: that is the mode's default, and the
+            // person may have changed it. Say what is true of this session.
+            val note = FocusUi.secondary(
+                activity,
+                tokens,
+                if (mode.isHard) {
+                    "This one runs to the end. Only a factory reset stops it early, and that wipes the phone."
+                } else {
+                    "You turned the early exit off for this session. It runs to the end."
+                }
+            )
             note.gravity = Gravity.CENTER
             card.addView(note)
         }
@@ -244,6 +254,15 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             cancelLabel = "Keep going",
             onConfirm = {
                 SessionManager.end(activity)
+                // Critical: release lock task here, not on the next onResume.
+                // Before Kiosk could be ended early this never mattered, because
+                // the only modes with an End button were never pinned. Now that
+                // Kiosk's early exit is a switch, an un-released lock task would
+                // leave the phone pinned to FocusLock with no session running
+                // and no way out short of a factory reset. onResume will not
+                // save us: the activity is already resumed, and a pinned screen
+                // cannot be left to trigger another one.
+                KioskPolicy.syncLockTaskState(activity)
                 FocusDialog.toast(activity, Copy.sessionEndedEarly(activity))
                 render()
             }
@@ -298,7 +317,97 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             column.addView(buildKioskOptions())
         }
 
+        // Below the Start button on purpose. The start flow is what people came
+        // for; this is for the first few visits, when "what is this even for"
+        // is a better question than "which mode".
+        column.addView(FocusUi.spacer(activity, 24))
+        column.addView(FocusUi.sectionLabel(activity, tokens, "What can you do with it?"))
+        column.addView(buildScenarioStrip())
+
         return column
+    }
+
+    private data class Scenario(
+        val title: String,
+        val outcome: String,
+        val action: () -> Unit
+    )
+
+    /**
+     * Six things people actually use this for, each one tap from doing it.
+     *
+     * A settings screen tells you what the switches are. This tells you what
+     * they are for, which is the thing a new person is missing.
+     */
+    private fun buildScenarioStrip(): View {
+        val scenarios = listOf(
+            Scenario(
+                "Lock apps for an exam",
+                "Pick the apps, start Block, revise."
+            ) {
+                selectedMode = FocusMode.BLOCK
+                activity.startActivity(Intent(activity, AppRulesActivity::class.java))
+            },
+            Scenario(
+                "Study with no distractions",
+                "Sanctuary takes them off your home screen."
+            ) {
+                selectedMode = FocusMode.SANCTUARY
+                render()
+            },
+            Scenario(
+                "Go all-in for a sprint",
+                "Kiosk makes the phone only this. Needs Device Owner."
+            ) {
+                selectedMode = FocusMode.KIOSK
+                if (SetupChecks.isDeviceOwner(activity)) {
+                    render()
+                } else {
+                    activity.startActivity(Intent(activity, DeviceOwnerHelpActivity::class.java))
+                }
+            },
+            Scenario(
+                "Earn my scroll time",
+                "Finish real tasks, unlock minutes."
+            ) {
+                activity.selectTab(MainActivity.TAB_TASKS)
+            },
+            Scenario(
+                "Let me take a 5-minute break",
+                "A bounded exception, instead of quitting."
+            ) {
+                activity.startActivity(Intent(activity, AppLimitsActivity::class.java))
+            },
+            Scenario(
+                "Wind down at night",
+                "One window, every night, no thinking."
+            ) {
+                activity.startActivity(Intent(activity, BedtimeActivity::class.java))
+            }
+        )
+
+        val strip = FocusUi.row(activity)
+        scenarios.forEach { scenario ->
+            val card = FocusUi.card(activity, tokens) { scenario.action() }
+            card.layoutParams = LinearLayout.LayoutParams(
+                FocusUi.dp(activity, 210),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { rightMargin = FocusUi.dp(activity, 10) }
+
+            val title = FocusUi.body(activity, tokens, scenario.title)
+            title.setTextColor(tokens.textPrimary)
+            card.addView(title)
+            card.addView(FocusUi.spacer(activity, 4))
+            card.addView(FocusUi.caption(activity, tokens, scenario.outcome))
+            strip.addView(card)
+        }
+
+        val scroll = FocusUi.horizontalScroll(activity, strip)
+        scroll.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FocusUi.dp(activity, 4) }
+        return scroll
     }
 
     /**
@@ -341,6 +450,31 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = FocusUi.dp(activity, 6) }
         card.addView(exit)
+
+        // What picking this actually flips, in words, before you commit to it.
+        // Only on the selected card: four of these at once would be a wall.
+        if (selected) {
+            val preview = FocusUi.caption(activity, tokens, mode.presetSummary())
+            preview.setTextColor(tokens.accent)
+            preview.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FocusUi.dp(activity, 8) }
+            card.addView(preview)
+
+            if (!SessionManager.matchesPreset(activity, mode)) {
+                val edited = FocusUi.caption(
+                    activity,
+                    tokens,
+                    "You have changed some of these in You → Advanced. Your version is what runs."
+                )
+                edited.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = FocusUi.dp(activity, 4) }
+                card.addView(edited)
+            }
+        }
 
         if (mode.isHard && !SetupChecks.isDeviceOwner(activity)) {
             card.addView(FocusUi.spacer(activity, 10))
@@ -467,12 +601,27 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             return
         }
 
-        val message = if (mode.isHard) {
-            "Kiosk runs for " + SessionManager.formatDuration(selectedDurationMs) +
-                " and cannot be ended early. " + mode.exitLine
+        // The preset is about to be loaded, so describe what the session will
+        // actually do — not what the mode does by default. Someone who turned
+        // the early exit back on in Advanced must not be told it is impossible.
+        // Read-only: the template is loaded by SessionManager.start, on confirm.
+        // Working it out by actually applying it here would change the person's
+        // settings just because they opened a dialog and then cancelled.
+        val willEndEarly = if (SessionManager.presetPending(activity, mode)) {
+            mode.preset()[Capabilities.CAN_END_EARLY] == true
         } else {
-            mode.oneLiner + "\n\n" + mode.exitLine
+            SessionManager.canEndEarly(activity)
         }
+
+        val exitLine = if (willEndEarly) {
+            "You can end it early from the Focus tab."
+        } else {
+            "There is no early exit. It runs the full " +
+                SessionManager.formatDuration(selectedDurationMs) +
+                ", and in Kiosk the only way out before then is a factory reset, which wipes the phone."
+        }
+
+        val message = mode.oneLiner + "\n\n" + exitLine
 
         FocusDialog.alert(
             activity,

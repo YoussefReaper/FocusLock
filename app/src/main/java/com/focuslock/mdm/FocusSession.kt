@@ -51,6 +51,57 @@ enum class FocusMode(
 
     val isHard: Boolean get() = this == KIOSK
 
+    /**
+     * The switches this mode turns on, as a starting point.
+     *
+     * A mode is a template, not a cage. Picking one writes these flags; every
+     * one of them is then editable in You -> Advanced, including Kiosk's
+     * "no early exit". The preset is re-applied only when you pick a
+     * *different* mode, so an edit you make afterwards survives the next start
+     * of the same mode.
+     *
+     * Deliberately narrow: these three flags are what the mode is *about*.
+     * It does not touch which modes are available, app rules, schedules or
+     * anything else the person configured, because a template that quietly
+     * rewrote unrelated settings would be a trap.
+     */
+    fun preset(): Map<String, Boolean> = when (this) {
+        SOFT -> mapOf(
+            Capabilities.CAN_END_EARLY to true,
+            Capabilities.HARD_BLOCK to false,
+            Capabilities.SUSPEND_BLOCKED_APPS to false,
+            Capabilities.HIDE_BLOCKED_APPS to false
+        )
+        BLOCK -> mapOf(
+            Capabilities.CAN_END_EARLY to true,
+            Capabilities.HARD_BLOCK to true,
+            Capabilities.SUSPEND_BLOCKED_APPS to true,
+            Capabilities.HIDE_BLOCKED_APPS to false
+        )
+        SANCTUARY -> mapOf(
+            Capabilities.CAN_END_EARLY to true,
+            Capabilities.HARD_BLOCK to true,
+            Capabilities.SUSPEND_BLOCKED_APPS to true,
+            Capabilities.HIDE_BLOCKED_APPS to true
+        )
+        KIOSK -> mapOf(
+            Capabilities.CAN_END_EARLY to false,
+            Capabilities.HARD_BLOCK to true,
+            Capabilities.SUSPEND_BLOCKED_APPS to true,
+            Capabilities.HIDE_BLOCKED_APPS to true
+        )
+    }
+
+    /** The preset in words, for the line under each mode card. */
+    fun presetSummary(): String {
+        val parts = ArrayList<String>()
+        parts.add(if (preset()[Capabilities.HARD_BLOCK] == true) "stops blocked apps" else "nudges, never blocks")
+        if (preset()[Capabilities.HIDE_BLOCKED_APPS] == true) parts.add("hides them from the launcher")
+        if (preset()[Capabilities.SUSPEND_BLOCKED_APPS] == true) parts.add("silences them")
+        parts.add(if (preset()[Capabilities.CAN_END_EARLY] == true) "you can end it early" else "no early exit")
+        return "Sets: " + parts.joinToString(" · ")
+    }
+
     companion object {
         fun fromId(id: String?): FocusMode = values().firstOrNull { it.id == id } ?: SOFT
 
@@ -70,6 +121,7 @@ enum class FocusMode(
 object SessionManager {
 
     private const val KEY_MODE = "session_mode"
+    private const val KEY_PRESET_APPLIED_FOR = "session_preset_applied_for"
     private const val KEY_RELEASE_OWNER_ON_END = "session_release_owner_on_end"
     private const val KEY_LAST_ENDED_AT = "session_last_ended_at"
     private const val KEY_TOTAL_SESSIONS = "session_total_count"
@@ -126,7 +178,44 @@ object SessionManager {
 
     // ── Transitions ───────────────────────────────────────────────
 
+    /**
+     * Loads a mode's template, unless it is already loaded.
+     *
+     * The guard is the whole point. If this ran on every start it would undo
+     * the person's own edits every time they pressed Start, which would make
+     * You -> Advanced feel broken. Picking a *different* mode is the deliberate
+     * act that says "give me that template again".
+     *
+     * Returns true if anything actually changed, so the caller can say so.
+     */
+    fun applyPresetIfModeChanged(context: Context, mode: FocusMode): Boolean {
+        if (FocusStore.getString(context, KEY_PRESET_APPLIED_FOR, "") == mode.id) return false
+        CapabilityRegistry.applyPreset(context, mode.preset())
+        FocusStore.setString(context, KEY_PRESET_APPLIED_FOR, mode.id)
+        return true
+    }
+
+    /** Whether starting this mode would load a new template. Reads only. */
+    fun presetPending(context: Context, mode: FocusMode): Boolean =
+        FocusStore.getString(context, KEY_PRESET_APPLIED_FOR, "") != mode.id
+
+    /** Records a mode as the loaded template without touching any flag. */
+    fun markPresetApplied(context: Context, mode: FocusMode) {
+        FocusStore.setString(context, KEY_PRESET_APPLIED_FOR, mode.id)
+    }
+
+    /** Puts a mode's template back after the person has edited it. */
+    fun resetToPreset(context: Context, mode: FocusMode) {
+        CapabilityRegistry.applyPreset(context, mode.preset())
+        FocusStore.setString(context, KEY_PRESET_APPLIED_FOR, mode.id)
+    }
+
+    /** Whether the live flags still match the mode's template. */
+    fun matchesPreset(context: Context, mode: FocusMode): Boolean =
+        mode.preset().all { CapabilityRegistry.isEnabled(context, it.key) == it.value }
+
     fun start(context: Context, mode: FocusMode, durationMs: Long) {
+        applyPresetIfModeChanged(context, mode)
         FocusStore.setString(context, KEY_MODE, mode.id)
         LockManager.startKiosk(context, durationMs)
         Streaks.recordActivity(context)
@@ -135,12 +224,16 @@ object SessionManager {
     }
 
     /**
-     * Ends a session that the user is allowed to end.
+     * Whether the running session offers an early exit.
      *
-     * Kiosk deliberately refuses: that is the whole contract of the mode, and
-     * quietly allowing an exit would make every other mode meaningless too.
+     * This used to be `mode != KIOSK`, hardcoded. It is a switch now. Kiosk's
+     * preset still turns it off — that is what choosing Kiosk means — but the
+     * person can turn it back on in You -> Advanced, and the help screen says
+     * so. A lock you cannot inspect or undo is not a tool, it is a trap, and
+     * the honest version of "hard mode" is one you had to deliberately keep.
      */
-    fun canEndEarly(context: Context): Boolean = mode(context) != FocusMode.KIOSK
+    fun canEndEarly(context: Context): Boolean =
+        CapabilityRegistry.isEnabled(context, Capabilities.CAN_END_EARLY)
 
     fun end(context: Context) {
         val elapsed = elapsedMs(context)
@@ -176,24 +269,39 @@ object SessionManager {
         return EarnSession.requiresLockTask(context)
     }
 
-    /** Sanctuary and Kiosk take apps off the launcher; Soft and Block do not. */
-    fun shouldHideApps(context: Context): Boolean {
-        if (!isActive(context)) return false
-        val mode = mode(context)
-        if (mode != FocusMode.SANCTUARY && mode != FocusMode.KIOSK) return false
-        return CapabilityRegistry.isEnabled(context, Capabilities.HIDE_BLOCKED_APPS)
-    }
+    /**
+     * Whether blocked apps come off the launcher.
+     *
+     * The mode no longer decides this; the flag does. Sanctuary and Kiosk set
+     * it on by preset, but Block can have it too if that is what you want.
+     */
+    fun shouldHideApps(context: Context): Boolean =
+        isActive(context) && CapabilityRegistry.isEnabled(context, Capabilities.HIDE_BLOCKED_APPS)
 
-    fun shouldSuspendApps(context: Context): Boolean {
-        if (!isActive(context)) return false
-        val mode = mode(context)
-        if (mode == FocusMode.SOFT) return false
-        return CapabilityRegistry.isEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS)
-    }
+    fun shouldSuspendApps(context: Context): Boolean =
+        isActive(context) && CapabilityRegistry.isEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS)
 
-    /** Soft mode never hard-blocks: it pauses and lets you through. */
+    /**
+     * Whether a blocked app is stopped or merely paused.
+     *
+     * Soft mode's preset turns this off, which is what makes Soft soft. It is
+     * a flag rather than an enum check so any mode can be softened.
+     */
     fun blocksOutright(context: Context): Boolean =
-        isActive(context) && mode(context) != FocusMode.SOFT
+        isActive(context) && CapabilityRegistry.isEnabled(context, Capabilities.HARD_BLOCK)
+
+    /**
+     * Kiosk's allowlist inversion: only the apps you named stay open.
+     *
+     * This is part of the lock-task primitive, which is the one place the enum
+     * legitimately still decides something. Kept separate from
+     * [shouldLockTask] on purpose: that one is also true for a standalone Earn
+     * task, and an Earn task must not silently inherit Kiosk's allowlist model.
+     */
+    fun usesAllowlistModel(context: Context): Boolean =
+        isActive(context) &&
+            mode(context) == FocusMode.KIOSK &&
+            CapabilityRegistry.isEnabled(context, Capabilities.KIOSK_MODE)
 
     fun formatRemaining(context: Context): String = formatDuration(remainingMs(context))
 

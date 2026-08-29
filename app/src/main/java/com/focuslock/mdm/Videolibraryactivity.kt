@@ -28,6 +28,9 @@ class VideoLibraryActivity : AppCompatActivity() {
     private lateinit var tvSubtitle: TextView
     private lateinit var rvVideos: RecyclerView
 
+    /** Last folder scan, reused so onResume does not walk the tree again. */
+    private var cachedVideos: List<VideoItem>? = null
+
     private val countdownHandler = Handler(Looper.getMainLooper())
     private val countdownRunnable = object : Runnable {
         override fun run() {
@@ -63,7 +66,14 @@ class VideoLibraryActivity : AppCompatActivity() {
         super.onResume()
         KioskPolicy.syncLockTaskState(this)
         applyTheme()
-        if (VideoManager.isFolderSelected(this)) loadLibrary()
+        // Deliberately not a full loadLibrary(). Scanning the folder walks
+        // DocumentFile.listFiles(), one binder round-trip per file, and onResume
+        // fires on every rotate and every return from the player — none of which
+        // change what is in the folder. Refresh the cheap prefs-backed bits and
+        // reuse the list we already have.
+        if (VideoManager.isFolderSelected(this)) {
+            if (rvVideos.adapter == null) loadLibrary() else refreshUnlockState()
+        }
         countdownHandler.post(countdownRunnable)
     }
 
@@ -106,13 +116,30 @@ class VideoLibraryActivity : AppCompatActivity() {
         tvHeader.text = "Video library"
         refreshSubtitle()
 
-        rvVideos.adapter = VideoAdapter(
-            context = this,
-            items = videos,
-            canUnlockNow = canUnlock,
-            onUnlock = { item -> confirmUnlock(item) },
-            onPlay = { item -> openPlayer(item) }
-        )
+        val existing = rvVideos.adapter as? VideoAdapter
+        if (existing != null) {
+            existing.update(videos, canUnlock)
+        } else {
+            rvVideos.adapter = VideoAdapter(
+                context = this,
+                items = videos,
+                canUnlockNow = canUnlock,
+                onUnlock = { item -> confirmUnlock(item) },
+                onPlay = { item -> openPlayer(item) }
+            )
+        }
+        cachedVideos = videos
+    }
+
+    /**
+     * Re-reads only what a countdown can change: whether an unlock is available
+     * today. No folder scan, so returning from the player is instant.
+     */
+    private fun refreshUnlockState() {
+        refreshSubtitle()
+        val adapter = rvVideos.adapter as? VideoAdapter ?: return
+        val videos = cachedVideos ?: return
+        adapter.update(videos, VideoManager.canUnlockToday(this))
     }
 
     private fun refreshSubtitle() {

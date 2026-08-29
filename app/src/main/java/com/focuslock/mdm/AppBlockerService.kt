@@ -61,6 +61,11 @@ class AppBlockerService : Service() {
     private var lastInterceptAt = 0L
     private var lastInterceptPackage: String? = null
     private var lastBringToFrontAt = 0L
+
+    /** When FocusLock itself was last genuinely in front. See the grace in
+     *  handleForeground: it is what tells a real app launch apart from the
+     *  stale event left behind by one of our own screen transitions. */
+    private var lastOwnForegroundAt = 0L
     private var lastPolicyRevision = -1L
     private var lastPolicyRefreshAt = 0L
     private var lastNotificationText = ""
@@ -194,7 +199,25 @@ class AppBlockerService : Service() {
         val packageName = foreground.packageName
 
         if (packageName == this.packageName) {
+            lastOwnForegroundAt = now
             hideBlockerOverlay()
+            return
+        }
+
+        // Transition grace.
+        //
+        // getForegroundApp reads the last foreground event in a 15-second
+        // window. While one FocusLock screen hands off to another — Library to
+        // the video player, a tab to a settings screen — the incoming activity's
+        // RESUMED event has not landed yet, so the newest event still names
+        // whatever was in front before. If that package happens to be blocked,
+        // the loop "catches" it and the block screen flashes over our own UI.
+        //
+        // So: for a moment after we were genuinely in front, believe a foreign
+        // package only if it is still there on the next tick. A real app launch
+        // is intercepted a fraction of a second later than before; a phantom one
+        // never gets intercepted at all, because it is gone by then.
+        if (now - lastOwnForegroundAt < TRANSITION_GRACE_MS) {
             return
         }
 
@@ -585,6 +608,10 @@ class AppBlockerService : Service() {
         private const val IDLE_TICK_MS = 5_000L
         private const val POLICY_REFRESH_MS = 15_000L
         private const val INTERCEPT_COOLDOWN_MS = 2_500L
+
+        /** Long enough to cover an activity handoff, short enough that a real
+         *  app launch is still caught almost immediately. Two ticks. */
+        private const val TRANSITION_GRACE_MS = 500L
         private const val BRING_TO_FRONT_THROTTLE_MS = 1_500L
 
         fun start(context: Context) {

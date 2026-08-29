@@ -50,6 +50,9 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         add(FocusUi.sectionLabel(activity, tokens, "Setup and help"))
         add(buildHelpCard())
 
+        add(buildAdvancedHeader())
+        add(buildAdvancedCard())
+
         if (CapabilityRegistry.isEnabled(activity, Capabilities.SOCIAL)) {
             add(FocusUi.sectionLabel(activity, tokens, "Study friend"))
             add(buildSocialCard())
@@ -262,6 +265,160 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         return FocusUi.horizontalScroll(activity, strip)
     }
 
+    // ── Advanced ──────────────────────────────────────────────────
+
+    /** Section label with a "?" beside it, since this is the page that needs one. */
+    private fun buildAdvancedHeader(): View {
+        val row = FocusUi.row(activity)
+        val label = FocusUi.sectionLabel(activity, tokens, "Advanced")
+        label.layoutParams = LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        )
+        row.addView(label)
+        row.addView(
+            FocusUi.smallButton(activity, tokens, "What is this?") {
+                activity.startActivity(Intent(activity, AdvancedHelpActivity::class.java))
+            }
+        )
+        return row
+    }
+
+    /**
+     * The switchboard.
+     *
+     * A mode sets these; this is where you disagree with it. Every row says
+     * what turns off with it, because a switch whose consequence you have to
+     * discover by being locked out of your phone is not a real choice.
+     */
+    private fun buildAdvancedCard(): View {
+        val card = FocusUi.card(activity, tokens)
+        val mode = SessionManager.mode(activity)
+        val sessionRunning = SessionManager.isActive(activity)
+
+        card.addView(
+            FocusUi.body(
+                activity,
+                tokens,
+                if (sessionRunning) {
+                    "A " + mode.label + " session is running. Changes here take effect straight away."
+                } else {
+                    "Your last template was " + mode.label + ". Picking a different mode loads that " +
+                        "mode's version of these; anything you change here stays until then."
+                }
+            )
+        )
+        card.addView(FocusUi.spacer(activity, 14))
+
+        card.addView(FocusUi.sectionLabel(activity, tokens, "Leaving a session"))
+        card.addView(advancedToggle(Capabilities.CAN_END_EARLY, "End a session early"))
+
+        card.addView(FocusUi.divider(activity, tokens))
+        card.addView(FocusUi.sectionLabel(activity, tokens, "How hard it blocks"))
+        card.addView(advancedToggle(Capabilities.HARD_BLOCK, "Actually stop blocked apps"))
+        card.addView(advancedToggle(Capabilities.SUSPEND_BLOCKED_APPS, "Silence blocked apps"))
+        card.addView(advancedToggle(Capabilities.HIDE_BLOCKED_APPS, "Hide them from the launcher"))
+
+        card.addView(FocusUi.divider(activity, tokens))
+        card.addView(FocusUi.sectionLabel(activity, tokens, "Breaks"))
+        card.addView(
+            FocusUi.toggleRow(
+                activity,
+                tokens,
+                "Take a break",
+                "Unlock one blocked app for a few minutes on purpose, instead of giving up on the whole session.",
+                CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)
+            ) { value ->
+                CapabilityRegistry.setEnabled(activity, Capabilities.TAKE_A_BREAK, value)
+                render()
+            }
+        )
+
+        if (CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)) {
+            card.addView(
+                FocusUi.sliderRow(
+                    activity,
+                    tokens,
+                    "How long a break lasts",
+                    1,
+                    30,
+                    TakeABreak.breakMinutes(activity),
+                    { it.toString() + " min" }
+                ) { value -> TakeABreak.setBreakMinutes(activity, value) }
+            )
+            card.addView(
+                FocusUi.sliderRow(
+                    activity,
+                    tokens,
+                    "Breaks a day",
+                    0,
+                    10,
+                    TakeABreak.dailyMax(activity),
+                    { if (it == 0) "None" else it.toString() }
+                ) { value -> TakeABreak.setDailyMax(activity, value) }
+            )
+            card.addView(
+                FocusUi.caption(
+                    activity,
+                    tokens,
+                    TakeABreak.remainingToday(activity).toString() + " left today. Taking one is not a failure."
+                )
+            )
+        } else {
+            card.addView(
+                FocusUi.caption(
+                    activity,
+                    tokens,
+                    "Off: a blocked app stays blocked for the whole session, with no exceptions."
+                )
+            )
+        }
+
+        if (!SessionManager.matchesPreset(activity, mode)) {
+            card.addView(FocusUi.spacer(activity, 16))
+            card.addView(
+                FocusUi.secondaryButton(activity, tokens, "Put " + mode.label + "'s defaults back") {
+                    SessionManager.resetToPreset(activity, mode)
+                    FocusDialog.toast(activity, mode.label + " defaults restored.")
+                    render()
+                }
+            )
+        }
+
+        return card
+    }
+
+    /** One capability, its plain-language name, and what switching it off costs. */
+    private fun advancedToggle(id: String, title: String): View {
+        val spec = Capabilities.spec(id)
+        val enabled = CapabilityRegistry.isEnabled(activity, id)
+        val holder = FocusUi.column(activity, 0)
+
+        holder.addView(
+            FocusUi.toggleRow(
+                activity,
+                tokens,
+                title,
+                spec?.blurb,
+                enabled
+            ) { value ->
+                CapabilityRegistry.setEnabled(activity, id, value)
+                render()
+            }
+        )
+
+        // The consequence line, shown when the switch is off — the moment it
+        // is actually load-bearing.
+        val note = spec?.weakenNote
+        if (!enabled && !note.isNullOrBlank()) {
+            val caption = FocusUi.caption(activity, tokens, note)
+            caption.setTextColor(tokens.warning)
+            holder.addView(caption)
+        }
+        return holder
+    }
+
     // ── Help ──────────────────────────────────────────────────────
 
     private fun buildHelpCard(): View {
@@ -290,6 +447,17 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 },
                 trailing = FocusUi.chevron(activity, tokens)
             ) { activity.startActivity(Intent(activity, DeviceOwnerHelpActivity::class.java)) }
+        )
+        card.addView(FocusUi.divider(activity, tokens))
+
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
+                "Advanced, and how it works",
+                "What each mode sets, what you can change, and every way out of a session.",
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, AdvancedHelpActivity::class.java)) }
         )
         card.addView(FocusUi.divider(activity, tokens))
 

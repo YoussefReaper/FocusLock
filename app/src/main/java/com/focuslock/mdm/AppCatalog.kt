@@ -35,9 +35,22 @@ object AppCatalog {
 
     private val labelCache = HashMap<String, String>()
 
+    /**
+     * Decoded launcher icons, kept as ConstantState.
+     *
+     * getApplicationIcon reads and decodes from the app's APK every call. The
+     * Library grid asks for up to sixty of them on the UI thread each time it
+     * renders, which is where its jank came from. Caching the ConstantState
+     * rather than the Drawable matters: a Drawable carries mutable bounds and a
+     * callback, so handing the same instance to several ImageViews makes them
+     * fight over it. newDrawable() is cheap and gives each view its own.
+     */
+    private val iconCache = HashMap<String, Drawable.ConstantState?>()
+
     fun invalidate() {
         cache = null
         labelCache.clear()
+        iconCache.clear()
     }
 
     fun all(context: Context): List<InstalledApp> {
@@ -98,10 +111,20 @@ object AppCatalog {
         return resolved
     }
 
-    fun icon(context: Context, packageName: String): Drawable? = try {
-        context.packageManager.getApplicationIcon(packageName)
-    } catch (_: Exception) {
-        null
+    fun icon(context: Context, packageName: String): Drawable? {
+        synchronized(iconCache) {
+            if (iconCache.containsKey(packageName)) {
+                return iconCache[packageName]?.newDrawable(context.resources)
+            }
+        }
+        val loaded = try {
+            context.packageManager.getApplicationIcon(packageName)
+        } catch (_: Exception) {
+            null
+        }
+        synchronized(iconCache) { iconCache[packageName] = loaded?.constantState }
+        // First caller gets the original; everyone after gets their own copy.
+        return loaded
     }
 
     fun isInstalled(context: Context, packageName: String): Boolean = try {

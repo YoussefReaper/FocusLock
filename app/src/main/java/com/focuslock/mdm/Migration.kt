@@ -14,7 +14,7 @@ import android.content.Context
 object Migration {
 
     private const val KEY_VERSION = "store_migration_version"
-    private const val CURRENT_VERSION = 2
+    private const val CURRENT_VERSION = 3
 
     fun run(context: Context) {
         val version = FocusStore.getInt(context, KEY_VERSION, 0)
@@ -28,8 +28,66 @@ object Migration {
         if (version < 2) {
             seedCategoryDefaults(context)
         }
+        if (version < 3) {
+            seedSessionBehaviourFlags(context)
+        }
 
         FocusStore.setInt(context, KEY_VERSION, CURRENT_VERSION)
+    }
+
+    /**
+     * Freezes existing behaviour before the flags take over.
+     *
+     * `canEndEarly` and `hardBlock` used to be decided by the mode enum. From
+     * this version they are switches, and a switch has a default — which would
+     * silently change what an already-installed phone does, possibly in the
+     * middle of a running session. So on upgrade we write the values that
+     * reproduce exactly what the person's current mode was already doing. From
+     * then on the flags are theirs.
+     *
+     * Only writes flags the user has never set, so a deliberate choice is
+     * never overwritten.
+     */
+    private fun seedSessionBehaviourFlags(context: Context) {
+        val mode = SessionManager.mode(context)
+
+        if (!CapabilityRegistry.isUserSet(context, Capabilities.CAN_END_EARLY)) {
+            // Old rule: every mode except Kiosk could be ended early.
+            CapabilityRegistry.setEnabled(
+                context,
+                Capabilities.CAN_END_EARLY,
+                mode != FocusMode.KIOSK
+            )
+        }
+
+        if (!CapabilityRegistry.isUserSet(context, Capabilities.HARD_BLOCK)) {
+            // Old rule: Soft nudged, everything else blocked outright.
+            CapabilityRegistry.setEnabled(
+                context,
+                Capabilities.HARD_BLOCK,
+                mode != FocusMode.SOFT
+            )
+        }
+
+        // Old rule: only Sanctuary and Kiosk hid apps from the launcher, even
+        // when the hardening flag was on. The flag alone drives it now, so an
+        // upgrading Soft/Block user would suddenly get hiding they never had.
+        if (mode != FocusMode.SANCTUARY && mode != FocusMode.KIOSK &&
+            CapabilityRegistry.isEnabled(context, Capabilities.HIDE_BLOCKED_APPS)
+        ) {
+            CapabilityRegistry.setEnabled(context, Capabilities.HIDE_BLOCKED_APPS, false)
+        }
+
+        // Same for suspend, which Soft used to be exempt from.
+        if (mode == FocusMode.SOFT &&
+            CapabilityRegistry.isEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS)
+        ) {
+            CapabilityRegistry.setEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS, false)
+        }
+
+        // Record the mode whose template these values represent, so the first
+        // Start after upgrading does not immediately re-apply and undo them.
+        SessionManager.markPresetApplied(context, mode)
     }
 
     /**

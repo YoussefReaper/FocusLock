@@ -206,6 +206,12 @@
             android:launchMode="singleTop"
             android:lockTaskMode="if_whitelisted" />
 
+        <activity
+            android:name=".AdvancedHelpActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:lockTaskMode="if_whitelisted" />
+
         <receiver
             android:name=".AdminReceiver"
             android:exported="true"

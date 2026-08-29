@@ -345,10 +345,11 @@ object RuleEngine {
         val sessionActive = SessionManager.isActive(context)
         if (!sessionActive) return allow("noSession")
 
-        val mode = SessionManager.mode(context)
-
-        // Kiosk inverts the model: only what you named stays open.
-        if (mode == FocusMode.KIOSK && AppRules.isKioskAllowlistMode(context)) {
+        // Kiosk inverts the model: only what you named stays open. Driven by
+        // the lock-task primitive rather than the enum directly, so softening a
+        // mode in Advanced cannot accidentally strand someone inside an
+        // allowlist they can no longer edit.
+        if (SessionManager.usesAllowlistModel(context) && AppRules.isKioskAllowlistMode(context)) {
             if (packageName !in AppRules.kioskAllowlist(context)) {
                 if (SystemSurfaces.isLauncher(packageName)) {
                     return GuardDecision(
@@ -394,7 +395,7 @@ object RuleEngine {
                 }
             }
             AppPolicy.BLOCK, AppPolicy.HIDE -> {
-                if (mode == FocusMode.SOFT) {
+                if (!SessionManager.blocksOutright(context)) {
                     GuardDecision(
                         packageName,
                         GuardOutcome.PAUSE,
