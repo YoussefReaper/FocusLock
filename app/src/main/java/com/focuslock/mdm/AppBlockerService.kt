@@ -67,6 +67,8 @@ class AppBlockerService : Service() {
      *  stale event left behind by one of our own screen transitions. */
     private var lastOwnForegroundAt = 0L
     private var lastPolicyRevision = -1L
+    private var guardWasOn = false
+    private var guardDroppedAt = 0L
     private var lastPolicyRefreshAt = 0L
     private var lastNotificationText = ""
 
@@ -177,6 +179,7 @@ class AppBlockerService : Service() {
 
                 refreshPolicy(force = false)
                 updateNotificationIfChanged()
+                checkGuardStillOn()
 
                 val enforcing = isEnforcingNow()
                 if (enforcing) {
@@ -193,6 +196,48 @@ class AppBlockerService : Service() {
                 delay(if (enforcing) ENFORCEMENT_TICK_MS else IDLE_TICK_MS)
             }
         }
+    }
+
+    /**
+     * Notices the content guard being switched off from inside a session.
+     *
+     * Accessibility can be revoked in Settings at any moment, and doing so
+     * quietly disarms every keyword and content rule while the session carries
+     * on looking intact. That is the most inviting escape hatch in the app,
+     * because it does not feel like cheating — it feels like changing a
+     * setting.
+     *
+     * This does not fight back. It cannot: forcing someone into Kiosk to punish
+     * a settings change would be a worse betrayal than the escape it prevents,
+     * and could strand a person whose guard broke for an innocent reason. What
+     * it does is refuse to let it happen silently — the notification says the
+     * guard is down, and the dashboard says it too. The person gets to decide
+     * with the fact in front of them.
+     */
+    private fun checkGuardStillOn() {
+        if (!BuildConfig.ENFORCEMENT) return
+        if (!SessionManager.isActive(this)) {
+            guardWasOn = false
+            return
+        }
+        if (!SetupChecks.needsContentGuard(this)) return
+
+        val on = SetupChecks.isContentGuardEnabled(this)
+        if (on) {
+            guardWasOn = true
+            if (guardDroppedAt != 0L) {
+                guardDroppedAt = 0L
+                updateNotificationIfChanged(force = true)
+            }
+            return
+        }
+
+        // Only report a guard that was actually up when the session started.
+        // Someone who never granted it is not sneaking out of anything.
+        if (!guardWasOn || guardDroppedAt != 0L) return
+        guardDroppedAt = System.currentTimeMillis()
+        updateNotificationIfChanged(force = true)
+        Log.w(TAG, "Content guard switched off during an active session")
     }
 
     private fun handleForeground(foreground: ForegroundApp, now: Long) {
@@ -401,6 +446,10 @@ class AppBlockerService : Service() {
                         putExtra(InterceptActivity.EXTRA_SOURCE, decision.source)
                         putExtra(InterceptActivity.EXTRA_PAUSE, decision.isPause)
                         putExtra(InterceptActivity.EXTRA_OFFERS_BREAK, decision.offersBreak)
+                        putExtra(
+                            InterceptActivity.EXTRA_OFFERS_EARNED,
+                            decision.offersEarnedMinutes
+                        )
                     }
                 )
                 hideBlockerOverlay()
@@ -535,6 +584,11 @@ class AppBlockerService : Service() {
     // ── Notification ──────────────────────────────────────────────
 
     private fun statusLine(): String {
+        // A dropped guard outranks everything else in the notification: it is
+        // the one state where the session looks fine and quietly is not.
+        if (guardDroppedAt != 0L && SessionManager.isActive(this)) {
+            return "Content guard is off — keyword rules are not running"
+        }
         EarnSession.activeTask(this)?.let { task ->
             return "On " + task.title + " · " +
                 SessionManager.formatDuration(EarnSession.elapsedMs(this))
@@ -559,9 +613,9 @@ class AppBlockerService : Service() {
         return "Waiting for your next window"
     }
 
-    private fun updateNotificationIfChanged() {
+    private fun updateNotificationIfChanged(force: Boolean = false) {
         val line = statusLine()
-        if (line == lastNotificationText) return
+        if (!force && line == lastNotificationText) return
         lastNotificationText = line
         try {
             val manager = getSystemService(NotificationManager::class.java)

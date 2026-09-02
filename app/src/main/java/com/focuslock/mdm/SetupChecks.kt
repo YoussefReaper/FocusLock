@@ -107,6 +107,16 @@ object SetupChecks {
             }
         }
 
+    /**
+     * Whether any capability the user has switched on actually relies on the
+     * accessibility guard. Used to tell "they turned it off" apart from "they
+     * never needed it".
+     */
+    fun needsContentGuard(context: Context): Boolean =
+        Capabilities.all.any { spec ->
+            spec.needsAccessibility && CapabilityRegistry.isEnabled(context, spec.id)
+        }
+
     /** Everything a kiosk session needs before it can honestly claim to hold. */
     fun isKioskReady(context: Context): Boolean =
         hasUsageAccess(context) &&

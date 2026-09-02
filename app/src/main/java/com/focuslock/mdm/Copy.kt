@@ -318,6 +318,25 @@ object Copy {
         return "Ended early, and that is allowed. The time before you stopped still happened."
     }
 
+    /**
+     * Shown when a rule change is refused because a session is holding.
+     *
+     * The person is not being told off for trying. They are being reminded that
+     * a calmer version of them already made this call, which is the whole point
+     * of setting it up in advance.
+     */
+    fun rulesFrozen(context: Context, remaining: String): String {
+        if (!kind(context)) return "Rules are locked during a session. " + remaining + " remaining."
+        return "Your rules are held still until this session ends, in " + remaining +
+            ". You decided that ahead of time, back when it was an easy call."
+    }
+
+    /** The line under a frozen switch, explaining why it will not move. */
+    fun rulesFrozenHint(context: Context): String {
+        if (!kind(context)) return "Locked until the session ends."
+        return "Held still until the session ends."
+    }
+
     fun breakStarted(context: Context, minutes: Int): String {
         if (!kind(context)) return minutes.toString() + " minute pass started."
         return "Take " + minutes + " minutes. Choosing a break on purpose is not the same as losing the thread."

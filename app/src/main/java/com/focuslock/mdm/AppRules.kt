@@ -62,25 +62,31 @@ object AppRules {
         return categoryPolicy(context, category) ?: AppPolicy.ALLOW
     }
 
-    fun setPolicy(context: Context, packageName: String, policy: AppPolicy) {
+    fun setPolicy(context: Context, packageName: String, policy: AppPolicy): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         policies.put(packageName, policy.id)
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
         PolicySync.request(context, "appPolicy:" + packageName)
+        return true
     }
 
-    fun clearPolicy(context: Context, packageName: String) {
+    fun clearPolicy(context: Context, packageName: String): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         policies.remove(packageName)
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
         PolicySync.request(context, "appPolicy:" + packageName)
+        return true
     }
 
-    fun setPolicies(context: Context, packages: Collection<String>, policy: AppPolicy) {
+    fun setPolicies(context: Context, packages: Collection<String>, policy: AppPolicy): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         packages.forEach { policies.put(it, policy.id) }
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
         PolicySync.request(context, "appPolicy:bulk")
+        return true
     }
 
     /** Cached per policy revision: the enforcement loop asks for this constantly. */
@@ -149,11 +155,13 @@ object AppRules {
         return out
     }
 
-    fun setCategoryPolicy(context: Context, category: AppCategory, policy: AppPolicy?) {
+    fun setCategoryPolicy(context: Context, category: AppCategory, policy: AppPolicy?): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val policies = FocusStore.getJsonObject(context, KEY_CATEGORY_POLICIES)
         if (policy == null) policies.remove(category.id) else policies.put(category.id, policy.id)
         FocusStore.setJsonObject(context, KEY_CATEGORY_POLICIES, policies)
         PolicySync.request(context, "categoryPolicy:" + category.id)
+        return true
     }
 
     // ── Always allowed ────────────────────────────────────────────
@@ -170,13 +178,15 @@ object AppRules {
         }
     }
 
-    fun setAlwaysAllowed(context: Context, packages: Collection<String>) {
+    fun setAlwaysAllowed(context: Context, packages: Collection<String>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val cleaned = packages
             .map { it.trim() }
             .filter { it.isNotBlank() && it != context.packageName }
             .toSet()
         FocusStore.setSet(context, KEY_ALWAYS_ALLOWED, cleaned)
         PolicySync.request(context, "alwaysAllowed")
+        return true
     }
 
     /**
@@ -192,10 +202,10 @@ object AppRules {
         return packageName in FocusStore.getSet(context, KEY_ALWAYS_ALLOWED)
     }
 
-    fun addAlwaysAllowed(context: Context, packageName: String) {
+    fun addAlwaysAllowed(context: Context, packageName: String): Boolean {
         val current = FocusStore.getSet(context, KEY_ALWAYS_ALLOWED).toMutableSet()
         current.add(packageName)
-        setAlwaysAllowed(context, current)
+        return setAlwaysAllowed(context, current)
     }
 
     // ── Kiosk allowlist ───────────────────────────────────────────
@@ -208,9 +218,11 @@ object AppRules {
     fun isKioskAllowlistMode(context: Context): Boolean =
         FocusStore.getBool(context, KEY_KIOSK_ALLOWLIST_MODE, true)
 
-    fun setKioskAllowlistMode(context: Context, value: Boolean) {
+    fun setKioskAllowlistMode(context: Context, value: Boolean): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         FocusStore.setBool(context, KEY_KIOSK_ALLOWLIST_MODE, value)
         PolicySync.request(context, "kioskAllowlistMode")
+        return true
     }
 
     /** Apps that stay open during a kiosk session. */
@@ -224,7 +236,8 @@ object AppRules {
         return out
     }
 
-    fun setKioskAllowlist(context: Context, packages: Collection<String>) {
+    fun setKioskAllowlist(context: Context, packages: Collection<String>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val allowed = packages.toSet()
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         AppCatalog.launchable(context).forEach { app ->
@@ -241,6 +254,7 @@ object AppRules {
         }
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
         PolicySync.request(context, "kioskAllowlist")
+        return true
     }
 
     // ── Export / import ───────────────────────────────────────────

@@ -37,6 +37,7 @@ class InterceptActivity : AppCompatActivity() {
     private var source: String = ""
     private var isPause: Boolean = false
     private var offersBreak: Boolean = false
+    private var offersEarnedMinutes: Boolean = false
 
     private var countdownSeconds = 0
     private var continueButton: TextView? = null
@@ -68,6 +69,7 @@ class InterceptActivity : AppCompatActivity() {
         source = intent.getStringExtra(EXTRA_SOURCE).orEmpty()
         isPause = intent.getBooleanExtra(EXTRA_PAUSE, false)
         offersBreak = intent.getBooleanExtra(EXTRA_OFFERS_BREAK, false)
+        offersEarnedMinutes = intent.getBooleanExtra(EXTRA_OFFERS_EARNED, false)
 
         if (headline.isBlank() && blockedPackage.isNotBlank()) {
             headline = Copy.blockHeadline(this, blockedPackage)
@@ -234,7 +236,75 @@ class InterceptActivity : AppCompatActivity() {
             column.addView(note)
         }
 
+        // Banked Earn minutes. Without this the block screen just says no to
+        // someone who has already done the work to open this exact app, which
+        // is the fastest way to make the whole economy feel like a lie.
+        if (offersEarnedMinutes) {
+            val balance = EarnBudget.balanceMinutes(this)
+            if (balance > 0) {
+                val spend = minOf(balance, DEFAULT_SPEND_MINUTES)
+                column.addView(FocusUi.spacer(this, 10))
+                column.addView(
+                    FocusUi.secondaryButton(
+                        this,
+                        tokens,
+                        "Use " + spend + " earned minutes (" + balance + " banked)"
+                    ) { confirmSpendEarned(spend) }
+                )
+            }
+        }
+
         return column
+    }
+
+    /**
+     * Spends banked minutes to open the thing that is currently blocked.
+     *
+     * Confirmed rather than instant: the minutes were the reward for real work,
+     * and spending them by fat-fingering a button on a block screen would be a
+     * bad trade the person never actually chose to make.
+     */
+    private fun confirmSpendEarned(minutes: Int) {
+        FocusDialog.alert(
+            this,
+            title = "Use " + minutes + " minutes?",
+            message = "Blocked apps open for that long, then close again. Stopping early banks " +
+                "whatever is left, so nothing is wasted.",
+            confirmLabel = "Use them",
+            cancelLabel = "Keep them",
+            onConfirm = {
+                if (EarnBudget.spend(this, minutes)) {
+                    FocusDialog.toast(this, Copy.earnSpending(this, minutes))
+                    openBlockedApp()
+                } else {
+                    FocusDialog.toast(this, "Those minutes are already spent.")
+                    leave()
+                }
+            }
+        )
+    }
+
+    /**
+     * Hands the person the app they just paid for.
+     *
+     * The spend window is open now, so the blocker will let this through on its
+     * next tick; launching directly saves them tapping the icon again and
+     * hitting a block screen that is already stale.
+     */
+    private fun openBlockedApp() {
+        val launch = packageManager.getLaunchIntentForPackage(blockedPackage)
+        if (launch == null) {
+            leave()
+            return
+        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(launch)
+        } catch (_: Exception) {
+            leave()
+            return
+        }
+        finish()
     }
 
     private fun buildAlternatives(): View {
@@ -409,5 +479,16 @@ class InterceptActivity : AppCompatActivity() {
         const val EXTRA_PHRASE = "intercept_phrase"
         const val EXTRA_PAUSE = "intercept_pause"
         const val EXTRA_OFFERS_BREAK = "intercept_offers_break"
+        const val EXTRA_OFFERS_EARNED = "intercept_offers_earned"
+
+        /**
+         * How much a single tap on the block screen spends.
+         *
+         * Small on purpose. Long enough to do the thing that was actually
+         * wanted, short enough that it is not a whole evening bought in one
+         * distracted moment. Anyone wanting more can spend again, which is a
+         * second deliberate decision rather than one large accidental one.
+         */
+        private const val DEFAULT_SPEND_MINUTES = 10
     }
 }

@@ -33,6 +33,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
         column.addView(buildGroupCard(KeywordRules.GROUP_REELS, Capabilities.REELS_BLOCK, "Reels"))
         column.addView(buildGroupCard(KeywordRules.GROUP_ADULT, Capabilities.ADULT_BLOCK, "Adult content"))
 
+        column.addView(sectionLabel("Telegram"))
+        column.addView(buildTelegramCard())
+
         column.addView(sectionLabel("Your words"))
         column.addView(buildUserRules())
 
@@ -243,6 +246,116 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     KeywordRules.remove(this, working.id)
                     refresh()
                 }
+            )
+        }
+    }
+
+    /**
+     * Telegram, by allowlist.
+     *
+     * The rest of this screen names things to keep out. This one names the
+     * handful to let in, because listing every channel worth avoiding is a
+     * losing game and listing the three chats that matter is a minute's work.
+     */
+    private fun buildTelegramCard(): View = card { card ->
+        val on = CapabilityRegistry.isEnabled(this, Capabilities.TELEGRAM_GUARD)
+        val frozen = SessionLock.isFrozen(this)
+
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                "Only my named chats",
+                "Telegram stays open for the chats you list. Anything else backs out.",
+                on,
+                enabled = !frozen
+            ) { value ->
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.TELEGRAM_GUARD, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
+                refresh()
+            }
+        )
+
+        if (!on) return@card
+
+        val allowed = TelegramGuard.allowedRaw(this)
+
+        card.addView(FocusUi.spacer(this, 6))
+        card.addView(
+            FocusUi.caption(
+                this,
+                tokens,
+                if (allowed.isEmpty()) {
+                    "Nothing listed yet, so nothing is blocked. Add a chat and everything else " +
+                        "in Telegram starts backing out."
+                } else {
+                    "Everything except these backs out."
+                }
+            )
+        )
+
+        allowed.forEach { title ->
+            card.addView(
+                FocusUi.listRow(
+                    this,
+                    tokens,
+                    title,
+                    null,
+                    trailing = FocusUi.smallButton(this, tokens, "Remove") {
+                        if (!TelegramGuard.removeAllowed(this, title)) {
+                            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                        }
+                        refresh()
+                    }
+                )
+            )
+        }
+
+        card.addView(FocusUi.spacer(this, 10))
+
+        // Offering the chat they were just in beats asking them to type a name
+        // exactly, and it doubles as proof the guard can still read Telegram
+        // at all after an update.
+        val seen = TelegramGuard.lastSeenTitle(this)
+        if (seen != null && allowed.none { it.equals(seen, ignoreCase = true) }) {
+            card.addView(
+                FocusUi.secondaryButton(this, tokens, "Allow \"" + seen + "\"") {
+                    if (!TelegramGuard.addAllowed(this, seen)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
+                    refresh()
+                }
+            )
+            card.addView(FocusUi.spacer(this, 8))
+        }
+
+        card.addView(
+            FocusUi.secondaryButton(this, tokens, "Add a chat by name") {
+                FocusDialog.textInput(
+                    this,
+                    title = "Allow a Telegram chat",
+                    subtitle = "Type the chat's name as Telegram shows it at the top of the screen.",
+                    hint = "Study group"
+                ) { value ->
+                    if (!TelegramGuard.addAllowed(this, value)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
+                    refresh()
+                }
+            }
+        )
+
+        if (seen == null) {
+            card.addView(FocusUi.spacer(this, 8))
+            card.addView(
+                FocusUi.caption(
+                    this,
+                    tokens,
+                    "FocusLock has not managed to read a chat title yet. Open a Telegram chat " +
+                        "and come back — if this line stays, a Telegram update has probably " +
+                        "moved things and this guard is not running."
+                )
             )
         }
     }

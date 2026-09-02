@@ -301,7 +301,11 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             FocusUi.body(
                 activity,
                 tokens,
-                if (sessionRunning) {
+                if (sessionRunning && SessionLock.isFrozen(activity)) {
+                    "A " + mode.label + " session is running, and you asked for your rules to be " +
+                        "held still while it does. These come back when it ends, in " +
+                        SessionManager.formatRemaining(activity) + "."
+                } else if (sessionRunning) {
                     "A " + mode.label + " session is running. Changes here take effect straight away."
                 } else {
                     "Your last template was " + mode.label + ". Picking a different mode loads that " +
@@ -328,9 +332,12 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 tokens,
                 "Take a break",
                 "Unlock one blocked app for a few minutes on purpose, instead of giving up on the whole session.",
-                CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)
+                CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK),
+                enabled = !SessionLock.isFrozen(activity)
             ) { value ->
-                CapabilityRegistry.setEnabled(activity, Capabilities.TAKE_A_BREAK, value)
+                if (!CapabilityRegistry.setEnabled(activity, Capabilities.TAKE_A_BREAK, value)) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                }
                 render()
             }
         )
@@ -393,6 +400,7 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
     private fun advancedToggle(id: String, title: String): View {
         val spec = Capabilities.spec(id)
         val enabled = CapabilityRegistry.isEnabled(activity, id)
+        val frozen = SessionLock.isFrozen(activity)
         val holder = FocusUi.column(activity, 0)
 
         holder.addView(
@@ -401,12 +409,22 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 tokens,
                 title,
                 spec?.blurb,
-                enabled
+                enabled,
+                enabled = !frozen
             ) { value ->
-                CapabilityRegistry.setEnabled(activity, id, value)
+                if (!CapabilityRegistry.setEnabled(activity, id, value)) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                }
                 render()
             }
         )
+
+        // A greyed switch with no reason next to it reads as a bug. Say why.
+        if (frozen) {
+            val locked = FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity))
+            locked.setPadding(0, FocusUi.dp(activity, 2), 0, FocusUi.dp(activity, 8))
+            holder.addView(locked)
+        }
 
         // The consequence line, shown when the switch is off — the moment it
         // is actually load-bearing.

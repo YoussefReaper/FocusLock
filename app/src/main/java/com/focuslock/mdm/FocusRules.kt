@@ -185,7 +185,16 @@ data class GuardDecision(
     val detail: String,
     val source: String,
     val offersBreak: Boolean,
-    val breakSuggestion: Boolean = false
+    val breakSuggestion: Boolean = false,
+    /**
+     * Whether the block screen should offer to spend banked Earn minutes.
+     *
+     * Only true for blocks that earned time is meant to lift — app rules and
+     * the session itself. A schedule, bedtime or a daily budget is a promise
+     * about *when*, and the minutes were earned for doing work, not for moving
+     * a bedtime, so those blocks never offer it.
+     */
+    val offersEarnedMinutes: Boolean = false
 ) {
     val isBlocked: Boolean get() = outcome == GuardOutcome.BLOCK
     val isPause: Boolean get() = outcome == GuardOutcome.PAUSE
@@ -411,12 +420,25 @@ object RuleEngine {
                         Copy.blockHeadline(context, packageName),
                         Copy.blockDetail(context, packageName),
                         "policy",
-                        offersBreak = TakeABreak.canStart(context)
+                        offersBreak = TakeABreak.canStart(context),
+                        offersEarnedMinutes = canSpendEarnedMinutes(context)
                     )
                 }
             }
         }
     }
+
+    /**
+     * Whether banked Earn minutes could open this right now.
+     *
+     * Kiosk is excluded on purpose: its contract is that it runs to the end,
+     * and letting minutes buy a way out would make the strongest mode the one
+     * with a price tag. The minutes are not lost, they just wait.
+     */
+    private fun canSpendEarnedMinutes(context: Context): Boolean =
+        CapabilityRegistry.isEnabled(context, Capabilities.EARN_MODE) &&
+            EarnBudget.balanceMinutes(context) > 0 &&
+            !SessionManager.shouldLockTask(context)
 
     /** Convenience for callers that only need a yes or no. */
     fun isAllowed(context: Context, packageName: String, className: String? = null): Boolean =

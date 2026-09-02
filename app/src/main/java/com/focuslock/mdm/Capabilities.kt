@@ -79,6 +79,7 @@ object Capabilities {
     // point you can edit afterwards in You -> Advanced.
     const val CAN_END_EARLY = "canEndEarly"
     const val HARD_BLOCK = "hardBlock"
+    const val LOCK_RULES_IN_SESSION = "lockRulesInSession"
 
     // Blocking
     const val APP_BLOCK = "appBlock"
@@ -94,6 +95,7 @@ object Capabilities {
     const val CONTENT_GUARD = "contentGuard"
     const val KEYWORD_BLOCK = "keywordBlock"
     const val WHATSAPP_GUARD = "whatsappGuard"
+    const val TELEGRAM_GUARD = "telegramGuard"
     const val SHORTS_BLOCK = "shortsBlock"
     const val REELS_BLOCK = "reelsBlock"
     const val ADULT_BLOCK = "adultBlock"
@@ -168,6 +170,18 @@ object Capabilities {
             default = true,
             weakenNote = "Off: there is no early exit. The session runs to the end of its timer, " +
                 "and in Kiosk the only way out before then is a factory reset, which wipes the phone."
+        ),
+        CapabilitySpec(
+            id = LOCK_RULES_IN_SESSION,
+            label = "Freeze my rules while a session runs",
+            blurb = "Once a session starts, rules, app policies and these switches stop being " +
+                "editable until it ends. Stops the 11pm version of you from quietly unblocking " +
+                "something.",
+            group = CapabilityGroup.MODES,
+            default = true,
+            weakenNote = "Off: you can change any rule mid-session, including ending a Kiosk " +
+                "early. Some people want that and it is a fair choice — it just means the lock " +
+                "is only as strong as you are at the moment you want to break it."
         ),
         CapabilitySpec(
             id = HARD_BLOCK,
@@ -297,6 +311,17 @@ object Capabilities {
             group = CapabilityGroup.CONTENT,
             default = true,
             needsAccessibility = true
+        ),
+        CapabilitySpec(
+            id = TELEGRAM_GUARD,
+            label = "Telegram: only the chats you named",
+            blurb = "Keeps Telegram open for the people you actually talk to, and backs out of " +
+                "everything else. You list the chats that are allowed.",
+            group = CapabilityGroup.CONTENT,
+            default = false,
+            weakenNote = "Off: every Telegram chat and channel opens normally.",
+            needsAccessibility = true,
+            detailScreen = Screens.KEYWORDS
         ),
         CapabilitySpec(
             id = SHORTS_BLOCK,
@@ -536,7 +561,41 @@ object CapabilityRegistry {
     fun isUserSet(context: Context, id: String): Boolean =
         FocusStore.getJsonObject(context, KEY_ENABLED).has(id)
 
-    fun setEnabled(context: Context, id: String, enabled: Boolean) {
+    /**
+     * Whether the rules are currently frozen by a running session.
+     *
+     * A self-lock that can be edited from inside is not a lock: the moment the
+     * urge arrives is exactly the moment a person will go and switch the guard
+     * off, and they will feel it was reasonable at the time. So while a session
+     * runs, the switches stop moving.
+     *
+     * It is still a capability, not a law. Someone who genuinely wants to steer
+     * mid-session turns [Capabilities.LOCK_RULES_IN_SESSION] off *before*
+     * starting one. It cannot be turned off from inside a session — that would
+     * make it a door with the key taped to it.
+     */
+    fun isFrozen(context: Context): Boolean =
+        SessionManager.isActive(context) && isEnabled(context, Capabilities.LOCK_RULES_IN_SESSION)
+
+    /**
+     * Writes a capability, unless a session has frozen the rules.
+     *
+     * Returns false when the write was refused, so callers can say so instead
+     * of leaving a toggle that springs back with no explanation.
+     */
+    fun setEnabled(context: Context, id: String, enabled: Boolean): Boolean {
+        if (isFrozen(context)) return false
+        writeEnabled(context, id, enabled)
+        return true
+    }
+
+    /**
+     * The unguarded write.
+     *
+     * Migration and session-end cleanup both need to move flags while a session
+     * is technically still active, and neither is a user changing their mind.
+     */
+    internal fun writeEnabled(context: Context, id: String, enabled: Boolean) {
         val overrides = FocusStore.getJsonObject(context, KEY_ENABLED)
         overrides.put(id, enabled)
         FocusStore.setJsonObject(context, KEY_ENABLED, overrides)
@@ -587,13 +646,15 @@ object CapabilityRegistry {
         return forId.optInt(key, fallback)
     }
 
-    fun setIntParam(context: Context, id: String, key: String, value: Int) {
+    fun setIntParam(context: Context, id: String, key: String, value: Int): Boolean {
+        if (isFrozen(context)) return false
         val params = FocusStore.getJsonObject(context, KEY_PARAMS)
         val forId = params.optJSONObject(id) ?: JSONObject()
         forId.put(key, value)
         params.put(id, forId)
         FocusStore.setJsonObject(context, KEY_PARAMS, params)
         PolicySync.request(context, "capabilityParam:" + id)
+        return true
     }
 
     fun getBoolParam(context: Context, id: String, key: String, fallback: Boolean): Boolean {
@@ -601,13 +662,15 @@ object CapabilityRegistry {
         return forId.optBoolean(key, fallback)
     }
 
-    fun setBoolParam(context: Context, id: String, key: String, value: Boolean) {
+    fun setBoolParam(context: Context, id: String, key: String, value: Boolean): Boolean {
+        if (isFrozen(context)) return false
         val params = FocusStore.getJsonObject(context, KEY_PARAMS)
         val forId = params.optJSONObject(id) ?: JSONObject()
         forId.put(key, value)
         params.put(id, forId)
         FocusStore.setJsonObject(context, KEY_PARAMS, params)
         PolicySync.request(context, "capabilityParam:" + id)
+        return true
     }
 
     fun exportJson(context: Context): JSONObject {
@@ -617,9 +680,11 @@ object CapabilityRegistry {
         return out
     }
 
-    fun importJson(context: Context, json: JSONObject) {
+    fun importJson(context: Context, json: JSONObject): Boolean {
+        if (isFrozen(context)) return false
         json.optJSONObject("enabled")?.let { FocusStore.setJsonObject(context, KEY_ENABLED, it) }
         json.optJSONObject("params")?.let { FocusStore.setJsonObject(context, KEY_PARAMS, it) }
         PolicySync.request(context, "capability:import")
+        return true
     }
 }

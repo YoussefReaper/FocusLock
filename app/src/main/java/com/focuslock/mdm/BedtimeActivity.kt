@@ -94,6 +94,7 @@ class BedtimeActivity : FocusScreenActivity() {
 
     private fun buildCategoryCard(): View = card { card ->
         val blocked = Bedtime.blockedCategories(this)
+        val everything = Bedtime.blocksEverything(this)
 
         card.addView(
             FocusUi.secondary(
@@ -103,6 +104,29 @@ class BedtimeActivity : FocusScreenActivity() {
             )
         )
         card.addView(FocusUi.spacer(this, 8))
+
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                "Block everything instead",
+                "Stops every app except the ones you marked always-allowed. Pick this if " +
+                    "things have been slipping through the categories below.",
+                everything
+            ) { checked ->
+                if (!Bedtime.setBlocksEverything(this, checked)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
+                refresh()
+            }
+        )
+
+        // Categories are meaningless while everything is blocked; showing them
+        // live and editable would suggest they still decide something.
+        if (everything) return@card
+
+        card.addView(FocusUi.divider(this, tokens))
+        card.addView(FocusUi.sectionLabel(this, tokens, "Or pick what to block"))
 
         AppCategory.ruleTargets.forEach { category ->
             card.addView(

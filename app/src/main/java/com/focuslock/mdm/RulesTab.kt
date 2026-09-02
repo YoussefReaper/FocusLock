@@ -258,8 +258,14 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         val column = FocusUi.column(activity)
 
+        val frozen = SessionLock.isFrozen(activity)
+
         val control = FocusUi.switchControl(activity, tokens, enabled) { value ->
-            CapabilityRegistry.setEnabled(activity, spec.id, value)
+            if (!CapabilityRegistry.setEnabled(activity, spec.id, value)) {
+                FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                render()
+                return@switchControl
+            }
             if (!value && spec.weakenNote != null) {
                 FocusDialog.weakenNotice(activity, spec)
             }
@@ -268,12 +274,21 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             }
             render()
         }
+        control.isEnabled = !frozen
 
         column.addView(
             FocusUi.listRow(activity, tokens, spec.label, spec.blurb, trailing = control) {
-                control.isChecked = !control.isChecked
+                if (frozen) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                } else {
+                    control.isChecked = !control.isChecked
+                }
             }
         )
+
+        if (frozen) {
+            column.addView(FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity)))
+        }
 
         if (enabled && blocker != null) {
             val warning = FocusUi.caption(activity, tokens, blocker)

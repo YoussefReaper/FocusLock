@@ -15,6 +15,7 @@ object Bedtime {
     private const val KEY_START = "bedtime_start_minutes"
     private const val KEY_END = "bedtime_end_minutes"
     private const val KEY_CATEGORIES = "bedtime_categories"
+    const val PARAM_BLOCK_ALL = "blockEverything"
     private const val KEY_DIM = "bedtime_dim_percent"
     private const val KEY_DARK_THEME = "bedtime_dark_theme"
     private const val KEY_GRAYSCALE_HINT = "bedtime_grayscale_hint"
@@ -79,11 +80,34 @@ object Bedtime {
         return if (end > start) nowMinutes in start until end else nowMinutes >= start || nowMinutes < end
     }
 
+    /**
+     * Whether bedtime should stop this app right now.
+     *
+     * Category matching is the default and it has a real hole: an app whose
+     * category the catalogue could not work out lands in OTHER and sails
+     * straight through, which is why "bedtime isn't locking" gets reported by
+     * people who did switch it on. [blocksEverything] closes that by inverting
+     * the question — everything stops except what you named as essential.
+     */
     fun blocks(context: Context, packageName: String): Boolean {
         if (!isActive(context)) return false
         if (AppRules.isAlwaysAllowed(context, packageName)) return false
+        if (SystemSurfaces.isCritical(packageName)) return false
+        if (blocksEverything(context)) return true
         return AppCatalog.categoryOf(context, packageName) in blockedCategories(context)
     }
+
+    /**
+     * Strict bedtime: block everything that is not always-allowed.
+     *
+     * Off by default, because turning it on for an existing user overnight
+     * would lock them out of apps they never asked bedtime to touch.
+     */
+    fun blocksEverything(context: Context): Boolean =
+        CapabilityRegistry.getBoolParam(context, Capabilities.BEDTIME_MODE, PARAM_BLOCK_ALL, false)
+
+    fun setBlocksEverything(context: Context, value: Boolean): Boolean =
+        CapabilityRegistry.setBoolParam(context, Capabilities.BEDTIME_MODE, PARAM_BLOCK_ALL, value)
 
     /** Minutes until bedtime lifts, for the "back at 6:00" line on the block screen. */
     fun minutesUntilEnd(context: Context, now: Calendar = Calendar.getInstance()): Int {

@@ -53,7 +53,7 @@ object Migration {
 
         if (!CapabilityRegistry.isUserSet(context, Capabilities.CAN_END_EARLY)) {
             // Old rule: every mode except Kiosk could be ended early.
-            CapabilityRegistry.setEnabled(
+            CapabilityRegistry.writeEnabled(
                 context,
                 Capabilities.CAN_END_EARLY,
                 mode != FocusMode.KIOSK
@@ -62,7 +62,7 @@ object Migration {
 
         if (!CapabilityRegistry.isUserSet(context, Capabilities.HARD_BLOCK)) {
             // Old rule: Soft nudged, everything else blocked outright.
-            CapabilityRegistry.setEnabled(
+            CapabilityRegistry.writeEnabled(
                 context,
                 Capabilities.HARD_BLOCK,
                 mode != FocusMode.SOFT
@@ -75,14 +75,14 @@ object Migration {
         if (mode != FocusMode.SANCTUARY && mode != FocusMode.KIOSK &&
             CapabilityRegistry.isEnabled(context, Capabilities.HIDE_BLOCKED_APPS)
         ) {
-            CapabilityRegistry.setEnabled(context, Capabilities.HIDE_BLOCKED_APPS, false)
+            CapabilityRegistry.writeEnabled(context, Capabilities.HIDE_BLOCKED_APPS, false)
         }
 
         // Same for suspend, which Soft used to be exempt from.
         if (mode == FocusMode.SOFT &&
             CapabilityRegistry.isEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS)
         ) {
-            CapabilityRegistry.setEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS, false)
+            CapabilityRegistry.writeEnabled(context, Capabilities.SUSPEND_BLOCKED_APPS, false)
         }
 
         // Record the mode whose template these values represent, so the first
