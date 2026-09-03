@@ -108,4 +108,53 @@ class KioskAllowlistTest {
         assertTrue(packages.contains("com.android.systemui"))
         assertTrue(packages.contains("android"))
     }
+
+    // ── Overlay schedule windows ─────────────────────────────────
+
+    @Test
+    fun overlayWindowReplacesTheStandingAllowlistsEntirely() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = setOf("com.example.kioskOnly"),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = setOf("com.example.otherWindow"),
+            baselineReady = true,
+            allowLauncherEscape = false,
+            scheduleOverlayAllowed = setOf("com.example.thisWindowOnly")
+        )
+        assertTrue(packages.contains("com.example.thisWindowOnly"))
+        assertFalse(packages.contains("com.example.kioskOnly"))
+        assertFalse(packages.contains("com.example.otherWindow"))
+    }
+
+    @Test
+    fun anEarnTaskCannotWidenPastAnOverlayWindow() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false,
+            earnAllowed = setOf("com.example.earnTaskApp", "com.example.windowApp"),
+            scheduleOverlayAllowed = setOf("com.example.windowApp")
+        )
+        assertTrue(packages.contains("com.example.windowApp"))
+        assertFalse(packages.contains("com.example.earnTaskApp"))
+    }
+
+    @Test
+    fun ownPackageAndSystemSurfacesSurviveAnOverlayWindow() {
+        val packages = KioskPolicy.buildLockTaskPackages(
+            ownPackage = own,
+            userAllowed = emptySet(),
+            alwaysAllowed = emptySet(),
+            scheduleAllowed = emptySet(),
+            baselineReady = true,
+            allowLauncherEscape = false,
+            scheduleOverlayAllowed = emptySet()
+        )
+        assertTrue(packages.contains(own))
+        assertTrue(packages.contains("com.android.systemui"))
+    }
 }

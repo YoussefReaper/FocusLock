@@ -138,6 +138,25 @@ object Copy {
         )
     }
 
+    fun scheduleOverlayHeadline(context: Context, window: ScheduleWindow): String {
+        if (window.message.isNotBlank()) return window.message
+        return if (kind(context)) "This time is locked in" else "Locked schedule window"
+    }
+
+    /** Same shape as [scheduleDetail], but never offers a break - this window doesn't bend. */
+    fun scheduleOverlayDetail(context: Context, window: ScheduleWindow): String {
+        val until = ScheduleManager.formatTime(window.endMinutes)
+        if (!kind(context)) return "Locked until " + until + ". No break, no exceptions."
+        return pick(
+            listOf(
+                "You set this one to overlay, so nothing - not even a break - talks you out of it. " +
+                    "Opens up again at " + until + ".",
+                "This window doesn't bend. Back to normal at " + until + ".",
+                "No exceptions until " + until + " - that was the whole point of locking it."
+            )
+        )
+    }
+
     fun bedtimeHeadline(context: Context): String =
         if (kind(context)) "It is night" else "Bedtime block"
 
@@ -331,10 +350,17 @@ object Copy {
             ". You decided that ahead of time, back when it was an easy call."
     }
 
+    /** Same refusal, for an overlay schedule window rather than a session - see [ScheduleWindow.overlay]. */
+    fun rulesFrozenBySchedule(context: Context, until: String): String {
+        if (!kind(context)) return "Rules are locked by an overlay window. Opens up again at " + until + "."
+        return "Your rules are held still until this window opens up again, at " + until +
+            ". You set it to overlay yourself, back when it was an easy call."
+    }
+
     /** The line under a frozen switch, explaining why it will not move. */
     fun rulesFrozenHint(context: Context): String {
-        if (!kind(context)) return "Locked until the session ends."
-        return "Held still until the session ends."
+        if (!kind(context)) return "Locked right now."
+        return "Held still right now."
     }
 
     fun breakStarted(context: Context, minutes: Int): String {

@@ -562,7 +562,8 @@ object CapabilityRegistry {
         FocusStore.getJsonObject(context, KEY_ENABLED).has(id)
 
     /**
-     * Whether the rules are currently frozen by a running session.
+     * Whether the rules are currently frozen by a running session or an
+     * overlay schedule window.
      *
      * A self-lock that can be edited from inside is not a lock: the moment the
      * urge arrives is exactly the moment a person will go and switch the guard
@@ -573,9 +574,18 @@ object CapabilityRegistry {
      * mid-session turns [Capabilities.LOCK_RULES_IN_SESSION] off *before*
      * starting one. It cannot be turned off from inside a session — that would
      * make it a door with the key taped to it.
+     *
+     * An overlay schedule window freezes unconditionally, with no capability
+     * to switch it off from inside — that toggle would be the same taped-on
+     * key, and "dead phone" was the one thing overlay promised. Editing the
+     * window itself (moving its end time, dropping its own overlay flag,
+     * widening its allowedApps) would otherwise be exactly the loophole the
+     * lock-task pinning was supposed to close, since FocusLock stays reachable
+     * inside every overlay window by design.
      */
     fun isFrozen(context: Context): Boolean =
-        SessionManager.isActive(context) && isEnabled(context, Capabilities.LOCK_RULES_IN_SESSION)
+        (SessionManager.isActive(context) && isEnabled(context, Capabilities.LOCK_RULES_IN_SESSION)) ||
+            ScheduleManager.requiresLockTask(context)
 
     /**
      * Writes a capability, unless a session has frozen the rules.

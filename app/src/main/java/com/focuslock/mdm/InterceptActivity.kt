@@ -344,7 +344,7 @@ class InterceptActivity : AppCompatActivity() {
      * window looks like a broken phone.
      */
     private fun buildStillOpen(): View? {
-        if (source != "schedule" && source != "bedtime" && source != "place") return null
+        if (source != "schedule" && source != "scheduleOverlay" && source != "bedtime" && source != "place") return null
 
         val window = ScheduleManager.activeWindowIfEnabled(this)
         val open = (AppRules.alwaysAllowed(this) + window?.allowedApps.orEmpty())
@@ -414,12 +414,15 @@ class InterceptActivity : AppCompatActivity() {
 
     /**
      * A pause is not a wall. Letting the person through after the countdown is
-     * what keeps soft mode honest, and it is recorded as an ordinary break so
-     * the app does not silently re-intercept them two seconds later.
+     * what keeps soft mode honest, so this grants a short pass unconditionally
+     * (see [TakeABreak.grantFrictionPass]) rather than the budgeted, capability-
+     * gated [TakeABreak.start] - that used to silently fail whenever Take a
+     * Break was off or its daily allowance was spent, and the app would just
+     * get re-intercepted the moment it opened, looping the pause screen.
      */
     private fun openAnyway() {
         if (blockedPackage.isNotBlank()) {
-            TakeABreak.start(this, blockedPackage)
+            TakeABreak.grantFrictionPass(this, blockedPackage)
             val launch = packageManager.getLaunchIntentForPackage(blockedPackage)
             if (launch != null) {
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

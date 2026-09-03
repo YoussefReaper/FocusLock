@@ -37,10 +37,19 @@ object SessionLock {
      * The one line shown when something is refused.
      *
      * Says what is happening and when it lifts, never scolds, and never implies
-     * the person did something wrong by trying.
+     * the person did something wrong by trying. A session's own freeze wins the
+     * wording when both happen to be true at once; the schedule-only phrasing
+     * only shows up when nothing else is running, so it never talks about a
+     * "session" that is not actually the reason.
      */
-    fun refusalMessage(context: Context): String =
-        Copy.rulesFrozen(context, SessionManager.formatRemaining(context))
+    fun refusalMessage(context: Context): String {
+        if (!SessionManager.isActive(context)) {
+            ScheduleManager.activeWindowIfEnabled(context)?.takeIf { it.overlay }?.let { window ->
+                return Copy.rulesFrozenBySchedule(context, ScheduleManager.formatTime(window.endMinutes))
+            }
+        }
+        return Copy.rulesFrozen(context, SessionManager.formatRemaining(context))
+    }
 
     /**
      * Guards a mutation.

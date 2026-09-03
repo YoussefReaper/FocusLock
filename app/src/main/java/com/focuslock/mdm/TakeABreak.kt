@@ -114,6 +114,26 @@ object TakeABreak {
         return true
     }
 
+    /**
+     * Grants a pass unconditionally, bypassing both [isAvailable] and the daily
+     * allowance. Used only by the launch-friction "open anyway" flow.
+     *
+     * Friction's own promise is "the few seconds are the whole intervention":
+     * once someone waits out the countdown, the way through is supposed to
+     * stay open, full stop. Routing that through the budgeted [start] used to
+     * mean the app opened for an instant and then got re-intercepted on the
+     * very next policy check the moment the separate Take a Break capability
+     * was off or its daily allowance was already spent - the pause screen
+     * would just reappear no matter how many times "open anyway" was tapped.
+     * This does not touch [usedToday], so it never competes with that budget.
+     */
+    fun grantFrictionPass(context: Context, packageName: String) {
+        val passes = FocusStore.getJsonObject(context, KEY_PASSES)
+        passes.put(packageName, System.currentTimeMillis() + breakMinutes(context) * 60_000L)
+        FocusStore.setJsonObject(context, KEY_PASSES, passes)
+        PolicySync.request(context, "break:" + packageName)
+    }
+
     fun endEarly(context: Context, packageName: String) {
         val passes = FocusStore.getJsonObject(context, KEY_PASSES)
         passes.remove(packageName)

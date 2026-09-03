@@ -20,7 +20,20 @@ data class ScheduleWindow(
     val daysOfWeek: List<Int>,
     val dayOfMonth: Int,
     val message: String,
-    val allowedApps: Set<String> = emptySet()
+    val allowedApps: Set<String> = emptySet(),
+    /**
+     * A hard, Device-Owner lock-task lock for the duration of the window,
+     * instead of the ordinary accessibility-service block.
+     *
+     * The ordinary block is a polite request the accessibility service makes
+     * on every foreground change - reachable in between checks, and never
+     * covers the home screen or FocusLock's own other screens. Overlay is
+     * absolute: nothing outside always-allowed and this window's own
+     * [allowedApps] can be brought to the foreground at all, not even the
+     * launcher, not even a break pass. See [RuleEngine.decide] and
+     * [KioskPolicy.buildLockTaskPackages].
+     */
+    val overlay: Boolean = false
 )
 
 object ScheduleManager {
@@ -102,7 +115,8 @@ object ScheduleManager {
         daysOfWeek: List<Int>,
         dayOfMonth: Int,
         message: String,
-        allowedApps: Collection<String> = emptyList()
+        allowedApps: Collection<String> = emptyList(),
+        overlay: Boolean = false
     ): ScheduleWindow {
         return ScheduleWindow(
             id = UUID.randomUUID().toString(),
@@ -112,9 +126,18 @@ object ScheduleManager {
             daysOfWeek = daysOfWeek,
             dayOfMonth = dayOfMonth,
             message = message,
-            allowedApps = allowedApps.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+            allowedApps = allowedApps.map { it.trim() }.filter { it.isNotBlank() }.toSet(),
+            overlay = overlay
         )
     }
+
+    /**
+     * Whether the currently active window demands the real Device-Owner lock,
+     * not just the ordinary accessibility-service block. See
+     * [ScheduleWindow.overlay].
+     */
+    fun requiresLockTask(context: Context, now: Calendar = Calendar.getInstance()): Boolean =
+        activeWindowIfEnabled(context, now)?.overlay == true
 
     fun getActiveWindow(context: Context, now: Calendar = Calendar.getInstance()): ScheduleWindow? {
         val schedules = getSchedules(context)
@@ -201,6 +224,7 @@ object ScheduleManager {
             val allowedApps = JSONArray()
             schedule.allowedApps.forEach { allowedApps.put(it) }
             obj.put("allowedApps", allowedApps)
+            obj.put("overlay", schedule.overlay)
             array.put(obj)
         }
         return array.toString()
@@ -232,7 +256,8 @@ object ScheduleManager {
                     daysOfWeek = days,
                     dayOfMonth = obj.optInt("dayOfMonth"),
                     message = obj.optString("message"),
-                    allowedApps = allowedApps
+                    allowedApps = allowedApps,
+                    overlay = obj.optBoolean("overlay", false)
                 )
             }
         } catch (_: Exception) {

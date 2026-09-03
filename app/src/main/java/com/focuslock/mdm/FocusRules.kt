@@ -250,6 +250,29 @@ object RuleEngine {
 
         if (AppRules.isAlwaysAllowed(context, packageName)) return allow("alwaysAllowed")
 
+        // An overlay window is absolute: not a break pass (even one granted
+        // before the window started), not Earn, not a place or a custom rule -
+        // nothing below this gets a vote. Checked before everything else that
+        // could otherwise let something through, which is the one thing that
+        // actually makes "overlay" mean dead phone rather than a slightly
+        // stronger version of the ordinary schedule block further down. See
+        // [ScheduleWindow.overlay] and [KioskPolicy.buildLockTaskPackages] for
+        // the matching Device-Owner lock-task side of this.
+        ScheduleManager.activeWindowIfEnabled(context)?.takeIf { it.overlay }?.let { window ->
+            val allowed = AppRules.alwaysAllowed(context) + window.allowedApps
+            if (packageName !in allowed) {
+                return GuardDecision(
+                    packageName,
+                    GuardOutcome.BLOCK,
+                    Copy.scheduleOverlayHeadline(context, window),
+                    Copy.scheduleOverlayDetail(context, window),
+                    "scheduleOverlay",
+                    offersBreak = false
+                )
+            }
+            return allow("scheduleOverlayAllowed")
+        }
+
         if (TakeABreak.hasActivePass(context, packageName)) return allow("break")
 
         // An Earn task narrows before anything else gets a say. Checking it here
@@ -271,7 +294,9 @@ object RuleEngine {
         }
 
         // Schedules and bedtime run on the clock and do not need a session.
-        ScheduleManager.activeWindowIfEnabled(context)?.let { window ->
+        // An overlay window already returned above, absolutely - this is only
+        // ever reached for the ordinary, escapable kind.
+        ScheduleManager.activeWindowIfEnabled(context)?.takeIf { !it.overlay }?.let { window ->
             val allowed = AppRules.alwaysAllowed(context) + window.allowedApps
             if (packageName !in allowed) {
                 return GuardDecision(

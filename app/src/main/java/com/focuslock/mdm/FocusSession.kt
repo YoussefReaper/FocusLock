@@ -268,7 +268,9 @@ object SessionManager {
      * Kiosk pins FocusLock as the shell, and so does a standalone Earn task:
      * "the phone is only this until the work is done" is the same primitive
      * either way. A merged Earn task rides on whatever mode is already running
-     * and does not turn lock-task on by itself.
+     * and does not turn lock-task on by itself. An overlay schedule window
+     * pins it too - it does not need a session running at all, which is the
+     * whole point of a window that "starts itself" (see [ScheduleWindow.overlay]).
      */
     fun shouldLockTask(context: Context): Boolean {
         if (isActive(context) &&
@@ -277,7 +279,8 @@ object SessionManager {
         ) {
             return true
         }
-        return EarnSession.requiresLockTask(context)
+        if (EarnSession.requiresLockTask(context)) return true
+        return ScheduleManager.requiresLockTask(context)
     }
 
     /**

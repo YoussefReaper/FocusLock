@@ -47,14 +47,12 @@ class ScheduleActivity : FocusScreenActivity() {
 
         ScheduleManager.activeWindowIfEnabled(this)?.let { window ->
             card.addView(FocusUi.spacer(this, 8))
-            card.addView(
-                FocusUi.pill(
-                    this,
-                    tokens,
-                    "Running until " + ScheduleManager.formatTime(window.endMinutes),
-                    tokens.accent
-                )
-            )
+            val label = if (window.overlay) {
+                "Overlaying until " + ScheduleManager.formatTime(window.endMinutes)
+            } else {
+                "Running until " + ScheduleManager.formatTime(window.endMinutes)
+            }
+            card.addView(FocusUi.pill(this, tokens, label, if (window.overlay) tokens.warning else tokens.accent))
         }
 
         card.addView(FocusUi.spacer(this, 10))
@@ -118,8 +116,9 @@ class ScheduleActivity : FocusScreenActivity() {
         } else {
             schedule.allowedApps.size.toString() + " extra apps allowed"
         }
+        val overlay = if (schedule.overlay) " · overlay" else ""
         val message = if (schedule.message.isBlank()) "" else schedule.message + " · "
-        return message + repeat + " · " + extras
+        return message + repeat + " · " + extras + overlay
     }
 
     private fun dayName(day: Int): String = when (day) {
@@ -146,6 +145,7 @@ class ScheduleActivity : FocusScreenActivity() {
         var dayOfMonth = existing?.dayOfMonth ?: 1
         var message = existing?.message.orEmpty()
         var allowedApps = existing?.allowedApps ?: emptySet()
+        var overlay = existing?.overlay ?: false
 
         FocusDialog.custom(
             this,
@@ -164,7 +164,8 @@ class ScheduleActivity : FocusScreenActivity() {
                         daysOfWeek = days.toList(),
                         dayOfMonth = dayOfMonth,
                         message = message,
-                        allowedApps = allowedApps
+                        allowedApps = allowedApps,
+                        overlay = overlay
                     ) ?: ScheduleManager.newSchedule(
                         startMinutes = start,
                         endMinutes = end,
@@ -172,7 +173,8 @@ class ScheduleActivity : FocusScreenActivity() {
                         daysOfWeek = days.toList(),
                         dayOfMonth = dayOfMonth,
                         message = message,
-                        allowedApps = allowedApps
+                        allowedApps = allowedApps,
+                        overlay = overlay
                     )
                     if (existing == null) {
                         ScheduleManager.addSchedule(this, window)
@@ -264,6 +266,19 @@ class ScheduleActivity : FocusScreenActivity() {
                         message
                     ) { value -> message = value }
                 }
+            )
+
+            body.addView(FocusUi.divider(this, dialogTokens, 8))
+            body.addView(
+                FocusUi.toggleRow(
+                    this,
+                    dialogTokens,
+                    "Overlay this window",
+                    "Locks the phone for real - not even the home screen opens anything outside " +
+                        "always-allowed and this window's own apps. No break, no exceptions, and " +
+                        "every rule (including this window) is frozen until it ends.",
+                    overlay
+                ) { value -> overlay = value }
             )
 
             if (existing != null) {

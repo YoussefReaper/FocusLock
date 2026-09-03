@@ -45,28 +45,53 @@ object KioskPolicy {
         scheduleAllowed: Set<String>,
         baselineReady: Boolean,
         allowLauncherEscape: Boolean,
-        earnAllowed: Set<String>? = null
+        earnAllowed: Set<String>? = null,
+        /**
+         * The active overlay window's own ceiling (always-allowed union that
+         * window's allowedApps), or null when no overlay window is running.
+         * See [ScheduleWindow.overlay]. Absolute on purpose: unlike
+         * [earnAllowed], which only ever narrows a mode that was already
+         * running, this replaces [userAllowed] and every other window's
+         * [scheduleAllowed] entirely - a window a person did not choose to
+         * make absolute must never widen one they did.
+         */
+        scheduleOverlayAllowed: Set<String>? = null
     ): Set<String> {
         val allowed = LinkedHashSet<String>()
         allowed.add(ownPackage)
 
-        if (earnAllowed != null) {
-            // An Earn task narrows rather than widens. Whatever the standing
-            // allowlist was, the live set is now only what the task needs, which
-            // is the whole point: a task cannot open a door the running mode had
-            // shut. The intersection with the standing allowlist happened in
-            // EarnSession.allowedPackages before this was called.
-            allowed.addAll(earnAllowed)
-        } else {
-            allowed.addAll(userAllowed)
-            allowed.addAll(alwaysAllowed)
-            allowed.addAll(scheduleAllowed)
+        when {
+            scheduleOverlayAllowed != null -> {
+                // An Earn task can still narrow further inside an overlay
+                // window, but it can never widen past what the window itself
+                // allows - the same "narrows, never widens" rule as always,
+                // just with the window as the new ceiling instead of the
+                // user's own standing allowlist.
+                allowed.addAll(
+                    if (earnAllowed != null) earnAllowed.intersect(scheduleOverlayAllowed) else scheduleOverlayAllowed
+                )
+            }
+            earnAllowed != null -> {
+                // An Earn task narrows rather than widens. Whatever the standing
+                // allowlist was, the live set is now only what the task needs, which
+                // is the whole point: a task cannot open a door the running mode had
+                // shut. The intersection with the standing allowlist happened in
+                // EarnSession.allowedPackages before this was called.
+                allowed.addAll(earnAllowed)
+            }
+            else -> {
+                allowed.addAll(userAllowed)
+                allowed.addAll(alwaysAllowed)
+                allowed.addAll(scheduleAllowed)
+            }
         }
 
         allowed.addAll(SystemSurfaces.critical)
 
         // Before the permission baseline is complete the user still has to reach
-        // Settings to grant things, so those routes stay open exactly until then.
+        // Settings to grant things, so those routes stay open exactly until then -
+        // including inside an overlay window, or a schedule set up before setup
+        // finished could brick the phone's own recovery route.
         if (!baselineReady) {
             allowed.addAll(SystemSurfaces.settings)
         }
@@ -96,6 +121,7 @@ object KioskPolicy {
         }
 
         val kioskWanted = SessionManager.shouldLockTask(context)
+        val scheduleOverlay = ScheduleManager.activeWindowIfEnabled(context)?.takeIf { it.overlay }
         val persistentHome = kioskWanted &&
             CapabilityRegistry.isEnabled(context, Capabilities.PERSISTENT_HOME)
 
@@ -105,8 +131,15 @@ object KioskPolicy {
             alwaysAllowed = AppRules.alwaysAllowed(context),
             scheduleAllowed = ScheduleManager.getAllScheduleAllowedApps(context),
             baselineReady = LockManager.isSecurityBaselineReady(context),
-            allowLauncherEscape = !persistentHome,
-            earnAllowed = earnNarrowing(context)
+            // An overlay window means the phone, not even its own launcher.
+            // Android's own lock-task home fallback (a bare list of the allowed
+            // apps) is what a person sees on Home instead - there just isn't a
+            // real launcher in the allowlist to escape to.
+            allowLauncherEscape = scheduleOverlay == null && !persistentHome,
+            earnAllowed = earnNarrowing(context),
+            scheduleOverlayAllowed = scheduleOverlay?.let {
+                AppRules.alwaysAllowed(context) + it.allowedApps
+            }
         ).filter { pkg ->
             pkg == context.packageName || isPackageInstalled(context, pkg)
         }.toTypedArray()
