@@ -19,6 +19,20 @@ enum class AppPolicy(val id: String, val label: String, val blurb: String) {
 
     val stopsLaunch: Boolean get() = this == BLOCK || this == HIDE
 
+    /**
+     * A one-word form of [label] for a pill/status chip, where "Give it a
+     * budget" doesn't fit. [label] stays the full phrase everywhere the
+     * ladder itself is shown - this is additive, not a replacement.
+     */
+    val shortLabel: String
+        get() = when (this) {
+            ALLOW -> "Open"
+            FRICTION -> "Pause"
+            LIMIT -> "Budget"
+            BLOCK -> "Blocked"
+            HIDE -> "Hidden"
+        }
+
     companion object {
         fun fromId(id: String?): AppPolicy =
             values().firstOrNull { it.id == id } ?: ALLOW

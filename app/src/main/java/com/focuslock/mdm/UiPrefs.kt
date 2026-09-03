@@ -71,6 +71,16 @@ object UiPrefs {
         val success: Int,
         val warning: Int,
         val typeface: Typeface,
+        /**
+         * Numerals, timers, counts, state-chip labels and section overlines
+         * use this - always IBM Plex Mono, regardless of [typeface]. That is
+         * deliberate: it is what keeps the app's technical honesty legible
+         * (a countdown reads as a countdown) without the whole app wearing
+         * the "engineer-built" look full-mono body text gave it before.
+         * Pass a weight (400/500/600) to FocusUi.applyFont(mono = true, ...)
+         * to pick the matching instance out of this family.
+         */
+        val monoTypeface: Typeface,
         val radiusDp: Int,
         val textScale: Float,
         val density: UiDensity,
@@ -79,82 +89,66 @@ object UiPrefs {
         val dimPercent: Int
     ) {
         fun scaled(sp: Float): Float = sp * textScale
+
+        // Radius roles. The user's one slider (radiusDp, default 20 = the
+        // card role below) offsets all four together, proportionally, so
+        // "make corners rounder" still means one dial rather than four.
+        val chipRadiusDp: Int get() = (radiusDp * 9 / 20).coerceIn(2, 18)
+        val rowRadiusDp: Int get() = (radiusDp * 15 / 20).coerceIn(4, 26)
+        // Not one of the doc's four named roles, but every button mockup in
+        // it consistently uses r16 - close to but distinct from row(15).
+        // Derived the same proportional way as the other roles so it still
+        // answers to the one radius slider.
+        val buttonRadiusDp: Int get() = (radiusDp * 16 / 20).coerceIn(4, 28)
+        val cardRadiusDp: Int get() = radiusDp
+        val heroRadiusDp: Int get() = (radiusDp * 24 / 20).coerceIn(6, 40)
     }
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(Constants.PREFS_MAIN, Context.MODE_PRIVATE)
 
     private const val DEFAULT_THEME_ID = "obsidian"
-    private const val DEFAULT_FONT_ID = "system"
+    private const val DEFAULT_FONT_ID = "figtree"
     private const val DEFAULT_DENSITY_ID = "comfortable"
     private const val DEFAULT_WALLPAPER_ID = "none"
     private const val DEFAULT_ACCENT_ID = "accent_blue"
     private const val DEFAULT_BACKGROUND_ID = "bg_default"
-    private const val DEFAULT_CARD_RADIUS_DP = 18
+    // Card radius default moved 18->20 to match the design system's card
+    // role exactly; chip/row/hero are derived proportionally from whatever
+    // this slider is set to - see chipRadiusDp/rowRadiusDp/heroRadiusDp.
+    private const val DEFAULT_CARD_RADIUS_DP = 20
     private const val DEFAULT_TEXT_SCALE = 1.0f
 
     // ── Palettes ──────────────────────────────────────────────────
     //
     // Every pair below clears 4.5:1 for body text and 3:1 for large text on its
-    // own surfaces. The light themes exist because "focus app" does not have to
+    // own surfaces. The light theme exists because "focus app" does not have to
     // mean "black rectangle", and because a bright room is a real use case.
+    //
+    // Cut from 7 themes to 3 (2026-09, design system pass): Sage, Sand, Dawn
+    // and Mist were the same dark-or-light theme with a tinted background,
+    // which the separate `backgrounds` list already does as its own token -
+    // 7 themes x 8 accents x 6 fonts x 3 densities was over a thousand
+    // combinations to keep contrast-safe for very little real difference.
+    // Migration.kt maps anyone still on the old ids onto the nearest of
+    // these three, keeping their look as close as a straight retint allows.
+    // Nocturne is untouched - it already had a distinct, deliberately quiet
+    // job (the auto theme at bedtime) and didn't need retuning.
 
     val themes: List<UiTheme> = listOf(
         UiTheme(
             id = "obsidian",
             label = "Obsidian",
             isLight = false,
-            background = Color.parseColor("#0B0B0D"),
-            card = Color.parseColor("#16171A"),
-            cardAlt = Color.parseColor("#1E2024"),
-            textPrimary = Color.parseColor("#F5F6F7"),
-            textSecondary = Color.parseColor("#9AA0A8"),
-            accent = Color.parseColor("#3B82F6"),
-            track = Color.parseColor("#22242A"),
-            divider = Color.parseColor("#232529"),
-            input = Color.parseColor("#1A1C20")
-        ),
-        UiTheme(
-            id = "sage",
-            label = "Sage",
-            isLight = false,
-            background = Color.parseColor("#0C1411"),
-            card = Color.parseColor("#17211C"),
-            cardAlt = Color.parseColor("#1F2C25"),
-            textPrimary = Color.parseColor("#EAF5EE"),
-            textSecondary = Color.parseColor("#94AC9D"),
-            accent = Color.parseColor("#4ADE80"),
-            track = Color.parseColor("#22302A"),
-            divider = Color.parseColor("#243129"),
-            input = Color.parseColor("#182219")
-        ),
-        UiTheme(
-            id = "sand",
-            label = "Sand",
-            isLight = false,
-            background = Color.parseColor("#15110B"),
-            card = Color.parseColor("#211A11"),
-            cardAlt = Color.parseColor("#2B2217"),
-            textPrimary = Color.parseColor("#F8EEDC"),
-            textSecondary = Color.parseColor("#BFAC90"),
-            accent = Color.parseColor("#F5A524"),
-            track = Color.parseColor("#2D2418"),
-            divider = Color.parseColor("#2C2318"),
-            input = Color.parseColor("#221A11")
-        ),
-        UiTheme(
-            id = "dawn",
-            label = "Dawn",
-            isLight = false,
-            background = Color.parseColor("#0A0F16"),
-            card = Color.parseColor("#141D28"),
-            cardAlt = Color.parseColor("#1C2836"),
-            textPrimary = Color.parseColor("#E9F2FF"),
-            textSecondary = Color.parseColor("#8A9AB0"),
-            accent = Color.parseColor("#FF8C42"),
-            track = Color.parseColor("#1E2A38"),
-            divider = Color.parseColor("#1F2B39"),
-            input = Color.parseColor("#16202C")
+            background = Color.parseColor("#0A0C10"),
+            card = Color.parseColor("#12151B"),
+            cardAlt = Color.parseColor("#1A1F27"),
+            textPrimary = Color.parseColor("#EDF1F7"),
+            textSecondary = Color.parseColor("#98A3B4"),
+            accent = Color.parseColor("#1D4ED8"),
+            track = Color.parseColor("#1E2532"),
+            divider = Color.parseColor("#232935"),
+            input = Color.parseColor("#1E2532")
         ),
         UiTheme(
             id = "nocturne",
@@ -174,39 +168,40 @@ object UiPrefs {
             id = "paper",
             label = "Paper",
             isLight = true,
-            background = Color.parseColor("#FAF9F7"),
+            background = Color.parseColor("#F7F8FA"),
             card = Color.parseColor("#FFFFFF"),
-            cardAlt = Color.parseColor("#F1EFEB"),
-            textPrimary = Color.parseColor("#17181A"),
-            textSecondary = Color.parseColor("#5C6068"),
-            accent = Color.parseColor("#2563EB"),
-            track = Color.parseColor("#E5E3DE"),
-            divider = Color.parseColor("#E7E4DF"),
-            input = Color.parseColor("#F3F1ED")
-        ),
-        UiTheme(
-            id = "mist",
-            label = "Mist",
-            isLight = true,
-            background = Color.parseColor("#F3F6F9"),
-            card = Color.parseColor("#FFFFFF"),
-            cardAlt = Color.parseColor("#E8EDF3"),
-            textPrimary = Color.parseColor("#111826"),
-            textSecondary = Color.parseColor("#54607A"),
-            accent = Color.parseColor("#0F766E"),
-            track = Color.parseColor("#DDE4EC"),
-            divider = Color.parseColor("#DFE5EC"),
+            cardAlt = Color.parseColor("#EFF2F6"),
+            textPrimary = Color.parseColor("#10141A"),
+            textSecondary = Color.parseColor("#5A6472"),
+            accent = Color.parseColor("#1D6FE8"),
+            track = Color.parseColor("#EDF1F6"),
+            divider = Color.parseColor("#E2E7EE"),
             input = Color.parseColor("#EDF1F6")
         )
     )
 
+    /**
+     * Cut from 6 to 3 (2026-09, design system pass): Sans, Serif, Light and
+     * Condensed were all still just the one job - carry prose - and Figtree
+     * does that job better than any of them while giving the app an actual
+     * typographic identity instead of "whatever Android ships." System and
+     * Mono stay because they are real, different choices: System for
+     * "match my phone," Mono for someone who wants the engineer-built look
+     * on purpose. See [resolveMonoTypeface] for the *structural* mono use
+     * (numerals, timers, chip labels) that applies regardless of this choice.
+     *
+     * The `typeface` field on the Figtree entry is a placeholder only -
+     * loading the real bundled font needs a Context, which this static list
+     * does not have. Every real read goes through [resolve], which swaps in
+     * the actual font-family Typeface for whichever id is selected. Nothing
+     * outside this file reads `.typeface` off a `fonts` list entry directly
+     * (confirmed: PersonalizationActivity/YouTab's font pickers only read
+     * `.id`/`.label`), so this placeholder is never seen by a screen.
+     */
     val fonts: List<UiFont> = listOf(
+        UiFont("figtree", "Figtree", Typeface.DEFAULT),
         UiFont("system", "System", Typeface.DEFAULT),
-        UiFont("sans", "Sans", Typeface.SANS_SERIF),
-        UiFont("serif", "Serif", Typeface.SERIF),
-        UiFont("mono", "Mono", Typeface.MONOSPACE),
-        UiFont("light", "Light", Typeface.create("sans-serif-light", Typeface.NORMAL)),
-        UiFont("condensed", "Condensed", Typeface.create("sans-serif-condensed", Typeface.NORMAL))
+        UiFont("mono", "Mono", Typeface.MONOSPACE)
     )
 
     val densities: List<UiDensity> = listOf(
@@ -250,7 +245,14 @@ object UiPrefs {
     )
 
     val accents: List<UiAccent> = listOf(
-        UiAccent("accent_blue", "Electric Blue", Color.parseColor("#3B82F6")),
+        // Retinted to the brand blue (2026-09, design system pass): neon
+        // blue on near-black read as a gaming utility. This is the same
+        // #1D4ED8 the marketing site and app icon use, so the product looks
+        // like one thing across every surface. The lighter #4C93FF gradient
+        // stop lives only on the primary-button gradient (FocusUi.roundedGradientShape),
+        // derived from this at the point buttons are drawn - not stored
+        // here, so it stays correct if someone picks a different accent.
+        UiAccent("accent_blue", "Electric Blue", Color.parseColor("#1D4ED8")),
         UiAccent("accent_green", "Lime Green", Color.parseColor("#22C55E")),
         UiAccent("accent_orange", "Sunset Orange", Color.parseColor("#F97316")),
         UiAccent("accent_pink", "Neon Pink", Color.parseColor("#EC4899")),
@@ -483,7 +485,8 @@ object UiPrefs {
             danger = if (base.isLight) Color.parseColor("#DC2626") else Color.parseColor("#F87171"),
             success = if (base.isLight) Color.parseColor("#15803D") else Color.parseColor("#4ADE80"),
             warning = if (base.isLight) Color.parseColor("#B45309") else Color.parseColor("#FBBF24"),
-            typeface = getFont(context).typeface,
+            typeface = resolveTypeface(context, getFont(context).id),
+            monoTypeface = resolveMonoTypeface(context),
             radiusDp = getCardRadiusDp(context).coerceIn(0, 32),
             textScale = getTextScale(context).coerceIn(0.8f, 1.4f),
             density = getDensity(context),
@@ -492,6 +495,24 @@ object UiPrefs {
             dimPercent = if (Bedtime.isActive(context)) Bedtime.dimPercent(context) else 0
         )
     }
+
+    /**
+     * The static system typefaces need no Context; the bundled Figtree
+     * family does, which is why this can't live in the [fonts] list itself.
+     * `ResourcesCompat.getFont` keeps its own cache keyed by resource id, so
+     * calling this on every [resolve] (i.e. most screen builds) does not
+     * mean re-reading the font file each time.
+     */
+    private fun resolveTypeface(context: Context, fontId: String): Typeface = when (fontId) {
+        "figtree" -> androidx.core.content.res.ResourcesCompat.getFont(context, R.font.figtree_family)
+            ?: Typeface.DEFAULT
+        "mono" -> Typeface.MONOSPACE
+        else -> Typeface.DEFAULT
+    }
+
+    private fun resolveMonoTypeface(context: Context): Typeface =
+        androidx.core.content.res.ResourcesCompat.getFont(context, R.font.ibm_plex_mono_family)
+            ?: Typeface.MONOSPACE
 
     /** Black or white, whichever is actually readable on the given colour. */
     fun readableOn(color: Int): Int {

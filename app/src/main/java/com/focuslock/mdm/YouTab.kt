@@ -270,6 +270,9 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
     /** Section label with a "?" beside it, since this is the page that needs one. */
     private fun buildAdvancedHeader(): View {
         val row = FocusUi.row(activity)
+        val icon = FocusUi.categoryIcon(activity, tokens, R.drawable.ic_glyph_focus, sizeDp = 16)
+        (icon.layoutParams as LinearLayout.LayoutParams).marginEnd = FocusUi.dp(activity, 8)
+        row.addView(icon)
         val label = FocusUi.sectionLabel(activity, tokens, "Advanced")
         label.layoutParams = LinearLayout.LayoutParams(
             0,

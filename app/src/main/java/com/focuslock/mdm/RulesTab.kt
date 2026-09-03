@@ -108,33 +108,39 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 "Apps",
                 AppRules.blockedPackages(activity).size.toString() + " blocked, " +
                     AppRules.alwaysAllowed(activity).size + " always allowed",
-                Intent(activity, AppRulesActivity::class.java)
+                Intent(activity, AppRulesActivity::class.java),
+                R.drawable.ic_glyph_apps
             ),
             Editor(
                 "Always-allowed apps",
                 "Essentials nothing can lock away",
-                Intent(activity, AlwaysAllowedActivity::class.java)
+                Intent(activity, AlwaysAllowedActivity::class.java),
+                R.drawable.ic_glyph_apps
             ),
             Editor(
                 "Websites",
                 AllowlistStore.getWebAllowlistUrls(activity).size.toString() + " sites on the list",
-                Intent(activity, WebAllowlistEditorActivity::class.java)
+                Intent(activity, WebAllowlistEditorActivity::class.java),
+                R.drawable.ic_glyph_guard
             ),
             Editor(
                 "Keyword guard",
                 KeywordRules.userRules(activity).size.toString() + " of your own words",
-                Intent(activity, KeywordGuardActivity::class.java)
+                Intent(activity, KeywordGuardActivity::class.java),
+                R.drawable.ic_glyph_keywords
             ),
             Editor(
                 "Schedules",
                 ScheduleManager.getSchedules(activity).size.toString() + " quiet windows",
-                Intent(activity, ScheduleActivity::class.java)
+                Intent(activity, ScheduleActivity::class.java),
+                R.drawable.ic_glyph_schedules
             ),
             Editor(
                 "Daily limits",
                 (AppLimits.allMinuteLimits(activity).size + AppLimits.allOpenLimits(activity).size)
                     .toString() + " budgets set",
-                Intent(activity, AppLimitsActivity::class.java)
+                Intent(activity, AppLimitsActivity::class.java),
+                R.drawable.ic_glyph_limits
             ),
             Editor(
                 "Bedtime",
@@ -143,17 +149,20 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 } else {
                     "Off"
                 },
-                Intent(activity, BedtimeActivity::class.java)
+                Intent(activity, BedtimeActivity::class.java),
+                R.drawable.ic_glyph_bedtime
             ),
             Editor(
                 "Places and networks",
                 PlaceRules.all(activity).size.toString() + " saved",
-                Intent(activity, PlaceRulesActivity::class.java)
+                Intent(activity, PlaceRulesActivity::class.java),
+                R.drawable.ic_glyph_places
             ),
             Editor(
                 "Custom rules",
                 RuleStore.all(activity).size.toString() + " if-this-then-that rules",
-                Intent(activity, RuleEditorActivity::class.java)
+                Intent(activity, RuleEditorActivity::class.java),
+                R.drawable.ic_glyph_rules
             ),
             Editor(
                 "Tasks and earning",
@@ -165,7 +174,8 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 },
                 Intent(activity, MainActivity::class.java)
                     .putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_TASKS)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                R.drawable.ic_glyph_earn
             )
         )
 
@@ -176,7 +186,8 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     tokens,
                     editor.title,
                     editor.subtitle,
-                    trailing = FocusUi.chevron(activity, tokens)
+                    trailing = FocusUi.chevron(activity, tokens),
+                    leading = FocusUi.categoryIcon(activity, tokens, editor.icon)
                 ) { activity.startActivity(editor.intent) }
             )
             if (index < entries.size - 1) card.addView(FocusUi.divider(activity, tokens))
@@ -184,7 +195,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         return card
     }
 
-    private data class Editor(val title: String, val subtitle: String, val intent: Intent)
+    private data class Editor(val title: String, val subtitle: String, val intent: Intent, val icon: Int)
 
     // ── Capabilities ──────────────────────────────────────────────
 

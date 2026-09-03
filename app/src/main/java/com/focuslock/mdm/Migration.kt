@@ -14,7 +14,7 @@ import android.content.Context
 object Migration {
 
     private const val KEY_VERSION = "store_migration_version"
-    private const val CURRENT_VERSION = 3
+    private const val CURRENT_VERSION = 4
 
     fun run(context: Context) {
         val version = FocusStore.getInt(context, KEY_VERSION, 0)
@@ -31,8 +31,44 @@ object Migration {
         if (version < 3) {
             seedSessionBehaviourFlags(context)
         }
+        if (version < 4) {
+            migrateRetiredThemes(context)
+        }
 
         FocusStore.setInt(context, KEY_VERSION, CURRENT_VERSION)
+    }
+
+    /**
+     * The 7-theme-to-3 cut (2026-09, design system pass). Sage, Sand and Dawn
+     * were dark themes distinguished mostly by a tinted background - which
+     * the separate `backgrounds` token already does - so they land on
+     * Obsidian plus the closest existing tint rather than losing their
+     * character entirely. Mist was the second light theme and maps onto
+     * Paper, the one that survived, since falling through silently would
+     * otherwise land a light-theme person on a dark theme with no warning.
+     *
+     * Anyone not on one of these four retired ids is untouched -
+     * `UiPrefs.getTheme` already falls back to Obsidian for any id it
+     * doesn't recognise, so this only needs to handle the cases where that
+     * generic fallback would pick the wrong brightness or throw away a tint
+     * worth keeping.
+     */
+    private fun migrateRetiredThemes(context: Context) {
+        val storedId = FocusStore.getString(context, Constants.KEY_UI_THEME, "")
+        val (newTheme, newBackground) = when (storedId) {
+            "sage" -> "obsidian" to "bg_emerald"
+            "sand" -> "obsidian" to "bg_sand"
+            "dawn" -> "obsidian" to "bg_ink"
+            "mist" -> "paper" to null
+            else -> return
+        }
+        UiPrefs.setThemeId(context, newTheme)
+        // Only overrides the background if the person hadn't already picked
+        // one of their own - a deliberate choice always wins over a
+        // migration's guess at what their old theme's colour was standing in for.
+        if (newBackground != null && UiPrefs.getBackground(context).id == "bg_default") {
+            UiPrefs.setBackgroundId(context, newBackground)
+        }
     }
 
     /**

@@ -3,7 +3,6 @@ package com.focuslock.mdm
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
@@ -27,53 +26,50 @@ import java.util.Locale
  */
 object FocusDialog {
 
+    /**
+     * A bottom sheet, not a centred card (2026-09 design system pass): pinned
+     * to the bottom edge, top corners only. All four dialog "shapes" - alert,
+     * singleChoice, the custom per-app sheet, textInput+banner+toast - ride
+     * this one shell, so this is the one change that reshapes every dialog
+     * in the app at once.
+     */
     private fun shell(context: Context, tokens: UiPrefs.Tokens): Pair<Dialog, LinearLayout> {
-        val dialog = Dialog(context)
+        val dialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-
-        val outer = LinearLayout(context)
-        outer.orientation = LinearLayout.VERTICAL
-        val margin = FocusUi.dp(context, 18)
-        outer.setPadding(margin, margin, margin, margin)
 
         val card = LinearLayout(context)
         card.orientation = LinearLayout.VERTICAL
-        val padding = FocusUi.dp(context, 22)
-        card.setPadding(padding, padding, padding, FocusUi.dp(context, 16))
-        card.background = FocusUi.roundedShape(
+        val padH = FocusUi.dp(context, 20)
+        card.setPadding(padH, FocusUi.dp(context, 22), padH, FocusUi.dp(context, 20))
+        card.background = FocusUi.cornersShape(
             context,
             tokens.surface,
-            maxOf(tokens.radiusDp, 16),
-            UiPrefs.blend(tokens.divider, tokens.surface, 0.15f)
-        )
-        outer.addView(
-            card,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            topLeftDp = 28,
+            topRightDp = 28,
+            bottomRightDp = 0,
+            bottomLeftDp = 0
         )
 
-        dialog.setContentView(outer)
+        dialog.setContentView(card)
         dialog.window?.apply {
-            // Transparent window plus the platform dim: the card supplies the
-            // only visible surface, so it keeps its rounded corners instead of
-            // sitting inside a second rectangle.
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setDimAmount(if (tokens.isLight) 0.35f else 0.6f)
+            setGravity(Gravity.BOTTOM)
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            attributes = attributes.apply {
+                windowAnimations = android.R.style.Animation_InputMethod // slides from the bottom, no platform dialog fade
+            }
         }
         return dialog to card
     }
 
+    /** Heading role (19/25/700) - the dialog title, distinct from a screen's own larger title. */
     private fun addTitle(context: Context, tokens: UiPrefs.Tokens, card: LinearLayout, title: String) {
         if (title.isBlank()) return
-        val view = FocusUi.title(context, tokens, title)
-        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(19f))
-        card.addView(view)
+        card.addView(FocusUi.heading(context, tokens, title))
     }
 
     private fun addMessage(
@@ -350,20 +346,69 @@ object FocusDialog {
         addTitle(context, tokens, card, title)
         if (!subtitle.isNullOrBlank()) addMessage(context, tokens, card, subtitle)
 
+        // The policy ladder's own option row (2026-09 design system pass):
+        // 62h/r16, current selection = accentSoft fill + a 1.5dp accent ring
+        // + a "Now" pill, replacing the old bullet/circle glyph marker.
         val list = LinearLayout(context)
         list.orientation = LinearLayout.VERTICAL
         choices.forEach { choice ->
-            val marker = TextView(context)
-            marker.text = if (choice.key == selectedKey) "●" else "○"
-            marker.setTextColor(if (choice.key == selectedKey) tokens.accent else tokens.textMuted)
-            marker.typeface = tokens.typeface
-            marker.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(16f))
-            list.addView(
-                FocusUi.listRow(context, tokens, choice.label, choice.subtitle, trailing = marker) {
-                    dialog.dismiss()
-                    onSelect(choice.key)
-                }
+            val isCurrent = choice.key == selectedKey
+            val option = LinearLayout(context)
+            option.orientation = LinearLayout.HORIZONTAL
+            option.gravity = Gravity.CENTER_VERTICAL
+            val padH = FocusUi.dp(context, 15)
+            option.setPadding(padH, FocusUi.dp(context, 13), padH, FocusUi.dp(context, 13))
+            option.minimumHeight = FocusUi.dp(context, 62)
+            option.background = FocusUi.withRipple(
+                context,
+                FocusUi.roundedShape(
+                    context,
+                    if (isCurrent) tokens.accentSoft else android.graphics.Color.TRANSPARENT,
+                    tokens.rowRadiusDp,
+                    if (isCurrent) tokens.accent else null,
+                    strokeWidthDp = if (isCurrent) 2 else 1 // nearest whole dp to the doc's 1.5dp ring
+                ),
+                tokens
             )
+            option.isClickable = true
+            option.isFocusable = true
+            option.setOnClickListener {
+                dialog.dismiss()
+                onSelect(choice.key)
+            }
+
+            val textColumn = LinearLayout(context)
+            textColumn.orientation = LinearLayout.VERTICAL
+            textColumn.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            val titleView = TextView(context)
+            titleView.text = choice.label
+            titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(15f))
+            titleView.setTextColor(tokens.textPrimary)
+            FocusUi.applyFont(titleView, tokens, weight = 600)
+            textColumn.addView(titleView)
+            if (!choice.subtitle.isNullOrBlank()) {
+                val subtitleView = TextView(context)
+                subtitleView.text = choice.subtitle
+                subtitleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
+                // The current option's subtitle is promoted to textSecondary
+                // for extra emphasis; every other option stays at textMuted.
+                subtitleView.setTextColor(if (isCurrent) tokens.textSecondary else tokens.textMuted)
+                FocusUi.applyFont(subtitleView, tokens, weight = 400)
+                subtitleView.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = FocusUi.dp(context, 2) }
+                textColumn.addView(subtitleView)
+            }
+            option.addView(textColumn)
+
+            if (isCurrent) {
+                option.addView(FocusUi.spacerH(context, 10))
+                option.addView(FocusUi.pill(context, tokens, "Now", tokens.accent))
+            }
+
+            list.addView(option)
+            list.addView(FocusUi.spacer(context, 6))
         }
 
         val scroll = FocusUi.scroll(context, list)
@@ -632,7 +677,6 @@ object FocusDialog {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = FocusUi.dp(context, 12) }
-        note.typeface = Typeface.create(tokens.typeface, Typeface.NORMAL)
         card.addView(note)
 
         addActions(context, tokens, card, "Understood", null, false, null, null, dialog)
@@ -646,11 +690,14 @@ object FocusDialog {
     /** A themed snack-style banner, for confirmations that do not need a dialog. */
     fun banner(host: ViewGroup, tokens: UiPrefs.Tokens, message: String) {
         val context = host.context
+        // r16 surfaceAlt, not a filled accent block - a banner reports
+        // something, it isn't a call to action, so it shouldn't compete
+        // with a primary button for the eye.
         val view = FocusUi.body(context, tokens, message)
-        view.setTextColor(tokens.onAccent)
+        view.setTextColor(tokens.textSecondary)
         val padding = FocusUi.dp(context, 14)
         view.setPadding(padding, padding, padding, padding)
-        view.background = FocusUi.roundedShape(context, tokens.accent, tokens.radiusDp)
+        view.background = FocusUi.roundedShape(context, tokens.surfaceAlt, tokens.rowRadiusDp)
         view.alpha = 0f
         host.addView(view)
         view.animate().alpha(1f).setDuration(180L).start()
