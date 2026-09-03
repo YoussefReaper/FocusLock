@@ -386,11 +386,21 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             card.addView(FocusUi.spacer(activity, 16))
             card.addView(
                 FocusUi.secondaryButton(activity, tokens, "Put " + mode.label + "'s defaults back") {
-                    SessionManager.resetToPreset(activity, mode)
-                    FocusDialog.toast(activity, mode.label + " defaults restored.")
+                    if (SessionManager.resetToPreset(activity, mode)) {
+                        FocusDialog.toast(activity, mode.label + " defaults restored.")
+                    } else {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
                     render()
                 }
             )
+            // Same reasoning as advancedToggle(): this button rewrites every
+            // flag above it in one tap, so it must be just as frozen as they
+            // are - the header text above already promises the rules are
+            // held still, and this button was the one thing not honouring it.
+            if (SessionLock.isFrozen(activity)) {
+                card.addView(FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity)))
+            }
         }
 
         return card
@@ -487,10 +497,14 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 "Rebuild a starting setup from a few questions. Nothing changes until you accept it.",
                 trailing = FocusUi.chevron(activity, tokens)
             ) {
-                activity.startActivity(
-                    Intent(activity, OnboardingActivity::class.java)
-                        .putExtra(OnboardingActivity.EXTRA_RERUN, true)
-                )
+                if (SessionLock.isFrozen(activity)) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                } else {
+                    activity.startActivity(
+                        Intent(activity, OnboardingActivity::class.java)
+                            .putExtra(OnboardingActivity.EXTRA_RERUN, true)
+                    )
+                }
             }
         )
         card.addView(FocusUi.divider(activity, tokens))

@@ -85,6 +85,16 @@ object KioskPolicy {
     ) {
         if (!SetupChecks.isDeviceOwner(context)) return
 
+        // A revoked permission the running session depends on wins over
+        // every normal computation below - including whatever the user's own
+        // allowlist says - until it is restored. Checked first and returns,
+        // so nothing later in this function can ever re-widen the emergency
+        // allowlist back out from underneath it on the next sync tick.
+        if (PermissionGuard.isEmergency(context)) {
+            applyPermissionEmergencyLock(context, dpm, admin)
+            return
+        }
+
         val kioskWanted = SessionManager.shouldLockTask(context)
         val persistentHome = kioskWanted &&
             CapabilityRegistry.isEnabled(context, Capabilities.PERSISTENT_HOME)
@@ -115,6 +125,65 @@ object KioskPolicy {
 
         applyStatusBar(context, dpm, admin)
         applyPersistentHome(context, dpm, admin, persistentHome)
+    }
+
+    /**
+     * The lock task allowlist while a required permission is missing:
+     * FocusLock and the Settings family, nothing else. No always-allowed
+     * apps, no schedule exceptions, no launcher escape - those all belong to
+     * the normal running session, and the whole point here is that the
+     * session's own rules do not get a vote on this one.
+     */
+    private fun applyPermissionEmergencyLock(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
+        val packages = (setOf(context.packageName) + SystemSurfaces.settings)
+            .filter { it == context.packageName || isPackageInstalled(context, it) }
+            .toTypedArray()
+        try {
+            dpm.setLockTaskPackages(admin, packages)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set emergency lock task packages", e)
+        }
+        try {
+            // Global actions keeps the power/volume keys and the emergency
+            // dialler shortcut on the lock screen working; system info keeps
+            // the clock. Nothing here offers an exit: no home, no overview,
+            // no notifications to swipe into something else.
+            dpm.setLockTaskFeatures(
+                admin,
+                DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS or
+                    DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set emergency lock task features", e)
+        }
+        try {
+            dpm.setStatusBarDisabled(admin, true)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to disable status bar for emergency lock", e)
+        }
+    }
+
+    /** Called from [PermissionRecoveryActivity] itself so it self-pins the moment it's on screen. */
+    fun enterPermissionEmergency(activity: Activity) {
+        val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+        val admin = ComponentName(activity, AdminReceiver::class.java)
+        if (dpm != null && SetupChecks.isDeviceOwner(activity)) {
+            applyPermissionEmergencyLock(activity, dpm, admin)
+        }
+        syncLockTaskState(activity)
+    }
+
+    /** Releases the emergency pin immediately, rather than waiting on the normal debounce. */
+    fun exitPermissionEmergency(activity: Activity) {
+        PolicySync.applyNow(activity)
+        val activityManager = activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        if (activityManager?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE) {
+            try {
+                activity.stopLockTask()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to exit emergency lock task", e)
+            }
+        }
     }
 
     /**
@@ -453,7 +522,7 @@ object KioskPolicy {
     fun syncLockTaskState(activity: Activity) {
         val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
             ?: return
-        val kioskEnforced = SessionManager.shouldLockTask(activity)
+        val kioskEnforced = SessionManager.shouldLockTask(activity) || PermissionGuard.isEmergency(activity)
         val activityManager = activity.getSystemService(ActivityManager::class.java)
         val isInLockTask = activityManager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
         val canManageLockTask =

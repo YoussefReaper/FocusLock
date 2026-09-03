@@ -48,6 +48,7 @@ class RuleEditorActivity : FocusScreenActivity() {
 
     private fun buildList(): View = card { card ->
         val rules = RuleStore.all(this)
+        val frozen = SessionLock.isFrozen(this)
 
         if (rules.isEmpty()) {
             card.addView(FocusUi.emptyState(this, tokens, Copy.emptyRules(this)))
@@ -58,7 +59,10 @@ class RuleEditorActivity : FocusScreenActivity() {
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                if (index > 0) {
+                // Reordering has no useful "refused" state to explain, so it
+                // simply isn't offered while frozen rather than toasting on
+                // every tap.
+                if (index > 0 && !frozen) {
                     controls.addView(
                         FocusUi.smallButton(this, tokens, "↑") {
                             RuleStore.move(this, rule.id, -1)
@@ -66,7 +70,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                         }
                     )
                 }
-                if (index < rules.size - 1) {
+                if (index < rules.size - 1 && !frozen) {
                     controls.addView(
                         FocusUi.smallButton(this, tokens, "↓") {
                             RuleStore.move(this, rule.id, 1)
@@ -76,7 +80,10 @@ class RuleEditorActivity : FocusScreenActivity() {
                 }
                 controls.addView(
                     FocusUi.switchControl(this, tokens, rule.enabled) { value ->
-                        RuleStore.update(this, rule.copy(enabled = value))
+                        if (!RuleStore.update(this, rule.copy(enabled = value))) {
+                            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                        }
+                        refresh()
                     }
                 )
 
@@ -135,6 +142,10 @@ class RuleEditorActivity : FocusScreenActivity() {
     // ── Creating ──────────────────────────────────────────────────
 
     private fun createRule() {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         val rule = RuleStore.newRule(
             label = "",
             targetType = RuleTargetType.CATEGORY,
@@ -216,6 +227,10 @@ class RuleEditorActivity : FocusScreenActivity() {
     )
 
     private fun applyTemplate(template: Template) {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         val rule = RuleStore.newRule(
             label = template.label,
             targetType = template.targetType,
@@ -235,6 +250,10 @@ class RuleEditorActivity : FocusScreenActivity() {
     // ── Editing ───────────────────────────────────────────────────
 
     private fun editRule(rule: Rule) {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         var working = rule
 
         FocusDialog.custom(

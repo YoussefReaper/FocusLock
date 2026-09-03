@@ -157,8 +157,11 @@ class ProfilesActivity : FocusScreenActivity() {
             confirmLabel = "Switch",
             cancelLabel = "Cancel",
             onConfirm = {
-                ProfileIo.restore(this, payload, includeAppearance)
-                FocusDialog.toast(this, "Setup applied.")
+                if (ProfileIo.restore(this, payload, includeAppearance)) {
+                    FocusDialog.toast(this, "Setup applied.")
+                } else {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         ) { body, dialogTokens ->

@@ -43,6 +43,14 @@ object AllowlistStore {
         return seeded
     }
 
+    // Deliberately NOT gated on SessionLock.isFrozen() here, unlike every other
+    // store in this audit: this list has its own older, more specific rule -
+    // WebAllowlistEditorActivity blocks *additions* unconditionally during any
+    // active session (stricter than the freeze, and independent of the
+    // LOCK_RULES_IN_SESSION capability), while deliberately always allowing
+    // *removals* even mid-session ("removing is fine, adding waits"). A blanket
+    // freeze check here would have silently broken that removal path the first
+    // time this function was reached from a session with rules frozen.
     fun setWebAllowlistUrls(context: Context, urls: Collection<String>) {
         val cleaned = urls.map { it.trim() }.filter { it.isNotBlank() }.toSet()
         prefs(context).edit().putStringSet(Constants.KEY_WEB_ALLOWLIST, cleaned).apply()

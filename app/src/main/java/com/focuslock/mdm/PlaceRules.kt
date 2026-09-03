@@ -84,7 +84,9 @@ object PlaceRules {
         return out
     }
 
-    fun save(context: Context, places: List<Place>) {
+    /** Frozen-gated: a place rule can also exempt apps, so it can widen access mid-session. */
+    fun save(context: Context, places: List<Place>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val array = JSONArray()
         places.forEach { place ->
             val obj = JSONObject()
@@ -102,14 +104,15 @@ object PlaceRules {
         }
         FocusStore.setJsonArray(context, KEY_PLACES, array)
         PolicySync.request(context, "places")
+        return true
     }
 
-    fun add(context: Context, place: Place) = save(context, all(context) + place)
+    fun add(context: Context, place: Place): Boolean = save(context, all(context) + place)
 
-    fun update(context: Context, place: Place) =
+    fun update(context: Context, place: Place): Boolean =
         save(context, all(context).map { if (it.id == place.id) place else it })
 
-    fun remove(context: Context, id: String) =
+    fun remove(context: Context, id: String): Boolean =
         save(context, all(context).filterNot { it.id == id })
 
     fun newPlace(
@@ -237,8 +240,10 @@ object PlaceRules {
 
     fun exportJson(context: Context): JSONArray = FocusStore.getJsonArray(context, KEY_PLACES)
 
-    fun importJson(context: Context, array: JSONArray) {
+    fun importJson(context: Context, array: JSONArray): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         FocusStore.setJsonArray(context, KEY_PLACES, array)
         PolicySync.request(context, "places:import")
+        return true
     }
 }

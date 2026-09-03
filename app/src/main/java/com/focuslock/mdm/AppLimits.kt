@@ -31,11 +31,14 @@ object AppLimits {
         return if (value > 0) value else null
     }
 
-    fun setMinuteLimit(context: Context, packageName: String, minutes: Int?) {
+    /** Frozen-gated: raising or clearing your own daily budget mid-session defeats the budget. */
+    fun setMinuteLimit(context: Context, packageName: String, minutes: Int?): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val map = FocusStore.getIntMap(context, KEY_MINUTE_LIMITS).toMutableMap()
         if (minutes == null || minutes <= 0) map.remove(packageName) else map[packageName] = minutes
         FocusStore.setIntMap(context, KEY_MINUTE_LIMITS, map)
         PolicySync.request(context, "minuteLimit:" + packageName)
+        return true
     }
 
     fun allMinuteLimits(context: Context): Map<String, Int> =
@@ -47,11 +50,13 @@ object AppLimits {
         return if (value > 0) value else null
     }
 
-    fun setOpenLimit(context: Context, packageName: String, opens: Int?) {
+    fun setOpenLimit(context: Context, packageName: String, opens: Int?): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val map = FocusStore.getIntMap(context, KEY_OPEN_LIMITS).toMutableMap()
         if (opens == null || opens <= 0) map.remove(packageName) else map[packageName] = opens
         FocusStore.setIntMap(context, KEY_OPEN_LIMITS, map)
         PolicySync.request(context, "openLimit:" + packageName)
+        return true
     }
 
     fun allOpenLimits(context: Context): Map<String, Int> =
@@ -180,9 +185,11 @@ object AppLimits {
         return out
     }
 
-    fun importJson(context: Context, json: org.json.JSONObject) {
+    fun importJson(context: Context, json: org.json.JSONObject): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         json.optJSONObject("minutes")?.let { FocusStore.setJsonObject(context, KEY_MINUTE_LIMITS, it) }
         json.optJSONObject("opens")?.let { FocusStore.setJsonObject(context, KEY_OPEN_LIMITS, it) }
         PolicySync.request(context, "limits:import")
+        return true
     }
 }

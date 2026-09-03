@@ -72,7 +72,9 @@ class BedtimeActivity : FocusScreenActivity() {
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 FocusDialog.timePicker(this, "Bedtime starts", Bedtime.startMinutes(this)) { minutes ->
-                    Bedtime.setWindow(this, minutes, Bedtime.endMinutes(this))
+                    if (!Bedtime.setWindow(this, minutes, Bedtime.endMinutes(this))) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
                     refresh()
                 }
             }
@@ -87,7 +89,9 @@ class BedtimeActivity : FocusScreenActivity() {
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 FocusDialog.timePicker(this, "Bedtime lifts", Bedtime.endMinutes(this)) { minutes ->
-                    Bedtime.setWindow(this, Bedtime.startMinutes(this), minutes)
+                    if (!Bedtime.setWindow(this, Bedtime.startMinutes(this), minutes)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
                     refresh()
                 }
             }
@@ -140,7 +144,10 @@ class BedtimeActivity : FocusScreenActivity() {
                     category in blocked
                 ) { checked ->
                     val next = if (checked) blocked + category else blocked - category
-                    Bedtime.setBlockedCategories(this, next)
+                    if (!Bedtime.setBlockedCategories(this, next)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
+                    refresh()
                 }
             )
         }

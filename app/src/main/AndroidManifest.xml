@@ -72,6 +72,17 @@
             android:taskAffinity=""
             android:lockTaskMode="if_whitelisted" />
 
+        <!-- The permission-emergency lock screen. singleInstance so exactly one
+             copy ever exists regardless of how many times the watchdog relaunches
+             it; excluded from recents for the same reason as the block screen. -->
+        <activity
+            android:name=".PermissionRecoveryActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:lockTaskMode="if_whitelisted" />
+
         <activity
             android:name=".VideoLibraryActivity"
             android:exported="false"

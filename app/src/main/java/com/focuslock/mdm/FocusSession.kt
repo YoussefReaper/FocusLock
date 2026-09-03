@@ -190,7 +190,10 @@ object SessionManager {
      */
     fun applyPresetIfModeChanged(context: Context, mode: FocusMode): Boolean {
         if (FocusStore.getString(context, KEY_PRESET_APPLIED_FOR, "") == mode.id) return false
-        CapabilityRegistry.applyPreset(context, mode.preset())
+        // Always unfrozen in practice: this runs from start(), before the
+        // session is marked active. Checking the result anyway rather than
+        // assuming it, so a future caller can't silently skip the guard.
+        if (!CapabilityRegistry.applyPreset(context, mode.preset())) return false
         FocusStore.setString(context, KEY_PRESET_APPLIED_FOR, mode.id)
         return true
     }
@@ -205,9 +208,10 @@ object SessionManager {
     }
 
     /** Puts a mode's template back after the person has edited it. */
-    fun resetToPreset(context: Context, mode: FocusMode) {
-        CapabilityRegistry.applyPreset(context, mode.preset())
+    fun resetToPreset(context: Context, mode: FocusMode): Boolean {
+        if (!CapabilityRegistry.applyPreset(context, mode.preset())) return false
         FocusStore.setString(context, KEY_PRESET_APPLIED_FOR, mode.id)
+        return true
     }
 
     /** Whether the live flags still match the mode's template. */
@@ -240,6 +244,13 @@ object SessionManager {
         FocusStore.setLong(context, KEY_LAST_ENDED_AT, System.currentTimeMillis())
         FocusStore.setInt(context, KEY_TOTAL_SESSIONS, totalSessions(context) + 1)
         FocusStore.setLong(context, KEY_TOTAL_FOCUS_MS, totalFocusMs(context) + elapsed)
+        // The one place every "a session just ended" path passes through,
+        // called directly by the UI's own End button as well as by
+        // AppBlockerService on natural expiry - so this is where a permission
+        // emergency has to be released too. The session it was protecting is
+        // over; holding the lock past that point would be punishing someone
+        // for something that would have ended on its own regardless.
+        PermissionGuard.clearEmergency(context)
         LockManager.stopKiosk(context)
         TakeABreak.clearAll(context)
         PolicySync.request(context, "session:end")

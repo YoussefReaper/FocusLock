@@ -143,20 +143,30 @@ object AppCatalog {
         return guessFromName(packageName) ?: AppCategory.OTHER
     }
 
-    fun setCategoryOverride(context: Context, packageName: String, category: AppCategory) {
+    /**
+     * Frozen-gated: an app's category decides whether a category rule catches
+     * it, so re-labelling it out of a blocked category mid-session is a
+     * bypass in disguise, not a correction. Recategorising a genuinely
+     * miscategorised app waits like every other rule edit.
+     */
+    fun setCategoryOverride(context: Context, packageName: String, category: AppCategory): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val overrides = FocusStore.getStringMap(context, KEY_CATEGORY_OVERRIDES).toMutableMap()
         overrides[packageName] = category.id
         FocusStore.setStringMap(context, KEY_CATEGORY_OVERRIDES, overrides)
         invalidate()
         PolicySync.request(context, "category:" + packageName)
+        return true
     }
 
-    fun clearCategoryOverride(context: Context, packageName: String) {
+    fun clearCategoryOverride(context: Context, packageName: String): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val overrides = FocusStore.getStringMap(context, KEY_CATEGORY_OVERRIDES).toMutableMap()
         overrides.remove(packageName)
         FocusStore.setStringMap(context, KEY_CATEGORY_OVERRIDES, overrides)
         invalidate()
         PolicySync.request(context, "category:" + packageName)
+        return true
     }
 
     fun packagesInCategory(context: Context, category: AppCategory): List<String> =

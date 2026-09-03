@@ -74,8 +74,17 @@ object ProfileIo {
     /**
      * Restores only the sections present in the payload, so a profile exported
      * from an older build never wipes settings it did not know about.
+     *
+     * Frozen-gated as one all-or-nothing operation, checked here rather than
+     * relying on each section's own guard. Individually, capabilities and app
+     * policies already refuse when frozen but schedules, places, keyword
+     * rules, custom rules and limits did not (now fixed at their own source
+     * too) - importing a whole profile mid-session on the old code would have
+     * silently split into "some sections applied, some didn't," which is a
+     * worse failure than just refusing the whole restore outright.
      */
-    fun restore(context: Context, payload: JSONObject, includeAppearance: Boolean = true) {
+    fun restore(context: Context, payload: JSONObject, includeAppearance: Boolean = true): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         payload.optJSONObject("capabilities")?.let { CapabilityRegistry.importJson(context, it) }
         payload.optJSONObject("apps")?.let { AppRules.importJson(context, it) }
         payload.optJSONObject("keywords")?.let { KeywordRules.importJson(context, it) }
@@ -94,6 +103,7 @@ object ProfileIo {
             payload.optJSONObject("appearance")?.let { restoreAppearance(context, it) }
         }
         PolicySync.request(context, "profile:restore")
+        return true
     }
 
     private fun restoreBedtime(context: Context, json: JSONObject) {

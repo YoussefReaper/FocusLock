@@ -574,6 +574,14 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun apply(plan: Plan) {
+        // Belt-and-braces: the rerun entry point in You -> Advanced already
+        // refuses to open this screen while frozen, but the underlying write
+        // is what actually has to hold, in case this is ever reached another
+        // way.
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         val values = HashMap<String, Boolean>()
         plan.enable.forEach { values[it] = true }
         plan.disable.forEach { values[it] = false }

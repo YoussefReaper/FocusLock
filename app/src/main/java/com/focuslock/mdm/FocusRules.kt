@@ -99,7 +99,16 @@ object RuleStore {
         out
     }
 
-    fun save(context: Context, rules: List<Rule>) {
+    /**
+     * A custom rule can carry action ALLOW against target ALL, condition
+     * ALWAYS - a standing "let everything through" that outranks the mode
+     * running the session. Frozen-gated for the same reason AppRules and
+     * CapabilityRegistry are: editing this list mid-session is not a
+     * settings change, it is an escape hatch, and it was the one rule store
+     * the original freeze work never reached.
+     */
+    fun save(context: Context, rules: List<Rule>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val array = JSONArray()
         rules.forEach { rule ->
             val obj = JSONObject()
@@ -120,25 +129,26 @@ object RuleStore {
         }
         FocusStore.setJsonArray(context, KEY_RULES, array)
         PolicySync.request(context, "rules")
+        return true
     }
 
-    fun add(context: Context, rule: Rule) = save(context, all(context) + rule)
+    fun add(context: Context, rule: Rule): Boolean = save(context, all(context) + rule)
 
-    fun update(context: Context, rule: Rule) =
+    fun update(context: Context, rule: Rule): Boolean =
         save(context, all(context).map { if (it.id == rule.id) rule else it })
 
-    fun remove(context: Context, id: String) =
+    fun remove(context: Context, id: String): Boolean =
         save(context, all(context).filterNot { it.id == id })
 
-    fun move(context: Context, id: String, delta: Int) {
+    fun move(context: Context, id: String, delta: Int): Boolean {
         val rules = all(context).toMutableList()
         val index = rules.indexOfFirst { it.id == id }
-        if (index < 0) return
+        if (index < 0) return false
         val target = (index + delta).coerceIn(0, rules.size - 1)
-        if (target == index) return
+        if (target == index) return false
         val rule = rules.removeAt(index)
         rules.add(target, rule)
-        save(context, rules)
+        return save(context, rules)
     }
 
     fun newRule(
@@ -165,9 +175,11 @@ object RuleStore {
 
     fun exportJson(context: Context): JSONArray = FocusStore.getJsonArray(context, KEY_RULES)
 
-    fun importJson(context: Context, array: JSONArray) {
+    fun importJson(context: Context, array: JSONArray): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         FocusStore.setJsonArray(context, KEY_RULES, array)
         PolicySync.request(context, "rules:import")
+        return true
     }
 }
 

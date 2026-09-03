@@ -135,6 +135,10 @@ class ScheduleActivity : FocusScreenActivity() {
     // ── Editing ───────────────────────────────────────────────────
 
     private fun editWindow(existing: ScheduleWindow?) {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         var start = existing?.startMinutes ?: (9 * 60)
         var end = existing?.endMinutes ?: (11 * 60)
         var repeat = existing?.repeat ?: RepeatType.DAILY

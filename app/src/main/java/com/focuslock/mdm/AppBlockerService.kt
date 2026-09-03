@@ -61,6 +61,7 @@ class AppBlockerService : Service() {
     private var lastInterceptAt = 0L
     private var lastInterceptPackage: String? = null
     private var lastBringToFrontAt = 0L
+    private var lastRecoveryLaunchAt = 0L
 
     /** When FocusLock itself was last genuinely in front. See the grace in
      *  handleForeground: it is what tells a real app launch apart from the
@@ -180,6 +181,7 @@ class AppBlockerService : Service() {
                 refreshPolicy(force = false)
                 updateNotificationIfChanged()
                 checkGuardStillOn()
+                checkPermissionRevocation()
 
                 val enforcing = isEnforcingNow()
                 if (enforcing) {
@@ -240,8 +242,51 @@ class AppBlockerService : Service() {
         Log.w(TAG, "Content guard switched off during an active session")
     }
 
+    /**
+     * The hard version of the check above, for the permissions the whole
+     * lock depends on rather than just the content guard.
+     *
+     * This one does fight back: usage access, the overlay permission and
+     * device owner status going away mid-session is not a settings
+     * disagreement, it is the phone losing the ability to enforce anything
+     * at all, and PermissionGuard only ever fires on an actual drop from
+     * granted, never on a permission that was simply never set up. Once
+     * declared, the emergency is released only when PermissionGuard itself
+     * confirms the permission is back - nothing here clears it early.
+     */
+    private fun checkPermissionRevocation() {
+        if (!BuildConfig.ENFORCEMENT) return
+        if (!SessionManager.isActive(this)) return
+
+        PermissionGuard.clearResolved(this)
+        val revoked = PermissionGuard.checkForRevocation(this)
+        if (revoked.isEmpty()) return
+
+        PermissionGuard.declareEmergency(this, revoked)
+        Log.w(TAG, "Permission revoked mid-session, entering recovery lock: $revoked")
+        PolicySync.applyNow(this)
+        PermissionRecoveryActivity.launch(this)
+    }
+
     private fun handleForeground(foreground: ForegroundApp, now: Long) {
         val packageName = foreground.packageName
+
+        // Outranks everything below, including FocusLock's own screens - the
+        // one deliberate exception to "we never overlay ourselves". A missing
+        // permission is not a rule the running mode can soften, and letting
+        // someone sit comfortably inside FocusLock's own tabs while it is
+        // unresolved would defeat the point of it being an emergency at all.
+        if (PermissionGuard.isEmergency(this)) {
+            if (SystemSurfaces.isSettings(packageName)) {
+                hideBlockerOverlay()
+            } else {
+                showPermissionEmergencyOverlay()
+                if (packageName != this.packageName) {
+                    bringRecoveryScreenToFront()
+                }
+            }
+            return
+        }
 
         if (packageName == this.packageName) {
             lastOwnForegroundAt = now
@@ -477,6 +522,104 @@ class AppBlockerService : Service() {
                 )
             } catch (e: Exception) {
                 Log.w(TAG, "Could not return to FocusLock", e)
+            }
+        }
+    }
+
+    /** Same throttle idea as [bringToFront], its own timestamp so the two never starve each other. */
+    private fun bringRecoveryScreenToFront() {
+        val now = System.currentTimeMillis()
+        if (now - lastRecoveryLaunchAt < BRING_TO_FRONT_THROTTLE_MS) return
+        lastRecoveryLaunchAt = now
+        runOnMain {
+            try {
+                PermissionRecoveryActivity.launch(this)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not surface the permission recovery screen", e)
+            }
+        }
+    }
+
+    /**
+     * The overlay reinforcement for a permission emergency: drawn above
+     * whatever is on screen, FocusLock's own activities included, which is
+     * the one deliberate exception to this overlay mechanism otherwise never
+     * covering the app's own UI. On a Device-Owner phone the lock task pin in
+     * KioskPolicy is what actually holds the line; this is what a phone
+     * without Device Owner has instead, and belt-and-braces everywhere else.
+     */
+    private fun showPermissionEmergencyOverlay() {
+        runOnMain {
+            if (!Settings.canDrawOverlays(this)) return@runOnMain
+
+            val missing = PermissionGuard.activeEmergency(this)
+            val headline = if (missing.size == 1) {
+                missing.first().label + " was turned off"
+            } else {
+                missing.size.toString() + " permissions were turned off"
+            }
+
+            if (blockerOverlay != null) {
+                blockerOverlayMessage?.text = headline
+                return@runOnMain
+            }
+
+            val wm = (getSystemService(WINDOW_SERVICE) as? WindowManager) ?: return@runOnMain
+            blockerWindowManager = wm
+
+            val theme = UiPrefs.resolve(this)
+            val root = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setBackgroundColor(scrimColor(theme.background))
+                setPadding(48, 48, 48, 48)
+            }
+
+            val title = TextView(this).apply {
+                text = headline
+                textSize = 24f
+                setTextColor(theme.textPrimary)
+                gravity = Gravity.CENTER
+                typeface = theme.typeface
+            }
+
+            val message = TextView(this).apply {
+                text = "The phone stays locked to Settings until it's back on."
+                textSize = 15f
+                setTextColor(theme.textSecondary)
+                gravity = Gravity.CENTER
+                setPadding(0, 24, 0, 24)
+                typeface = theme.typeface
+            }
+
+            val button = Button(this).apply {
+                text = "Go fix it"
+                setTextColor(theme.onAccent)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(theme.accent)
+                typeface = theme.typeface
+                setOnClickListener { bringRecoveryScreenToFront() }
+            }
+
+            root.addView(title)
+            root.addView(message)
+            root.addView(button)
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.TOP or Gravity.START }
+
+            try {
+                wm.addView(root, params)
+                blockerOverlay = root
+                blockerOverlayMessage = title
+            } catch (_: Exception) {
+                blockerOverlay = null
+                blockerOverlayMessage = null
             }
         }
     }

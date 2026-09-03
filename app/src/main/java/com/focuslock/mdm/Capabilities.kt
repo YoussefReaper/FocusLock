@@ -609,22 +609,43 @@ object CapabilityRegistry {
      * seeded: seeding means "this person has been through setup", and picking
      * a mode on the dashboard is not that. Conflating the two would skip
      * onboarding for someone who had never seen it.
+     *
+     * Frozen-gated like every other capability write. This one is called from
+     * two places: starting a session (always unfrozen, since no session is
+     * active yet at that point) and the "put this mode's defaults back"
+     * button in You -> Advanced, which - unlike every switch on that same
+     * screen - had no freeze check at all until this was added. A session
+     * whose rules were supposedly "held still" could be silently rewritten by
+     * a single tap on that button; the freeze promise applies here too.
      */
-    fun applyPreset(context: Context, values: Map<String, Boolean>) {
-        if (values.isEmpty()) return
+    fun applyPreset(context: Context, values: Map<String, Boolean>): Boolean {
+        if (isFrozen(context)) return false
+        if (values.isEmpty()) return true
         val overrides = FocusStore.getJsonObject(context, KEY_ENABLED)
         values.forEach { entry -> overrides.put(entry.key, entry.value) }
         FocusStore.setJsonObject(context, KEY_ENABLED, overrides)
         PolicySync.request(context, "capability:preset")
+        return true
     }
 
-    /** Applies a whole proposed set at once. Used only by onboarding, on confirm. */
-    fun applySet(context: Context, values: Map<String, Boolean>) {
+    /**
+     * Applies a whole proposed set at once. Written for first-run onboarding,
+     * where no session can possibly be active - but the setup quiz can also
+     * be re-run later from You -> Advanced, which very much can happen mid-
+     * session, and this call was the one place in the whole app that could
+     * rewrite every capability flag at once with no freeze check at all. This
+     * is that fix; OnboardingActivity's rerun entry point is also blocked
+     * outright while frozen, so nobody sits through six quiz steps to be
+     * refused on the last tap.
+     */
+    fun applySet(context: Context, values: Map<String, Boolean>): Boolean {
+        if (isFrozen(context)) return false
         val overrides = FocusStore.getJsonObject(context, KEY_ENABLED)
         values.forEach { entry -> overrides.put(entry.key, entry.value) }
         FocusStore.setJsonObject(context, KEY_ENABLED, overrides)
         FocusStore.setBool(context, KEY_SEEDED, true)
         PolicySync.request(context, "capability:set")
+        return true
     }
 
     fun hasBeenSeeded(context: Context): Boolean = FocusStore.getBool(context, KEY_SEEDED, false)
@@ -633,9 +654,17 @@ object CapabilityRegistry {
         FocusStore.setBool(context, KEY_SEEDED, true)
     }
 
-    fun resetToDefaults(context: Context) {
+    /**
+     * Every capability switch back to factory default, in one tap. Frozen-
+     * gated for the obvious reason: this is applyPreset's whole-registry
+     * cousin, reachable from RulesTab's "Reset everything" and just as
+     * capable of silently undoing a frozen session's rules if left unguarded.
+     */
+    fun resetToDefaults(context: Context): Boolean {
+        if (isFrozen(context)) return false
         FocusStore.remove(context, KEY_ENABLED)
         PolicySync.request(context, "capability:reset")
+        return true
     }
 
     fun enabledSnapshot(context: Context): Map<String, Boolean> =

@@ -107,10 +107,12 @@ object KeywordRules {
         FocusStore.jsonArrayToStringList(FocusStore.getJsonArray(context, KEY_EXCEPTIONS))
             .map { it.lowercase(Locale.US) }
 
-    fun setExceptions(context: Context, phrases: Collection<String>) {
+    fun setExceptions(context: Context, phrases: Collection<String>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val cleaned = phrases.map { it.trim() }.filter { it.isNotBlank() }.distinct()
         FocusStore.setJsonArray(context, KEY_EXCEPTIONS, FocusStore.stringListToJsonArray(cleaned))
         PolicySync.request(context, "keywordExceptions")
+        return true
     }
 
     /** Every package any active rule cares about, or null when a rule is global. */
@@ -122,7 +124,9 @@ object KeywordRules {
 
     // ── Write ─────────────────────────────────────────────────────
 
-    fun save(context: Context, rules: List<KeywordRule>) {
+    /** Frozen-gated: removing a watched phrase mid-session is exactly the moment it exists to prevent. */
+    fun save(context: Context, rules: List<KeywordRule>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val array = JSONArray()
         rules.forEach { rule ->
             val obj = JSONObject()
@@ -136,23 +140,19 @@ object KeywordRules {
         }
         FocusStore.setJsonArray(context, KEY_RULES, array)
         PolicySync.request(context, "keywordRules")
+        return true
     }
 
-    fun add(context: Context, rule: KeywordRule) {
-        save(context, all(context) + rule)
-    }
+    fun add(context: Context, rule: KeywordRule): Boolean = save(context, all(context) + rule)
 
-    fun update(context: Context, rule: KeywordRule) {
+    fun update(context: Context, rule: KeywordRule): Boolean =
         save(context, all(context).map { if (it.id == rule.id) rule else it })
-    }
 
-    fun remove(context: Context, id: String) {
+    fun remove(context: Context, id: String): Boolean =
         save(context, all(context).filterNot { it.id == id })
-    }
 
-    fun setGroupEnabled(context: Context, group: String, enabled: Boolean) {
+    fun setGroupEnabled(context: Context, group: String, enabled: Boolean): Boolean =
         save(context, all(context).map { if (it.group == group) it.copy(enabled = enabled) else it })
-    }
 
     fun newRule(
         phrase: String,
@@ -236,9 +236,11 @@ object KeywordRules {
         return out
     }
 
-    fun importJson(context: Context, json: JSONObject) {
+    fun importJson(context: Context, json: JSONObject): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         json.optJSONArray("rules")?.let { FocusStore.setJsonArray(context, KEY_RULES, it) }
         json.optJSONArray("exceptions")?.let { FocusStore.setJsonArray(context, KEY_EXCEPTIONS, it) }
         PolicySync.request(context, "keywordRules:import")
+        return true
     }
 }

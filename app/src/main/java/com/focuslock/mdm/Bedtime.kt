@@ -30,10 +30,13 @@ object Bedtime {
 
     fun endMinutes(context: Context): Int = FocusStore.getInt(context, KEY_END, DEFAULT_END)
 
-    fun setWindow(context: Context, startMinutes: Int, endMinutes: Int) {
+    /** Frozen-gated: narrowing tonight's window mid-session is the "Advanced" pattern applied here too. */
+    fun setWindow(context: Context, startMinutes: Int, endMinutes: Int): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         FocusStore.setInt(context, KEY_START, startMinutes.coerceIn(0, 1439))
         FocusStore.setInt(context, KEY_END, endMinutes.coerceIn(0, 1439))
         PolicySync.request(context, "bedtimeWindow")
+        return true
     }
 
     fun blockedCategories(context: Context): Set<AppCategory> {
@@ -42,9 +45,11 @@ object Bedtime {
         return stored.map { AppCategory.fromId(it) }.toSet()
     }
 
-    fun setBlockedCategories(context: Context, categories: Collection<AppCategory>) {
+    fun setBlockedCategories(context: Context, categories: Collection<AppCategory>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         FocusStore.setSet(context, KEY_CATEGORIES, categories.map { it.id })
         PolicySync.request(context, "bedtimeCategories")
+        return true
     }
 
     /** How far to dim, as a percentage of the screen's own brightness. */

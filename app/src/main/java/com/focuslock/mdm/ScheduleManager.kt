@@ -33,10 +33,21 @@ object ScheduleManager {
         return parseSchedules(raw)
     }
 
-    fun saveSchedules(context: Context, schedules: List<ScheduleWindow>) {
+    /**
+     * Frozen-gated. A schedule window's allowedApps is unioned into both the
+     * accessibility-based decision (RuleEngine.decide - a window match wins
+     * outright, before the Kiosk allowlist check ever runs) and the real
+     * Device-Owner lock-task allowlist (KioskPolicy.buildLockTaskPackages).
+     * Adding or editing a window mid-session is therefore a genuine escape
+     * from Kiosk, not just a settings change - the one rule store the
+     * original freeze work missed entirely.
+     */
+    fun saveSchedules(context: Context, schedules: List<ScheduleWindow>): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         val json = serializeSchedules(schedules)
         prefs(context).edit().putString(Constants.KEY_SCHEDULE_JSON, json).apply()
         PolicySync.request(context, "schedules")
+        return true
     }
 
     fun exportJson(context: Context): JSONArray = try {
@@ -45,25 +56,27 @@ object ScheduleManager {
         JSONArray()
     }
 
-    fun importJson(context: Context, array: JSONArray) {
+    fun importJson(context: Context, array: JSONArray): Boolean {
+        if (SessionLock.isFrozen(context)) return false
         prefs(context).edit().putString(Constants.KEY_SCHEDULE_JSON, array.toString()).apply()
         PolicySync.request(context, "schedules:import")
+        return true
     }
 
-    fun addSchedule(context: Context, schedule: ScheduleWindow) {
+    fun addSchedule(context: Context, schedule: ScheduleWindow): Boolean {
         val current = getSchedules(context).toMutableList()
         current.add(schedule)
-        saveSchedules(context, current)
+        return saveSchedules(context, current)
     }
 
-    fun removeSchedule(context: Context, id: String) {
+    fun removeSchedule(context: Context, id: String): Boolean {
         val current = getSchedules(context).filterNot { it.id == id }
-        saveSchedules(context, current)
+        return saveSchedules(context, current)
     }
 
-    fun updateSchedule(context: Context, updated: ScheduleWindow) {
+    fun updateSchedule(context: Context, updated: ScheduleWindow): Boolean {
         val current = getSchedules(context).map { if (it.id == updated.id) updated else it }
-        saveSchedules(context, current)
+        return saveSchedules(context, current)
     }
 
     /**

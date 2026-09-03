@@ -308,8 +308,9 @@ class AppRulesActivity : FocusScreenActivity() {
             value = (AppLimits.minuteLimit(this, app.packageName) ?: "").toString(),
             numeric = true
         ) { value ->
-            AppLimits.setMinuteLimit(this, app.packageName, value.toIntOrNull())
-            if (value.toIntOrNull() != null &&
+            if (!AppLimits.setMinuteLimit(this, app.packageName, value.toIntOrNull())) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            } else if (value.toIntOrNull() != null &&
                 !CapabilityRegistry.isEnabled(this, Capabilities.PER_APP_LIMITS)
             ) {
                 offerToEnable(Capabilities.PER_APP_LIMITS)
@@ -327,8 +328,9 @@ class AppRulesActivity : FocusScreenActivity() {
             value = (AppLimits.openLimit(this, app.packageName) ?: "").toString(),
             numeric = true
         ) { value ->
-            AppLimits.setOpenLimit(this, app.packageName, value.toIntOrNull())
-            if (value.toIntOrNull() != null &&
+            if (!AppLimits.setOpenLimit(this, app.packageName, value.toIntOrNull())) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            } else if (value.toIntOrNull() != null &&
                 !CapabilityRegistry.isEnabled(this, Capabilities.OPEN_COUNT_LIMITS)
             ) {
                 offerToEnable(Capabilities.OPEN_COUNT_LIMITS)
@@ -369,7 +371,9 @@ class AppRulesActivity : FocusScreenActivity() {
             },
             selectedKey = app.category.id
         ) { key ->
-            AppCatalog.setCategoryOverride(this, app.packageName, AppCategory.fromId(key))
+            if (!AppCatalog.setCategoryOverride(this, app.packageName, AppCategory.fromId(key))) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }

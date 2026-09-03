@@ -183,7 +183,9 @@ class AppLimitsActivity : FocusScreenActivity() {
             value = (AppLimits.allMinuteLimits(this)[packageName] ?: "").toString(),
             numeric = true
         ) { value ->
-            AppLimits.setMinuteLimit(this, packageName, value.toIntOrNull())
+            if (!AppLimits.setMinuteLimit(this, packageName, value.toIntOrNull())) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }
@@ -197,7 +199,9 @@ class AppLimitsActivity : FocusScreenActivity() {
             value = (AppLimits.allOpenLimits(this)[packageName] ?: "").toString(),
             numeric = true
         ) { value ->
-            AppLimits.setOpenLimit(this, packageName, value.toIntOrNull())
+            if (!AppLimits.setOpenLimit(this, packageName, value.toIntOrNull())) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }

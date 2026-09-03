@@ -415,7 +415,9 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     confirmLabel = "Reset",
                     cancelLabel = "Cancel",
                     onConfirm = {
-                        CapabilityRegistry.resetToDefaults(activity)
+                        if (!CapabilityRegistry.resetToDefaults(activity)) {
+                            FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                        }
                         render()
                     }
                 )

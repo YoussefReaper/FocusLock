@@ -154,7 +154,10 @@ class KeywordGuardActivity : FocusScreenActivity() {
                         rule.phrase,
                         describeScope(rule) + " - " + rule.action.label.lowercase(),
                         trailing = FocusUi.switchControl(this, tokens, rule.enabled) { value ->
-                            KeywordRules.update(this, rule.copy(enabled = value))
+                            if (!KeywordRules.update(this, rule.copy(enabled = value))) {
+                                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                            }
+                            refresh()
                         }
                     ) { editRule(rule) }
                 )
@@ -178,6 +181,10 @@ class KeywordGuardActivity : FocusScreenActivity() {
     // ── Editing ───────────────────────────────────────────────────
 
     private fun addRule(group: String?) {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         FocusDialog.textInput(
             this,
             title = "Watch for a phrase",
@@ -195,6 +202,10 @@ class KeywordGuardActivity : FocusScreenActivity() {
     }
 
     private fun editRule(rule: KeywordRule) {
+        if (SessionLock.isFrozen(this)) {
+            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            return
+        }
         var working = rule
 
         FocusDialog.custom(
@@ -390,7 +401,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                         phrase,
                         null,
                         trailing = FocusUi.smallButton(this, tokens, "Remove") {
-                            KeywordRules.setExceptions(this, exceptions - phrase)
+                            if (!KeywordRules.setExceptions(this, exceptions - phrase)) {
+                                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                            }
                             refresh()
                         }
                     )
@@ -401,6 +414,10 @@ class KeywordGuardActivity : FocusScreenActivity() {
         card.addView(FocusUi.spacer(this, 10))
         card.addView(
             FocusUi.smallButton(this, tokens, "Add an exception") {
+                if (SessionLock.isFrozen(this)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    return@smallButton
+                }
                 FocusDialog.textInput(
                     this,
                     title = "Never treat this as a match",
@@ -408,7 +425,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     hint = "Phrase"
                 ) { phrase ->
                     if (phrase.isNotBlank()) {
-                        KeywordRules.setExceptions(this, exceptions + phrase)
+                        if (!KeywordRules.setExceptions(this, exceptions + phrase)) {
+                            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                        }
                         refresh()
                     }
                 }
