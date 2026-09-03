@@ -38,7 +38,9 @@ class ScheduleActivity : FocusScreenActivity() {
                 "With this off, the windows below are kept but none of them run.",
                 CapabilityRegistry.isEnabled(this, Capabilities.SCHEDULES)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.SCHEDULES, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.SCHEDULES, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

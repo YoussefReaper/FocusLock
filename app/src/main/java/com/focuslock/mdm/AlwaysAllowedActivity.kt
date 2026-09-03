@@ -39,8 +39,9 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                 "When off, a session can lock away everything, including the phone app.",
                 enabled
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.ALWAYS_ALLOWED, value)
-                if (!value) {
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.ALWAYS_ALLOWED, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                } else if (!value) {
                     Capabilities.spec(Capabilities.ALWAYS_ALLOWED)?.let { FocusDialog.weakenNotice(this, it) }
                 }
                 refresh()
@@ -69,7 +70,9 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                             AppCatalog.label(this, packageName),
                             packageName,
                             trailing = FocusUi.smallButton(this, tokens, "Remove") {
-                                AppRules.setAlwaysAllowed(this, current - packageName)
+                                if (!AppRules.setAlwaysAllowed(this, current - packageName)) {
+                                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                                }
                                 refresh()
                             },
                             leading = FocusUi.appIcon(this, tokens, packageName, 34)
@@ -87,7 +90,12 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                         subtitle = "These stay open through every session, window and bedtime.",
                         selected = AppRules.alwaysAllowedRaw(this),
                         includeSystem = true
-                    ) { selected -> AppRules.setAlwaysAllowed(this, selected) }
+                    ) { selected ->
+                        // pickApps() already calls refresh() after this runs.
+                        if (!AppRules.setAlwaysAllowed(this, selected)) {
+                            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                        }
+                    }
                 }
             )
         }
@@ -128,7 +136,9 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                         AppCatalog.label(this, packageName),
                         packageName,
                         trailing = FocusUi.smallButton(this, tokens, "Add") {
-                            AppRules.addAlwaysAllowed(this, packageName)
+                            if (!AppRules.addAlwaysAllowed(this, packageName)) {
+                                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                            }
                             refresh()
                         },
                         leading = FocusUi.appIcon(this, tokens, packageName, 34)
@@ -139,7 +149,9 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
             card.addView(FocusUi.spacer(this, 10))
             card.addView(
                 FocusUi.secondaryButton(this, tokens, "Add all of them") {
-                    AppRules.setAlwaysAllowed(this, current + suggestions)
+                    if (!AppRules.setAlwaysAllowed(this, current + suggestions)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
                     refresh()
                 }
             )

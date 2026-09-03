@@ -90,11 +90,14 @@ class AppRulesActivity : FocusScreenActivity() {
             choices = choices,
             selectedKey = current?.id ?: "none"
         ) { key ->
-            AppRules.setCategoryPolicy(
-                this,
-                category,
-                if (key == "none") null else AppPolicy.fromId(key)
-            )
+            if (!AppRules.setCategoryPolicy(
+                    this,
+                    category,
+                    if (key == "none") null else AppPolicy.fromId(key)
+                )
+            ) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }
@@ -209,9 +212,13 @@ class AppRulesActivity : FocusScreenActivity() {
                 )
                 body.addView(
                     FocusUi.listRow(this, dialogTokens, policy.label, policy.blurb, trailing = marker) {
-                        AppRules.setPolicy(this, app.packageName, policy)
+                        val applied = AppRules.setPolicy(this, app.packageName, policy)
                         refresh()
-                        FocusDialog.toast(this, app.label + ": " + policy.label.lowercase())
+                        FocusDialog.toast(
+                            this,
+                            if (applied) app.label + ": " + policy.label.lowercase()
+                            else SessionLock.refusalMessage(this)
+                        )
                     }
                 )
             }
@@ -262,7 +269,9 @@ class AppRulesActivity : FocusScreenActivity() {
                 ) { checked ->
                     val current2 = AppRules.alwaysAllowedRaw(this).toMutableSet()
                     if (checked) current2.add(app.packageName) else current2.remove(app.packageName)
-                    AppRules.setAlwaysAllowed(this, current2)
+                    if (!AppRules.setAlwaysAllowed(this, current2)) {
+                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                    }
                     refresh()
                 }
             )
@@ -280,7 +289,9 @@ class AppRulesActivity : FocusScreenActivity() {
             if (AppRules.explicitPolicy(this, app.packageName) != null) {
                 body.addView(
                     FocusUi.ghostButton(this, dialogTokens, "Clear this app's own rule") {
-                        AppRules.clearPolicy(this, app.packageName)
+                        if (!AppRules.clearPolicy(this, app.packageName)) {
+                            FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                        }
                         refresh()
                     }
                 )
@@ -340,7 +351,9 @@ class AppRulesActivity : FocusScreenActivity() {
             confirmLabel = "Turn it on",
             cancelLabel = "Leave it off",
             onConfirm = {
-                CapabilityRegistry.setEnabled(this, capabilityId, true)
+                if (!CapabilityRegistry.setEnabled(this, capabilityId, true)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

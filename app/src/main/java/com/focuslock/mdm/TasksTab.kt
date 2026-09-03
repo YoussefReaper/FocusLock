@@ -128,7 +128,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         card.addView(FocusUi.spacer(activity, 14))
         card.addView(
             FocusUi.primaryButton(activity, tokens, "Turn on Earn mode") {
-                CapabilityRegistry.setEnabled(activity, Capabilities.EARN_MODE, true)
+                if (!CapabilityRegistry.setEnabled(activity, Capabilities.EARN_MODE, true)) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                }
                 render()
             }
         )
@@ -326,7 +328,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     "Lets a task ask for a photo, checked on this phone.",
                     CapabilityRegistry.getBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_PHOTO_PROOF, true)
                 ) { value ->
-                    CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_PHOTO_PROOF, value)
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_PHOTO_PROOF, value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
                 }
             )
             body.addView(
@@ -338,8 +342,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                         "one setting here that opens a way around your own rules.",
                     EarnMode.intersectsWithAllowlist(activity)
                 ) { value ->
-                    CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_INTERSECT, value)
-                    if (!value) {
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_INTERSECT, value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    } else if (!value) {
                         FocusDialog.toast(activity, "A task can now allow apps your modes block.")
                     }
                 }
@@ -352,7 +357,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     null,
                     EarnMode.showsBudgetWhileActive(activity)
                 ) { value ->
-                    CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_SHOW_BUDGET, value)
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_SHOW_BUDGET, value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
                 }
             )
             body.addView(
@@ -363,7 +370,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     "A quiet score that drops when photo proof is refused.",
                     EarnMode.showsCredibility(activity)
                 ) { value ->
-                    CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_CREDIBILITY, value)
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_CREDIBILITY, value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
                 }
             )
             body.addView(
@@ -374,7 +383,9 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     "Halves the balance each day. Off by default: banking is not a problem.",
                     EarnMode.decaysUnspent(activity)
                 ) { value ->
-                    CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_DECAY, value)
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_DECAY, value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
                 }
             )
         }

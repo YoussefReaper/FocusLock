@@ -42,7 +42,9 @@ class BedtimeActivity : FocusScreenActivity() {
                 "Dims the screen, switches to the quiet theme and holds back the categories below.",
                 CapabilityRegistry.isEnabled(this, Capabilities.BEDTIME_MODE)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.BEDTIME_MODE, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.BEDTIME_MODE, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

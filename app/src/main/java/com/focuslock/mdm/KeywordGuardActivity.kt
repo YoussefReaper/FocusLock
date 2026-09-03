@@ -76,7 +76,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 "The master switch. With this off, none of the guards below run.",
                 CapabilityRegistry.isEnabled(this, Capabilities.CONTENT_GUARD)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.CONTENT_GUARD, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.CONTENT_GUARD, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
@@ -89,7 +91,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 "Runs the words you add below.",
                 CapabilityRegistry.isEnabled(this, Capabilities.KEYWORD_BLOCK)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.KEYWORD_BLOCK, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.KEYWORD_BLOCK, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
@@ -107,7 +111,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 rules.size.toString() + " phrase" + (if (rules.size == 1) "" else "s") + " watched",
                 enabled
             ) { value ->
-                CapabilityRegistry.setEnabled(this, capabilityId, value)
+                if (!CapabilityRegistry.setEnabled(this, capabilityId, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

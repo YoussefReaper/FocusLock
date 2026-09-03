@@ -37,8 +37,11 @@ class PlaceRulesActivity : FocusScreenActivity() {
                 "Uses your last known location. FocusLock never tracks you continuously.",
                 CapabilityRegistry.isEnabled(this, Capabilities.LOCATION_BLOCK)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.LOCATION_BLOCK, value)
-                if (value && !PlaceRules.hasLocationPermission(this)) requestLocation()
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.LOCATION_BLOCK, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                } else if (value && !PlaceRules.hasLocationPermission(this)) {
+                    requestLocation()
+                }
                 refresh()
             }
         )
@@ -51,7 +54,9 @@ class PlaceRulesActivity : FocusScreenActivity() {
                 "Uses the Wi-Fi name. Works indoors where location does not, and needs no tracking.",
                 CapabilityRegistry.isEnabled(this, Capabilities.WIFI_CONDITIONS)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.WIFI_CONDITIONS, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.WIFI_CONDITIONS, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

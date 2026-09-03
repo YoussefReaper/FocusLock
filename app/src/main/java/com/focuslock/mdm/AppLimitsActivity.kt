@@ -44,7 +44,9 @@ class AppLimitsActivity : FocusScreenActivity() {
                 "Blocks an app once its daily minutes are used.",
                 CapabilityRegistry.isEnabled(this, Capabilities.PER_APP_LIMITS)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.PER_APP_LIMITS, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.PER_APP_LIMITS, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
@@ -57,7 +59,9 @@ class AppLimitsActivity : FocusScreenActivity() {
                 "Blocks an app once it has been opened that many times today.",
                 CapabilityRegistry.isEnabled(this, Capabilities.OPEN_COUNT_LIMITS)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.OPEN_COUNT_LIMITS, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.OPEN_COUNT_LIMITS, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
@@ -211,7 +215,9 @@ class AppLimitsActivity : FocusScreenActivity() {
                 "Lets you deliberately unlock a blocked app for a few minutes.",
                 CapabilityRegistry.isEnabled(this, Capabilities.TAKE_A_BREAK)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.TAKE_A_BREAK, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.TAKE_A_BREAK, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

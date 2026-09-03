@@ -130,7 +130,9 @@ class AnalyticsActivity : FocusScreenActivity() {
         card.addView(FocusUi.spacer(this, 12))
         card.addView(
             FocusUi.primaryButton(this, tokens, "Turn on analytics") {
-                CapabilityRegistry.setEnabled(this, Capabilities.ANALYTICS, true)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.ANALYTICS, true)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
@@ -252,7 +254,9 @@ class AnalyticsActivity : FocusScreenActivity() {
             },
             selectedKey = current.id
         ) { key ->
-            AppRules.setPolicy(this, slice.packageName, AppPolicy.fromId(key))
+            if (!AppRules.setPolicy(this, slice.packageName, AppPolicy.fromId(key))) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }

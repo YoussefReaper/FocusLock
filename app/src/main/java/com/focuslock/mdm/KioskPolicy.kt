@@ -256,29 +256,57 @@ object KioskPolicy {
         val previous = FocusStore.getSet(context, KEY_SUSPENDED)
 
         val toSuspend = targets.filterNot { it in previous }
-        val toRelease = previous.filterNot { it in targets }
+        val toRelease = previous.filterNot { it in targets }.filter { isPackageInstalled(context, it) }
+        val unchanged = previous.intersect(targets)
 
-        if (toSuspend.isNotEmpty()) {
-            setSuspended(dpm, admin, toSuspend, true)
+        val newlySuspended = if (toSuspend.isNotEmpty()) setSuspended(dpm, admin, toSuspend, true) else emptySet()
+        val actuallyReleased = if (toRelease.isNotEmpty()) setSuspended(dpm, admin, toRelease, false) else emptySet()
+
+        // A package Android refused to release stays tracked so the next sync
+        // (every app open triggers one via PolicySync.request("mainResume"))
+        // tries again. Recording it as released here - which the old code did
+        // unconditionally - is exactly what left a real user's app suspended
+        // at the OS level forever while FocusLock believed it was clear: the
+        // failure was real (setPackagesSuspended's own documented per-package
+        // failure list), just silently discarded.
+        val stillStuck = toRelease.toSet() - actuallyReleased
+        if (stillStuck.isNotEmpty()) {
+            Log.w(TAG, "Still suspended after a release attempt, will retry next sync: $stillStuck")
         }
-        if (toRelease.isNotEmpty()) {
-            setSuspended(dpm, admin, toRelease.filter { isPackageInstalled(context, it) }, false)
-        }
-        FocusStore.setSet(context, KEY_SUSPENDED, targets)
+        FocusStore.setSet(context, KEY_SUSPENDED, unchanged + newlySuspended + stillStuck)
     }
 
+    /**
+     * Returns the subset of [packages] Android actually confirmed changed.
+     *
+     * One package at a time, deliberately. A single batched call means one
+     * package the OS won't touch (or a stale/uninstalled one that slipped
+     * past the installed-check in a race) can throw for the whole array,
+     * silently taking every other package in the batch down with it - a
+     * second, independent way the earlier "not allowed by your organization"
+     * bug could have happened even after the return-value fix above.
+     */
     private fun setSuspended(
         dpm: DevicePolicyManager,
         admin: ComponentName,
         packages: Collection<String>,
         suspended: Boolean
-    ) {
-        if (packages.isEmpty()) return
-        try {
-            dpm.setPackagesSuspended(admin, packages.toTypedArray(), suspended)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to change suspension state", e)
+    ): Set<String> {
+        if (packages.isEmpty()) return emptySet()
+        val changed = LinkedHashSet<String>()
+        for (pkg in packages) {
+            try {
+                val failed = dpm.setPackagesSuspended(admin, arrayOf(pkg), suspended)
+                if (failed.isNullOrEmpty()) {
+                    changed.add(pkg)
+                } else {
+                    Log.w(TAG, "Android refused to " + (if (suspended) "suspend " else "un-suspend ") + pkg)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to change suspension state for $pkg", e)
+            }
         }
+        return changed
     }
 
     fun syncHiddenApps(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
@@ -292,9 +320,20 @@ object KioskPolicy {
         }
         val previous = FocusStore.getSet(context, KEY_HIDDEN)
 
-        targets.filterNot { it in previous }.forEach { setHidden(dpm, admin, it, true) }
-        previous.filterNot { it in targets }.forEach { setHidden(dpm, admin, it, false) }
-        FocusStore.setSet(context, KEY_HIDDEN, targets)
+        val toHide = targets.filterNot { it in previous }
+        val toShow = previous.filterNot { it in targets }
+        val unchanged = previous.intersect(targets)
+
+        val newlyHidden = toHide.filter { setHidden(dpm, admin, it, true) }.toSet()
+        val actuallyShown = toShow.filter { setHidden(dpm, admin, it, false) }.toSet()
+
+        // Same reasoning as syncSuspendedApps: a package the OS refused to
+        // un-hide must stay tracked, not get quietly marked as done.
+        val stillStuck = toShow.toSet() - actuallyShown
+        if (stillStuck.isNotEmpty()) {
+            Log.w(TAG, "Still hidden after a reveal attempt, will retry next sync: $stillStuck")
+        }
+        FocusStore.setSet(context, KEY_HIDDEN, unchanged + newlyHidden + stillStuck)
     }
 
     private fun setHidden(
@@ -302,11 +341,12 @@ object KioskPolicy {
         admin: ComponentName,
         packageName: String,
         hidden: Boolean
-    ) {
-        try {
+    ): Boolean {
+        return try {
             dpm.setApplicationHidden(admin, packageName, hidden)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to change hidden state for " + packageName, e)
+            false
         }
     }
 
@@ -390,14 +430,22 @@ object KioskPolicy {
     fun releaseAllManagedApps(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
         if (!dpm.isDeviceOwnerApp(context.packageName)) return
 
+        // Same rule as syncSuspendedApps/syncHiddenApps: don't mark a package
+        // released just because we asked - only because Android confirmed it.
+        // Unconditionally clearing to emptySet() here (the old behaviour) is
+        // exactly how a package the OS refused to un-suspend got permanently
+        // lost track of at session end, with no sync ever retrying it again.
         val suspended = FocusStore.getSet(context, KEY_SUSPENDED).filter { isPackageInstalled(context, it) }
-        if (suspended.isNotEmpty()) setSuspended(dpm, admin, suspended, false)
-        FocusStore.setSet(context, KEY_SUSPENDED, emptySet())
+        val stillSuspended = if (suspended.isNotEmpty()) {
+            suspended.toSet() - setSuspended(dpm, admin, suspended, false)
+        } else {
+            emptySet()
+        }
+        FocusStore.setSet(context, KEY_SUSPENDED, stillSuspended)
 
-        FocusStore.getSet(context, KEY_HIDDEN)
-            .filter { isPackageInstalled(context, it) }
-            .forEach { setHidden(dpm, admin, it, false) }
-        FocusStore.setSet(context, KEY_HIDDEN, emptySet())
+        val hidden = FocusStore.getSet(context, KEY_HIDDEN).filter { isPackageInstalled(context, it) }
+        val stillHidden = hidden.filterNot { setHidden(dpm, admin, it, false) }.toSet()
+        FocusStore.setSet(context, KEY_HIDDEN, stillHidden)
     }
 
     // ── Activity-side lock task ───────────────────────────────────

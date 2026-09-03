@@ -104,7 +104,19 @@ object AppRules {
     fun packagesWithPolicy(context: Context, policy: AppPolicy): Set<String> =
         allPolicies(context).filterValues { it == policy }.keys
 
-    /** Everything the user has told FocusLock to stop, from any route. */
+    /**
+     * Everything the user has told FocusLock to stop, from any route.
+     *
+     * A category block must not override an explicit per-app policy on one
+     * of its members - effectivePolicy() already gets this precedence right
+     * (always-allowed, then explicit, then category), but this function had
+     * its own, different logic that unioned in every member of a blocked
+     * category regardless of an explicit ALLOW on one of them. That is
+     * exactly the bug that left a real user's app permanently suspended at
+     * the OS level after "Allow" reported success: the per-app write went
+     * through fine, but this function - which is what the Device-Owner
+     * suspension in KioskPolicy actually reads - never looked at it.
+     */
     fun blockedPackages(context: Context): Set<String> = PolicyCache.get("blockedPackages") {
         val out = LinkedHashSet<String>()
         allPolicies(context).forEach { entry ->
@@ -112,7 +124,10 @@ object AppRules {
         }
         categoryPolicies(context).forEach { entry ->
             if (entry.value.stopsLaunch) {
-                out.addAll(AppCatalog.packagesInCategory(context, entry.key))
+                AppCatalog.packagesInCategory(context, entry.key).forEach { pkg ->
+                    val explicit = explicitPolicy(context, pkg)
+                    if (explicit == null || explicit.stopsLaunch) out.add(pkg)
+                }
             }
         }
         out.removeAll(alwaysAllowed(context))
@@ -128,7 +143,13 @@ object AppRules {
         }
         categoryPolicies(context).forEach { entry ->
             if (entry.value == AppPolicy.HIDE) {
-                out.addAll(AppCatalog.packagesInCategory(context, entry.key))
+                // Same precedence fix as blockedPackages(): an explicit
+                // per-app policy - even just ALLOW, not necessarily HIDE -
+                // overrides the category's, so it must stop a member being
+                // added here rather than being unioned in unconditionally.
+                AppCatalog.packagesInCategory(context, entry.key).forEach { pkg ->
+                    if (explicitPolicy(context, pkg) == null) out.add(pkg)
+                }
             }
         }
         out.removeAll(alwaysAllowed(context))

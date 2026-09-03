@@ -47,8 +47,9 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
                 "Holds every managed browser to this list.",
                 CapabilityRegistry.isEnabled(this, Capabilities.WEB_BLOCK)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.WEB_BLOCK, value)
-                if (!value) {
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.WEB_BLOCK, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                } else if (!value) {
                     Capabilities.spec(Capabilities.WEB_BLOCK)?.let { FocusDialog.weakenNotice(this, it) }
                 }
                 refresh()

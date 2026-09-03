@@ -565,7 +565,9 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
                 "Hides the tab bar. Your library and rules become unreachable until the session ends.",
                 CapabilityRegistry.getBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", false)
             ) { value ->
-                CapabilityRegistry.setBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", value)
+                if (!CapabilityRegistry.setBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", value)) {
+                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                }
             }
         )
 

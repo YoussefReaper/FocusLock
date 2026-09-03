@@ -38,7 +38,9 @@ class RuleEditorActivity : FocusScreenActivity() {
                 "With this off, the rules below are kept but none of them run.",
                 CapabilityRegistry.isEnabled(this, Capabilities.RULE_ENGINE)
             ) { value ->
-                CapabilityRegistry.setEnabled(this, Capabilities.RULE_ENGINE, value)
+                if (!CapabilityRegistry.setEnabled(this, Capabilities.RULE_ENGINE, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )
