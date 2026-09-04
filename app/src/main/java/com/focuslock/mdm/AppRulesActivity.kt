@@ -21,16 +21,23 @@ class AppRulesActivity : FocusScreenActivity() {
     private var query: String = ""
     private var filter: Int = 0
 
-    private val filters = listOf("All", "Blocked", "Paused", "Budgeted", "Open")
+    private val filters by lazy {
+        listOf(
+            getString(R.string.app_rules_filter_all),
+            getString(R.string.app_rules_filter_blocked),
+            getString(R.string.app_rules_filter_paused),
+            getString(R.string.app_rules_filter_budgeted),
+            getString(R.string.app_rules_filter_open)
+        )
+    }
 
-    override fun screenTitle(): String = "Apps"
+    override fun screenTitle(): String = getString(R.string.app_rules_title)
 
-    override fun screenSubtitle(): String =
-        "Every app on this phone, and what FocusLock is allowed to do about it."
+    override fun screenSubtitle(): String = getString(R.string.app_rules_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildCategoryCard())
-        column.addView(sectionLabel("Individual apps"))
+        column.addView(sectionLabel(getString(R.string.app_rules_individual_apps_section)))
         column.addView(buildSearch())
         column.addView(
             FocusUi.chipStrip(this, tokens, filters, filter) { index ->
@@ -44,16 +51,9 @@ class AppRulesActivity : FocusScreenActivity() {
     // ── Bulk by category ──────────────────────────────────────────
 
     private fun buildCategoryCard(): View = card { card ->
-        card.addView(FocusUi.heading(this, tokens, "By category"))
+        card.addView(FocusUi.heading(this, tokens, getString(R.string.app_rules_by_category)))
         card.addView(FocusUi.spacer(this, 4))
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "A category rule covers every app in it, now and any you install later. " +
-                    "A rule you set on one app always wins over its category."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.app_rules_category_blurb)))
         card.addView(FocusUi.spacer(this, 8))
 
         AppCategory.ruleTargets.forEach { category ->
@@ -64,11 +64,11 @@ class AppRulesActivity : FocusScreenActivity() {
                     this,
                     tokens,
                     category.label,
-                    count.toString() + " apps - " + category.blurb,
+                    getString(R.string.app_rules_category_count_subtitle, count, category.blurb),
                     trailing = FocusUi.pill(
                         this,
                         tokens,
-                        current?.label ?: "No rule",
+                        current?.label ?: getString(R.string.app_rules_no_rule),
                         if (current == null) tokens.textMuted else policyColor(current)
                     )
                 ) { pickCategoryPolicy(category, current) }
@@ -78,7 +78,11 @@ class AppRulesActivity : FocusScreenActivity() {
 
     private fun pickCategoryPolicy(category: AppCategory, current: AppPolicy?) {
         val choices = listOf(
-            FocusDialog.Choice("none", "No rule", "Apps in this category follow their own settings.")
+            FocusDialog.Choice(
+                "none",
+                getString(R.string.app_rules_no_rule),
+                getString(R.string.app_rules_no_rule_subtitle)
+            )
         ) + AppPolicy.ladder.map { policy ->
             FocusDialog.Choice(policy.id, policy.label, policy.blurb)
         }
@@ -105,7 +109,7 @@ class AppRulesActivity : FocusScreenActivity() {
     // ── Search and list ───────────────────────────────────────────
 
     private fun buildSearch(): View {
-        val field = FocusUi.input(this, tokens, "Search apps", query)
+        val field = FocusUi.input(this, tokens, getString(R.string.app_rules_search_hint), query)
         field.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -139,7 +143,7 @@ class AppRulesActivity : FocusScreenActivity() {
             .filter { app -> matchesFilter(AppRules.effectivePolicy(this, app.packageName)) }
 
         if (apps.isEmpty()) {
-            listHost.addView(FocusUi.emptyState(this, tokens, "No apps match that."))
+            listHost.addView(FocusUi.emptyState(this, tokens, getString(R.string.app_rules_no_apps_match)))
             return
         }
 
@@ -165,9 +169,9 @@ class AppRulesActivity : FocusScreenActivity() {
         val alwaysAllowed = AppRules.isAlwaysAllowed(this, app.packageName)
 
         val subtitle = when {
-            alwaysAllowed -> "Always allowed - nothing can lock this away"
+            alwaysAllowed -> getString(R.string.app_rules_always_allowed_subtitle)
             explicit -> app.category.label
-            else -> app.category.label + " - following its category"
+            else -> getString(R.string.app_rules_following_category_subtitle, app.category.label)
         }
 
         return FocusUi.listRow(
@@ -198,16 +202,16 @@ class AppRulesActivity : FocusScreenActivity() {
             title = app.label,
             subtitle = app.packageName,
             confirmLabel = null,
-            cancelLabel = "Done"
+            cancelLabel = getString(R.string.app_rules_done)
         ) { body, dialogTokens ->
-            body.addView(FocusUi.caption(this, dialogTokens, "WHAT HAPPENS WHEN I OPEN IT"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.app_rules_what_happens_caption)))
 
             val current = AppRules.effectivePolicy(this, app.packageName)
             AppPolicy.ladder.forEach { policy ->
                 val marker = FocusUi.pill(
                     this,
                     dialogTokens,
-                    if (policy == current) "Now" else "Set",
+                    if (policy == current) getString(R.string.common_now) else getString(R.string.common_set),
                     if (policy == current) dialogTokens.accent else dialogTokens.textMuted
                 )
                 body.addView(
@@ -216,8 +220,11 @@ class AppRulesActivity : FocusScreenActivity() {
                         refresh()
                         FocusDialog.toast(
                             this,
-                            if (applied) app.label + ": " + policy.label.lowercase()
-                            else SessionLock.refusalMessage(this)
+                            if (applied) {
+                                getString(R.string.app_rules_policy_applied_toast, app.label, policy.label.lowercase())
+                            } else {
+                                SessionLock.refusalMessage(this)
+                            }
                         )
                     }
                 )
@@ -230,12 +237,15 @@ class AppRulesActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Daily minutes",
+                    getString(R.string.app_rules_daily_minutes),
                     if (minuteLimit > 0) {
-                        minuteLimit.toString() + " a day, " +
-                            AppLimits.usedMinutesToday(this, app.packageName) + " used today"
+                        getString(
+                            R.string.app_rules_daily_minutes_subtitle,
+                            minuteLimit,
+                            AppLimits.usedMinutesToday(this, app.packageName)
+                        )
                     } else {
-                        "No budget"
+                        getString(R.string.app_rules_no_budget)
                     },
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) { askMinuteLimit(app) }
@@ -246,12 +256,15 @@ class AppRulesActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Daily opens",
+                    getString(R.string.app_rules_daily_opens),
                     if (openLimit > 0) {
-                        openLimit.toString() + " a day, " +
-                            AppLimits.opensToday(this, app.packageName) + " so far"
+                        getString(
+                            R.string.app_rules_daily_opens_subtitle,
+                            openLimit,
+                            AppLimits.opensToday(this, app.packageName)
+                        )
                     } else {
-                        "No cap"
+                        getString(R.string.app_rules_no_cap)
                     },
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) { askOpenLimit(app) }
@@ -263,8 +276,8 @@ class AppRulesActivity : FocusScreenActivity() {
                 FocusUi.toggleRow(
                     this,
                     dialogTokens,
-                    "Always allowed",
-                    "Outranks every rule, session and schedule.",
+                    getString(R.string.app_rules_always_allowed_toggle_title),
+                    getString(R.string.app_rules_always_allowed_toggle_subtitle),
                     AppRules.isAlwaysAllowed(this, app.packageName)
                 ) { checked ->
                     val current2 = AppRules.alwaysAllowedRaw(this).toMutableSet()
@@ -280,15 +293,15 @@ class AppRulesActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Category",
-                    app.category.label + " - tap to correct it",
+                    getString(R.string.app_rules_category_label),
+                    getString(R.string.app_rules_category_tap_to_correct, app.category.label),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) { pickCategory(app) }
             )
 
             if (AppRules.explicitPolicy(this, app.packageName) != null) {
                 body.addView(
-                    FocusUi.ghostButton(this, dialogTokens, "Clear this app's own rule") {
+                    FocusUi.ghostButton(this, dialogTokens, getString(R.string.app_rules_clear_own_rule)) {
                         if (!AppRules.clearPolicy(this, app.packageName)) {
                             FocusDialog.toast(this, SessionLock.refusalMessage(this))
                         }
@@ -302,9 +315,9 @@ class AppRulesActivity : FocusScreenActivity() {
     private fun askMinuteLimit(app: InstalledApp) {
         FocusDialog.textInput(
             this,
-            title = "Daily minutes for " + app.label,
-            subtitle = "Leave empty to remove the budget. It resets at midnight.",
-            hint = "Minutes",
+            title = getString(R.string.app_rules_minute_limit_title, app.label),
+            subtitle = getString(R.string.app_rules_minute_limit_subtitle),
+            hint = getString(R.string.common_minutes_hint),
             value = (AppLimits.minuteLimit(this, app.packageName) ?: "").toString(),
             numeric = true
         ) { value ->
@@ -322,9 +335,9 @@ class AppRulesActivity : FocusScreenActivity() {
     private fun askOpenLimit(app: InstalledApp) {
         FocusDialog.textInput(
             this,
-            title = "Daily opens for " + app.label,
-            subtitle = "Leave empty to remove the cap.",
-            hint = "Opens",
+            title = getString(R.string.app_rules_open_limit_title, app.label),
+            subtitle = getString(R.string.app_rules_open_limit_subtitle),
+            hint = getString(R.string.common_opens_hint),
             value = (AppLimits.openLimit(this, app.packageName) ?: "").toString(),
             numeric = true
         ) { value ->
@@ -347,11 +360,10 @@ class AppRulesActivity : FocusScreenActivity() {
         val spec = Capabilities.spec(capabilityId) ?: return
         FocusDialog.alert(
             this,
-            title = "Turn on " + spec.label + "?",
-            message = "You have set a budget, but " + spec.label.lowercase() +
-                " is switched off, so nothing would enforce it.",
-            confirmLabel = "Turn it on",
-            cancelLabel = "Leave it off",
+            title = getString(R.string.app_rules_turn_on_title, spec.label),
+            message = getString(R.string.app_rules_turn_on_message, spec.label.lowercase()),
+            confirmLabel = getString(R.string.app_rules_turn_it_on),
+            cancelLabel = getString(R.string.app_rules_leave_it_off),
             onConfirm = {
                 if (!CapabilityRegistry.setEnabled(this, capabilityId, true)) {
                     FocusDialog.toast(this, SessionLock.refusalMessage(this))
@@ -364,8 +376,8 @@ class AppRulesActivity : FocusScreenActivity() {
     private fun pickCategory(app: InstalledApp) {
         FocusDialog.singleChoice(
             this,
-            title = "Category for " + app.label,
-            subtitle = "Category rules and the time breakdown both use this.",
+            title = getString(R.string.app_rules_category_for_title, app.label),
+            subtitle = getString(R.string.app_rules_category_for_subtitle),
             choices = AppCategory.values().map { category ->
                 FocusDialog.Choice(category.id, category.label, category.blurb)
             },

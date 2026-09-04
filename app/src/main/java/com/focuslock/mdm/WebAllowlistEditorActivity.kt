@@ -22,17 +22,16 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
     private var query = ""
     private var category = 0
 
-    override fun screenTitle(): String = "Websites"
+    override fun screenTitle(): String = getString(R.string.web_allowlist_title)
 
-    override fun screenSubtitle(): String =
-        "The only addresses the safe browser will load, and the only ones Chrome is allowed."
+    override fun screenSubtitle(): String = getString(R.string.web_allowlist_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildStateCard())
         column.addView(buildSearch())
         column.addView(buildCategoryStrip())
         column.addView(buildList())
-        column.addView(sectionLabel("Bulk edit"))
+        column.addView(sectionLabel(getString(R.string.web_allowlist_bulk_edit_section)))
         column.addView(buildBulkCard())
     }
 
@@ -43,8 +42,8 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Web blocking",
-                "Holds every managed browser to this list.",
+                getString(R.string.web_allowlist_blocking_title),
+                getString(R.string.web_allowlist_blocking_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.WEB_BLOCK)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.WEB_BLOCK, value)) {
@@ -58,14 +57,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
 
         if (locked()) {
             card.addView(FocusUi.spacer(this, 8))
-            card.addView(
-                FocusUi.caption(
-                    this,
-                    tokens,
-                    "A session is running, so sites can be removed but not added. " +
-                        "That is what stops the list becoming a back door."
-                )
-            )
+            card.addView(FocusUi.caption(this, tokens, getString(R.string.web_allowlist_session_running_caption)))
         }
 
         card.addView(FocusUi.spacer(this, 10))
@@ -73,15 +65,15 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Strip images and video",
-                "Text-only browsing. Pages load faster and stop being a feed.",
+                getString(R.string.web_allowlist_strip_media_title),
+                getString(R.string.web_allowlist_strip_media_subtitle),
                 AllowlistStore.isWebTextOnlyEnabled(this)
             ) { value -> AllowlistStore.setWebTextOnlyEnabled(this, value) }
         )
     }
 
     private fun buildSearch(): View {
-        val field = FocusUi.input(this, tokens, "Search sites", query)
+        val field = FocusUi.input(this, tokens, getString(R.string.web_allowlist_search_hint), query)
         field.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -93,7 +85,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         return field
     }
 
-    private fun categories(): List<String> = listOf("All") + AllowlistStore.getWebCategories(this)
+    private fun categories(): List<String> = listOf(getString(R.string.common_all)) + AllowlistStore.getWebCategories(this)
 
     private fun buildCategoryStrip(): View =
         FocusUi.chipStrip(this, tokens, categories(), category) { index ->
@@ -113,12 +105,13 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         if (!this::listHost.isInitialized) return
         listHost.removeAllViews()
 
+        val allLabel = getString(R.string.common_all)
         val cats = categories()
-        val selectedCategory = cats.getOrElse(category) { "All" }
+        val selectedCategory = cats.getOrElse(category) { allLabel }
         val needle = query.trim().lowercase(Locale.getDefault())
 
         val links = AllowlistStore.getWebLinks(this)
-            .filter { selectedCategory == "All" || it.category == selectedCategory }
+            .filter { selectedCategory == allLabel || it.category == selectedCategory }
             .filter {
                 needle.isEmpty() ||
                     it.title.lowercase(Locale.getDefault()).contains(needle) ||
@@ -128,7 +121,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         val card = FocusUi.card(this, tokens)
 
         if (links.isEmpty()) {
-            card.addView(FocusUi.emptyState(this, tokens, "No sites match that."))
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.web_allowlist_no_sites_match)))
         } else {
             links.forEachIndexed { index, link ->
                 card.addView(
@@ -137,7 +130,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
                         tokens,
                         link.title,
                         link.url.removePrefix("https://").removePrefix("http://"),
-                        trailing = FocusUi.smallButton(this, tokens, "Remove") { remove(link.url) }
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_remove)) { remove(link.url) }
                     )
                 )
                 if (index < links.size - 1) card.addView(FocusUi.divider(this, tokens))
@@ -146,7 +139,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
 
         card.addView(FocusUi.spacer(this, 12))
         card.addView(
-            FocusUi.primaryButton(this, tokens, "Add a site") { addSite() }
+            FocusUi.primaryButton(this, tokens, getString(R.string.web_allowlist_add_site)) { addSite() }
         )
         listHost.addView(card)
     }
@@ -160,21 +153,21 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         if (locked()) {
             FocusDialog.info(
                 this,
-                "Not while a session runs",
-                "Sites can be removed at any time, but new ones wait until the session ends."
+                getString(R.string.web_allowlist_not_while_session_title),
+                getString(R.string.web_allowlist_not_while_session_message)
             )
             return
         }
         FocusDialog.textInput(
             this,
-            title = "Add a site",
-            subtitle = "Just the address. Everything on that domain will load.",
-            hint = "example.com",
-            confirmLabel = "Add"
+            title = getString(R.string.web_allowlist_add_site_title),
+            subtitle = getString(R.string.web_allowlist_add_site_subtitle),
+            hint = getString(R.string.web_allowlist_example_hint),
+            confirmLabel = getString(R.string.common_add)
         ) { value ->
             val normalized = AllowlistStore.normalizeUrl(value)
             if (!AllowlistStore.isValidUrl(normalized)) {
-                FocusDialog.toast(this, "That does not look like an address.")
+                FocusDialog.toast(this, getString(R.string.web_allowlist_invalid_address_toast))
                 return@textInput
             }
             AllowlistStore.addWebUrl(this, normalized)
@@ -184,19 +177,13 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
 
     /** Kept for the paste-a-list case, which the row editor genuinely cannot beat. */
     private fun buildBulkCard(): View = card { card ->
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "One address per line. Saving replaces the whole list."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.web_allowlist_bulk_intro)))
         card.addView(FocusUi.spacer(this, 10))
 
         val field = FocusUi.input(
             this,
             tokens,
-            "https://example.com",
+            getString(R.string.web_allowlist_bulk_hint),
             AllowlistStore.getWebAllowlistUrls(this).sorted().joinToString("\n"),
             multiline = true
         )
@@ -204,7 +191,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         card.addView(field)
 
         card.addView(
-            FocusUi.secondaryButton(this, tokens, "Save the whole list") {
+            FocusUi.secondaryButton(this, tokens, getString(R.string.web_allowlist_save_list_button)) {
                 val original = AllowlistStore.getWebAllowlistUrls(this)
                 val urls = field.text.toString()
                     .split("\n")
@@ -215,18 +202,18 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
                 if (locked() && urls.any { it !in original }) {
                     FocusDialog.info(
                         this,
-                        "Not while a session runs",
-                        "Removing sites is fine. Adding waits until the session ends."
+                        getString(R.string.web_allowlist_not_while_session_title),
+                        getString(R.string.web_allowlist_bulk_session_message)
                     )
                     return@secondaryButton
                 }
                 if (urls.isEmpty()) {
-                    FocusDialog.toast(this, "That would leave the browser with nowhere to go.")
+                    FocusDialog.toast(this, getString(R.string.web_allowlist_empty_list_toast))
                     return@secondaryButton
                 }
 
                 AllowlistStore.setWebAllowlistUrls(this, urls)
-                FocusDialog.toast(this, urls.size.toString() + " sites saved.")
+                FocusDialog.toast(this, getString(R.string.web_allowlist_sites_saved_toast, urls.size))
                 refresh()
             }
         )

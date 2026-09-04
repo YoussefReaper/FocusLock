@@ -13,23 +13,22 @@ import android.widget.LinearLayout
  */
 class BedtimeActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Bedtime"
+    override fun screenTitle(): String = getString(R.string.bedtime_title)
 
-    override fun screenSubtitle(): String =
-        "A quiet window that starts itself, every night."
+    override fun screenSubtitle(): String = getString(R.string.bedtime_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildToggle())
 
         if (!CapabilityRegistry.isEnabled(this, Capabilities.BEDTIME_MODE)) return
 
-        column.addView(sectionLabel("When"))
+        column.addView(sectionLabel(getString(R.string.bedtime_section_when)))
         column.addView(buildWindowCard())
 
-        column.addView(sectionLabel("What goes quiet"))
+        column.addView(sectionLabel(getString(R.string.bedtime_section_what_quiet)))
         column.addView(buildCategoryCard())
 
-        column.addView(sectionLabel("How the screen looks"))
+        column.addView(sectionLabel(getString(R.string.bedtime_section_appearance)))
         column.addView(buildAppearanceCard())
     }
 
@@ -38,8 +37,8 @@ class BedtimeActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Bedtime",
-                "Dims the screen, switches to the quiet theme and holds back the categories below.",
+                getString(R.string.bedtime_title),
+                getString(R.string.bedtime_toggle_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.BEDTIME_MODE)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.BEDTIME_MODE, value)) {
@@ -55,7 +54,7 @@ class BedtimeActivity : FocusScreenActivity() {
                 FocusUi.pill(
                     this,
                     tokens,
-                    "Running now, lifts at " + Bedtime.formatTime(Bedtime.endMinutes(this)),
+                    getString(R.string.bedtime_running_pill, Bedtime.formatTime(Bedtime.endMinutes(this))),
                     tokens.accent
                 )
             )
@@ -67,11 +66,11 @@ class BedtimeActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Starts",
+                getString(R.string.common_starts_label),
                 Bedtime.formatTime(Bedtime.startMinutes(this)),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
-                FocusDialog.timePicker(this, "Bedtime starts", Bedtime.startMinutes(this)) { minutes ->
+                FocusDialog.timePicker(this, getString(R.string.bedtime_starts_picker_title), Bedtime.startMinutes(this)) { minutes ->
                     if (!Bedtime.setWindow(this, minutes, Bedtime.endMinutes(this))) {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     }
@@ -84,11 +83,11 @@ class BedtimeActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Lifts",
+                getString(R.string.bedtime_lifts_label),
                 Bedtime.formatTime(Bedtime.endMinutes(this)),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
-                FocusDialog.timePicker(this, "Bedtime lifts", Bedtime.endMinutes(this)) { minutes ->
+                FocusDialog.timePicker(this, getString(R.string.bedtime_lifts_picker_title), Bedtime.endMinutes(this)) { minutes ->
                     if (!Bedtime.setWindow(this, Bedtime.startMinutes(this), minutes)) {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     }
@@ -102,22 +101,15 @@ class BedtimeActivity : FocusScreenActivity() {
         val blocked = Bedtime.blockedCategories(this)
         val everything = Bedtime.blocksEverything(this)
 
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "Always-allowed apps still work. An alarm is not a distraction."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.bedtime_always_allowed_note)))
         card.addView(FocusUi.spacer(this, 8))
 
         card.addView(
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Block everything instead",
-                "Stops every app except the ones you marked always-allowed. Pick this if " +
-                    "things have been slipping through the categories below.",
+                getString(R.string.bedtime_block_everything_title),
+                getString(R.string.bedtime_block_everything_subtitle),
                 everything
             ) { checked ->
                 if (!Bedtime.setBlocksEverything(this, checked)) {
@@ -132,7 +124,7 @@ class BedtimeActivity : FocusScreenActivity() {
         if (everything) return@card
 
         card.addView(FocusUi.divider(this, tokens))
-        card.addView(FocusUi.sectionLabel(this, tokens, "Or pick what to block"))
+        card.addView(FocusUi.sectionLabel(this, tokens, getString(R.string.bedtime_section_pick_categories)))
 
         AppCategory.ruleTargets.forEach { category ->
             card.addView(
@@ -158,25 +150,25 @@ class BedtimeActivity : FocusScreenActivity() {
             FocusUi.sliderRow(
                 this,
                 tokens,
-                "Dim the screen by",
+                getString(R.string.bedtime_dim_label),
                 0,
                 80,
                 Bedtime.dimPercent(this),
-                { if (it == 0) "Not at all" else it.toString() + "%" }
+                { if (it == 0) getString(R.string.bedtime_dim_not_at_all) else getString(R.string.bedtime_dim_percent, it) }
             ) { value ->
                 Bedtime.setDimPercent(this, value)
             }
         )
         card.addView(
-            FocusUi.smallButton(this, tokens, "Preview the dimming") { refresh() }
+            FocusUi.smallButton(this, tokens, getString(R.string.bedtime_preview_dimming)) { refresh() }
         )
         card.addView(FocusUi.spacer(this, 8))
         card.addView(
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Switch to the quiet theme",
-                "Near-black with a soft accent while bedtime runs. Your daytime theme is untouched.",
+                getString(R.string.bedtime_quiet_theme_title),
+                getString(R.string.bedtime_quiet_theme_subtitle),
                 Bedtime.forcesDarkTheme(this)
             ) { value ->
                 Bedtime.setForcesDarkTheme(this, value)
@@ -187,9 +179,8 @@ class BedtimeActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Remind me about greyscale",
-                "Android's own greyscale setting takes most of the pull out of a screen at night. " +
-                    "FocusLock cannot flip it for you, but it can remind you.",
+                getString(R.string.bedtime_greyscale_title),
+                getString(R.string.bedtime_greyscale_subtitle),
                 Bedtime.showsGrayscaleHint(this)
             ) { value ->
                 Bedtime.setShowsGrayscaleHint(this, value)

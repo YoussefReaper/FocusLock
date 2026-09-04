@@ -15,16 +15,15 @@ import android.widget.LinearLayout
  */
 class PlaceRulesActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Places and networks"
+    override fun screenTitle(): String = getString(R.string.place_rules_title)
 
-    override fun screenSubtitle(): String =
-        "Rules that follow where you are, or which Wi-Fi you are on."
+    override fun screenSubtitle(): String = getString(R.string.place_rules_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildToggles())
-        column.addView(sectionLabel("Saved places"))
+        column.addView(sectionLabel(getString(R.string.place_rules_section_saved)))
         column.addView(buildPlaceList())
-        column.addView(sectionLabel("Right now"))
+        column.addView(sectionLabel(getString(R.string.place_rules_section_right_now)))
         column.addView(buildStatusCard())
     }
 
@@ -33,8 +32,8 @@ class PlaceRulesActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Place rules",
-                "Uses your last known location. FocusLock never tracks you continuously.",
+                getString(R.string.place_rules_location_title),
+                getString(R.string.place_rules_location_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.LOCATION_BLOCK)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.LOCATION_BLOCK, value)) {
@@ -50,8 +49,8 @@ class PlaceRulesActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Network rules",
-                "Uses the Wi-Fi name. Works indoors where location does not, and needs no tracking.",
+                getString(R.string.place_rules_network_title),
+                getString(R.string.place_rules_network_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.WIFI_CONDITIONS)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.WIFI_CONDITIONS, value)) {
@@ -66,7 +65,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
         ) {
             card.addView(FocusUi.spacer(this, 10))
             card.addView(
-                FocusUi.primaryButton(this, tokens, "Grant location permission") { requestLocation() }
+                FocusUi.primaryButton(this, tokens, getString(R.string.place_rules_grant_location)) { requestLocation() }
             )
         }
     }
@@ -95,13 +94,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
         val active = PlaceRules.activePlaces(this).map { it.id }.toSet()
 
         if (places.isEmpty()) {
-            card.addView(
-                FocusUi.emptyState(
-                    this,
-                    tokens,
-                    "No places yet. The easiest first one is wherever you are meant to be working."
-                )
-            )
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.place_rules_empty)))
         } else {
             places.forEachIndexed { index, place ->
                 card.addView(
@@ -111,7 +104,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
                         place.label,
                         describePlace(place),
                         trailing = if (place.id in active) {
-                            FocusUi.pill(this, tokens, "Active", tokens.accent)
+                            FocusUi.pill(this, tokens, getString(R.string.place_rules_active), tokens.accent)
                         } else {
                             FocusUi.chevron(this, tokens)
                         }
@@ -122,27 +115,34 @@ class PlaceRulesActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 12))
-        card.addView(FocusUi.primaryButton(this, tokens, "Add where I am now") { addHere() })
+        card.addView(FocusUi.primaryButton(this, tokens, getString(R.string.place_rules_add_here)) { addHere() })
         card.addView(FocusUi.spacer(this, 8))
-        card.addView(FocusUi.secondaryButton(this, tokens, "Add this Wi-Fi network") { addWifi() })
+        card.addView(FocusUi.secondaryButton(this, tokens, getString(R.string.place_rules_add_wifi)) { addWifi() })
     }
 
     private fun describePlace(place: Place): String {
         val where = when {
             place.hasWifi && place.hasCoordinates ->
-                "Wi-Fi " + place.wifiSsid + " or within " + place.radiusMeters + "m"
-            place.hasWifi -> "Wi-Fi " + place.wifiSsid
-            place.hasCoordinates -> "Within " + place.radiusMeters + "m"
-            else -> "Nothing to match on yet"
+                getString(R.string.place_rules_where_wifi_and_radius, place.wifiSsid, place.radiusMeters)
+            place.hasWifi -> getString(R.string.place_rules_where_wifi, place.wifiSsid)
+            place.hasCoordinates -> getString(R.string.place_rules_where_radius, place.radiusMeters)
+            else -> getString(R.string.place_rules_where_nothing)
         }
         val what = if (place.blockedCategories.isEmpty() && place.blockedPackages.isEmpty()) {
-            "nothing blocked"
+            getString(R.string.place_rules_what_nothing_blocked)
         } else {
-            place.blockedCategories.size.toString() + " categories, " +
-                place.blockedPackages.size + " apps"
+            getString(
+                R.string.place_rules_what_categories_apps,
+                place.blockedCategories.size,
+                place.blockedPackages.size
+            )
         }
-        val trigger = if (place.trigger == PlaceTrigger.INSIDE) "here" else "away"
-        return where + " - blocks " + what + " when " + trigger
+        val trigger = if (place.trigger == PlaceTrigger.INSIDE) {
+            getString(R.string.place_rules_trigger_here)
+        } else {
+            getString(R.string.place_rules_trigger_away)
+        }
+        return getString(R.string.place_rules_describe_place, where, what, trigger)
     }
 
     private fun addHere() {
@@ -158,16 +158,16 @@ class PlaceRulesActivity : FocusScreenActivity() {
         if (here == null) {
             FocusDialog.info(
                 this,
-                "No recent location",
-                "Android has no recent fix to work from. Open a maps app for a moment, then try again."
+                getString(R.string.place_rules_no_recent_location_title),
+                getString(R.string.place_rules_no_recent_location_message)
             )
             return
         }
         FocusDialog.textInput(
             this,
-            title = "Name this place",
-            subtitle = "School, library, the gym: whatever you will recognise later.",
-            hint = "Name"
+            title = getString(R.string.place_rules_name_place_title),
+            subtitle = getString(R.string.place_rules_name_place_subtitle),
+            hint = getString(R.string.common_name_hint)
         ) { name ->
             if (name.isBlank()) return@textInput
             val place = PlaceRules.newPlace(
@@ -191,16 +191,16 @@ class PlaceRulesActivity : FocusScreenActivity() {
         if (ssid == null) {
             FocusDialog.info(
                 this,
-                "Not on Wi-Fi",
-                "Connect to the network you want to use as a condition, then try again."
+                getString(R.string.place_rules_not_on_wifi_title),
+                getString(R.string.place_rules_not_on_wifi_message)
             )
             return
         }
         FocusDialog.textInput(
             this,
-            title = "Name this network",
-            subtitle = "Connected to " + ssid,
-            hint = "Name",
+            title = getString(R.string.place_rules_name_network_title),
+            subtitle = getString(R.string.place_rules_connected_to, ssid),
+            hint = getString(R.string.common_name_hint),
             value = ssid
         ) { name ->
             if (name.isBlank()) return@textInput
@@ -222,19 +222,19 @@ class PlaceRulesActivity : FocusScreenActivity() {
             this,
             title = place.label,
             subtitle = describePlace(place),
-            confirmLabel = "Save",
-            cancelLabel = "Cancel",
+            confirmLabel = getString(R.string.common_save),
+            cancelLabel = getString(R.string.common_cancel),
             onConfirm = {
                 PlaceRules.update(this, working)
                 refresh()
             }
         ) { body, dialogTokens ->
-            body.addView(FocusUi.caption(this, dialogTokens, "WHEN IT APPLIES"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.place_rules_caption_when)))
             PlaceTrigger.values().forEach { trigger ->
                 val marker = FocusUi.pill(
                     this,
                     dialogTokens,
-                    if (trigger == working.trigger) "Now" else "Set",
+                    if (trigger == working.trigger) getString(R.string.common_now) else getString(R.string.common_set),
                     if (trigger == working.trigger) dialogTokens.accent else dialogTokens.textMuted
                 )
                 body.addView(
@@ -246,7 +246,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
             }
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "WHAT IT BLOCKS"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.place_rules_caption_what_blocks)))
             AppCategory.ruleTargets.forEach { category ->
                 body.addView(
                     FocusUi.toggleRow(
@@ -271,12 +271,12 @@ class PlaceRulesActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Specific apps",
-                    working.blockedPackages.size.toString() + " chosen",
+                    getString(R.string.place_rules_specific_apps),
+                    getString(R.string.common_chosen_count, working.blockedPackages.size),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
                     pickApps(
-                        title = "Block at " + working.label,
+                        title = getString(R.string.place_rules_block_at_title, working.label),
                         subtitle = null,
                         selected = working.blockedPackages
                     ) { selected ->
@@ -291,11 +291,11 @@ class PlaceRulesActivity : FocusScreenActivity() {
                     FocusUi.sliderRow(
                         this,
                         dialogTokens,
-                        "How close counts as here",
+                        getString(R.string.place_rules_radius_label),
                         50,
                         1_000,
                         working.radiusMeters,
-                        { it.toString() + "m" }
+                        { getString(R.string.common_meters_suffix, it) }
                     ) { value ->
                         working = working.copy(radiusMeters = value)
                     }
@@ -304,7 +304,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
             body.addView(
-                FocusUi.dangerButton(this, dialogTokens, "Delete this place") {
+                FocusUi.dangerButton(this, dialogTokens, getString(R.string.place_rules_delete_place)) {
                     PlaceRules.remove(this, working.id)
                     refresh()
                 }
@@ -318,8 +318,8 @@ class PlaceRulesActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Wi-Fi",
-                ssid ?: "Not connected to Wi-Fi"
+                getString(R.string.place_rules_status_wifi_title),
+                ssid ?: getString(R.string.place_rules_not_connected_wifi)
             )
         )
         val here = PlaceRules.lastKnownLocation(this)
@@ -327,11 +327,11 @@ class PlaceRulesActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Location",
+                getString(R.string.place_rules_status_location_title),
                 when {
-                    !PlaceRules.hasLocationPermission(this) -> "Permission not granted"
-                    here == null -> "No recent fix from Android"
-                    else -> "Known to about " + here.accuracy.toInt() + "m"
+                    !PlaceRules.hasLocationPermission(this) -> getString(R.string.place_rules_permission_not_granted)
+                    here == null -> getString(R.string.place_rules_no_recent_fix)
+                    else -> getString(R.string.place_rules_known_accuracy, here.accuracy.toInt())
                 }
             )
         )
@@ -340,8 +340,8 @@ class PlaceRulesActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Matching places",
-                if (active.isEmpty()) "None right now" else active.joinToString { it.label }
+                getString(R.string.place_rules_matching_places_title),
+                if (active.isEmpty()) getString(R.string.common_none_right_now) else active.joinToString { it.label }
             )
         )
     }

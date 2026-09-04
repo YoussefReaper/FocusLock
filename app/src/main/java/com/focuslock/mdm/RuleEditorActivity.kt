@@ -14,18 +14,17 @@ import java.util.Calendar
  */
 class RuleEditorActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Custom rules"
+    override fun screenTitle(): String = getString(R.string.rule_editor_title)
 
-    override fun screenSubtitle(): String =
-        "The first rule that matches wins. Drag-free ordering, top to bottom."
+    override fun screenSubtitle(): String = getString(R.string.rule_editor_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildToggle())
         if (!CapabilityRegistry.isEnabled(this, Capabilities.RULE_ENGINE)) return
 
-        column.addView(sectionLabel("Your rules"))
+        column.addView(sectionLabel(getString(R.string.rule_editor_section_your_rules)))
         column.addView(buildList())
-        column.addView(sectionLabel("Start from an example"))
+        column.addView(sectionLabel(getString(R.string.rule_editor_section_examples)))
         column.addView(buildTemplates())
     }
 
@@ -34,8 +33,8 @@ class RuleEditorActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Custom rules",
-                "With this off, the rules below are kept but none of them run.",
+                getString(R.string.rule_editor_toggle_title),
+                getString(R.string.rule_editor_toggle_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.RULE_ENGINE)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.RULE_ENGINE, value)) {
@@ -91,7 +90,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                     FocusUi.listRow(
                         this,
                         tokens,
-                        (index + 1).toString() + ". " + describeRule(rule),
+                        getString(R.string.rule_editor_indexed_row_title, index + 1, describeRule(rule)),
                         describeCondition(rule),
                         trailing = controls
                     ) { editRule(rule) }
@@ -101,42 +100,53 @@ class RuleEditorActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 12))
-        card.addView(FocusUi.primaryButton(this, tokens, "New rule") { createRule() })
+        card.addView(FocusUi.primaryButton(this, tokens, getString(R.string.rule_editor_new_rule)) { createRule() })
     }
 
     private fun describeRule(rule: Rule): String {
         if (rule.label.isNotBlank()) return rule.label
         val target = when (rule.targetType) {
-            RuleTargetType.ALL -> "Everything"
+            RuleTargetType.ALL -> getString(R.string.rule_editor_target_everything)
             RuleTargetType.APP -> AppCatalog.label(this, rule.targetValue)
             RuleTargetType.CATEGORY -> AppCategory.fromId(rule.targetValue).label
         }
-        return target + ": " + rule.action.label.lowercase()
+        return getString(R.string.rule_editor_describe_rule, target, rule.action.label.lowercase())
     }
 
     private fun describeCondition(rule: Rule): String = when (rule.conditionType) {
-        RuleConditionType.ALWAYS -> "Always"
-        RuleConditionType.SESSION_ONLY -> "Only during a session"
+        RuleConditionType.ALWAYS -> getString(R.string.rule_editor_condition_always)
+        RuleConditionType.SESSION_ONLY -> getString(R.string.rule_editor_condition_session_only)
         RuleConditionType.TIME ->
-            "Between " + ScheduleManager.formatTime(rule.conditionStart) +
-                " and " + ScheduleManager.formatTime(rule.conditionEnd)
+            getString(
+                R.string.rule_editor_condition_time,
+                ScheduleManager.formatTime(rule.conditionStart),
+                ScheduleManager.formatTime(rule.conditionEnd)
+            )
         RuleConditionType.DAYS ->
-            if (rule.conditionDays.isEmpty()) "Any day" else rule.conditionDays.joinToString { dayName(it) }
+            if (rule.conditionDays.isEmpty()) {
+                getString(R.string.rule_editor_condition_any_day)
+            } else {
+                rule.conditionDays.joinToString { dayName(it) }
+            }
         RuleConditionType.PLACE ->
-            "At " + (PlaceRules.all(this).firstOrNull { it.id == rule.conditionValue }?.label ?: "a place")
-        RuleConditionType.WIFI -> "On " + rule.conditionValue
-        RuleConditionType.USAGE_OVER -> "After " + rule.conditionNumber + " minutes today"
-        RuleConditionType.OPENS_OVER -> "After " + rule.conditionNumber + " opens today"
+            getString(
+                R.string.rule_editor_condition_at_place,
+                PlaceRules.all(this).firstOrNull { it.id == rule.conditionValue }?.label
+                    ?: getString(R.string.rule_editor_a_place_fallback)
+            )
+        RuleConditionType.WIFI -> getString(R.string.rule_editor_condition_wifi, rule.conditionValue)
+        RuleConditionType.USAGE_OVER -> getString(R.string.rule_editor_condition_usage_over, rule.conditionNumber)
+        RuleConditionType.OPENS_OVER -> getString(R.string.rule_editor_condition_opens_over, rule.conditionNumber)
     }
 
     private fun dayName(day: Int): String = when (day) {
-        Calendar.MONDAY -> "Mon"
-        Calendar.TUESDAY -> "Tue"
-        Calendar.WEDNESDAY -> "Wed"
-        Calendar.THURSDAY -> "Thu"
-        Calendar.FRIDAY -> "Fri"
-        Calendar.SATURDAY -> "Sat"
-        else -> "Sun"
+        Calendar.MONDAY -> getString(R.string.common_day_mon)
+        Calendar.TUESDAY -> getString(R.string.common_day_tue)
+        Calendar.WEDNESDAY -> getString(R.string.common_day_wed)
+        Calendar.THURSDAY -> getString(R.string.common_day_thu)
+        Calendar.FRIDAY -> getString(R.string.common_day_fri)
+        Calendar.SATURDAY -> getString(R.string.common_day_sat)
+        else -> getString(R.string.common_day_sun)
     }
 
     // ── Creating ──────────────────────────────────────────────────
@@ -165,7 +175,7 @@ class RuleEditorActivity : FocusScreenActivity() {
     private fun buildTemplates(): View = card { card ->
         val templates = listOf(
             Template(
-                "No social during school hours",
+                getString(R.string.rule_editor_template_school_hours),
                 RuleTargetType.CATEGORY,
                 AppCategory.SOCIAL.id,
                 RuleConditionType.TIME,
@@ -174,7 +184,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                 15 * 60
             ),
             Template(
-                "Pause video after 30 minutes",
+                getString(R.string.rule_editor_template_pause_video),
                 RuleTargetType.CATEGORY,
                 AppCategory.VIDEO.id,
                 RuleConditionType.USAGE_OVER,
@@ -184,7 +194,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                 30
             ),
             Template(
-                "Nothing but essentials after the tenth open",
+                getString(R.string.rule_editor_template_tenth_open),
                 RuleTargetType.CATEGORY,
                 AppCategory.SOCIAL.id,
                 RuleConditionType.OPENS_OVER,
@@ -194,7 +204,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                 10
             ),
             Template(
-                "Games only outside a session",
+                getString(R.string.rule_editor_template_games_outside_session),
                 RuleTargetType.CATEGORY,
                 AppCategory.GAMES.id,
                 RuleConditionType.SESSION_ONLY,
@@ -208,8 +218,8 @@ class RuleEditorActivity : FocusScreenActivity() {
                     this,
                     tokens,
                     template.label,
-                    "Adds an editable rule",
-                    trailing = FocusUi.smallButton(this, tokens, "Add") { applyTemplate(template) }
+                    getString(R.string.rule_editor_adds_editable_rule),
+                    trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_add)) { applyTemplate(template) }
                 ) { applyTemplate(template) }
             )
         }
@@ -244,7 +254,7 @@ class RuleEditorActivity : FocusScreenActivity() {
         )
         RuleStore.add(this, rule)
         refresh()
-        FocusDialog.toast(this, "Rule added. Tap it to adjust.")
+        FocusDialog.toast(this, getString(R.string.rule_editor_rule_added_toast))
     }
 
     // ── Editing ───────────────────────────────────────────────────
@@ -258,10 +268,10 @@ class RuleEditorActivity : FocusScreenActivity() {
 
         FocusDialog.custom(
             this,
-            title = if (rule.label.isBlank()) "Rule" else rule.label,
-            subtitle = "A target, a condition, an outcome.",
-            confirmLabel = "Save",
-            cancelLabel = "Cancel",
+            title = if (rule.label.isBlank()) getString(R.string.rule_editor_untitled_rule) else rule.label,
+            subtitle = getString(R.string.rule_editor_edit_subtitle),
+            confirmLabel = getString(R.string.common_save),
+            cancelLabel = getString(R.string.common_cancel),
             onConfirm = {
                 RuleStore.update(this, working)
                 refresh()
@@ -272,15 +282,15 @@ class RuleEditorActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Name",
-                    working.label.ifBlank { "Unnamed" },
+                    getString(R.string.rule_editor_name_label),
+                    working.label.ifBlank { getString(R.string.rule_editor_unnamed) },
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
                     FocusDialog.textInput(
                         this,
-                        "Name this rule",
-                        "So you recognise it in the list.",
-                        "Name",
+                        getString(R.string.rule_editor_name_rule_title),
+                        getString(R.string.rule_editor_name_rule_subtitle),
+                        getString(R.string.common_name_hint),
                         working.label
                     ) { value ->
                         working = working.copy(label = value)
@@ -291,19 +301,19 @@ class RuleEditorActivity : FocusScreenActivity() {
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "WHAT IT COVERS"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.rule_editor_caption_covers)))
             body.addView(
                 FocusUi.listRow(
                     this,
                     dialogTokens,
                     describeTarget(working),
-                    "Tap to change",
+                    getString(R.string.common_tap_to_change),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) { pickTarget(working) { updated -> working = updated } }
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "WHEN"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.rule_editor_caption_when)))
             body.addView(
                 FocusUi.listRow(
                     this,
@@ -315,12 +325,12 @@ class RuleEditorActivity : FocusScreenActivity() {
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "WHAT HAPPENS"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.rule_editor_caption_what_happens)))
             RuleAction.values().forEach { action ->
                 val marker = FocusUi.pill(
                     this,
                     dialogTokens,
-                    if (action == working.action) "Now" else "Set",
+                    if (action == working.action) getString(R.string.common_now) else getString(R.string.common_set),
                     if (action == working.action) dialogTokens.accent else dialogTokens.textMuted
                 )
                 body.addView(
@@ -333,7 +343,7 @@ class RuleEditorActivity : FocusScreenActivity() {
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
             body.addView(
-                FocusUi.dangerButton(this, dialogTokens, "Delete this rule") {
+                FocusUi.dangerButton(this, dialogTokens, getString(R.string.rule_editor_delete_rule)) {
                     RuleStore.remove(this, working.id)
                     refresh()
                 }
@@ -342,21 +352,31 @@ class RuleEditorActivity : FocusScreenActivity() {
     }
 
     private fun describeTarget(rule: Rule): String = when (rule.targetType) {
-        RuleTargetType.ALL -> "Every app"
+        RuleTargetType.ALL -> getString(R.string.rule_editor_every_app)
         RuleTargetType.APP -> AppCatalog.label(this, rule.targetValue)
-        RuleTargetType.CATEGORY -> AppCategory.fromId(rule.targetValue).label + " apps"
+        RuleTargetType.CATEGORY -> getString(R.string.rule_editor_category_apps_suffix, AppCategory.fromId(rule.targetValue).label)
     }
 
     private fun pickTarget(rule: Rule, onChange: (Rule) -> Unit) {
-        val choices = listOf(FocusDialog.Choice("all", "Every app", "Covers everything installed")) +
+        val choices = listOf(
+            FocusDialog.Choice(
+                "all",
+                getString(R.string.rule_editor_every_app),
+                getString(R.string.rule_editor_every_app_subtitle)
+            )
+        ) +
             AppCategory.ruleTargets.map { category ->
-                FocusDialog.Choice("cat:" + category.id, category.label + " apps", category.blurb)
+                FocusDialog.Choice(
+                    "cat:" + category.id,
+                    getString(R.string.rule_editor_category_apps_suffix, category.label),
+                    category.blurb
+                )
             } +
             AppCatalog.launchable(this).map { app ->
                 FocusDialog.Choice("app:" + app.packageName, app.label, app.category.label, app.packageName)
             }
 
-        FocusDialog.singleChoice(this, "What does this cover?", null, choices, null) { key ->
+        FocusDialog.singleChoice(this, getString(R.string.rule_editor_pick_target_title), null, choices, null) { key ->
             val updated = when {
                 key == "all" -> rule.copy(targetType = RuleTargetType.ALL, targetValue = "")
                 key.startsWith("cat:") ->
@@ -375,15 +395,15 @@ class RuleEditorActivity : FocusScreenActivity() {
             FocusDialog.Choice(type.id, type.label, type.blurb)
         }
 
-        FocusDialog.singleChoice(this, "When does it apply?", null, choices, rule.conditionType.id) { key ->
+        FocusDialog.singleChoice(this, getString(R.string.rule_editor_pick_condition_title), null, choices, rule.conditionType.id) { key ->
             val type = RuleConditionType.fromId(key)
             var updated = rule.copy(conditionType = type)
             RuleStore.update(this, updated)
             onChange(updated)
 
             when (type) {
-                RuleConditionType.TIME -> FocusDialog.timePicker(this, "Starts at", rule.conditionStart) { start ->
-                    FocusDialog.timePicker(this, "Ends at", rule.conditionEnd) { end ->
+                RuleConditionType.TIME -> FocusDialog.timePicker(this, getString(R.string.common_starts_at), rule.conditionStart) { start ->
+                    FocusDialog.timePicker(this, getString(R.string.common_ends_at), rule.conditionEnd) { end ->
                         updated = updated.copy(conditionStart = start, conditionEnd = end)
                         RuleStore.update(this, updated)
                         onChange(updated)
@@ -392,9 +412,13 @@ class RuleEditorActivity : FocusScreenActivity() {
                 }
                 RuleConditionType.USAGE_OVER, RuleConditionType.OPENS_OVER -> FocusDialog.textInput(
                     this,
-                    if (type == RuleConditionType.USAGE_OVER) "After how many minutes?" else "After how many opens?",
+                    if (type == RuleConditionType.USAGE_OVER) {
+                        getString(R.string.rule_editor_after_minutes_title)
+                    } else {
+                        getString(R.string.rule_editor_after_opens_title)
+                    },
                     null,
-                    "Number",
+                    getString(R.string.common_number_hint),
                     rule.conditionNumber.toString(),
                     numeric = true
                 ) { value ->
@@ -408,13 +432,13 @@ class RuleEditorActivity : FocusScreenActivity() {
                     if (places.isEmpty()) {
                         FocusDialog.info(
                             this,
-                            "No places saved",
-                            "Add a place in Places and networks first, then come back to this rule."
+                            getString(R.string.rule_editor_no_places_title),
+                            getString(R.string.rule_editor_no_places_message)
                         )
                     } else {
                         FocusDialog.singleChoice(
                             this,
-                            "Which place?",
+                            getString(R.string.rule_editor_which_place_title),
                             null,
                             places.map { FocusDialog.Choice(it.id, it.label) },
                             rule.conditionValue
@@ -428,9 +452,9 @@ class RuleEditorActivity : FocusScreenActivity() {
                 }
                 RuleConditionType.WIFI -> FocusDialog.textInput(
                     this,
-                    "Which network?",
-                    PlaceRules.currentWifiSsid(this)?.let { "Currently on " + it },
-                    "Wi-Fi name",
+                    getString(R.string.rule_editor_which_network_title),
+                    PlaceRules.currentWifiSsid(this)?.let { getString(R.string.rule_editor_currently_on, it) },
+                    getString(R.string.rule_editor_wifi_name_hint),
                     rule.conditionValue.ifBlank { PlaceRules.currentWifiSsid(this).orEmpty() }
                 ) { value ->
                     updated = updated.copy(conditionValue = value)
@@ -450,18 +474,18 @@ class RuleEditorActivity : FocusScreenActivity() {
 
     private fun pickDays(rule: Rule, onChange: (Rule) -> Unit) {
         val days = listOf(
-            Calendar.MONDAY to "Monday",
-            Calendar.TUESDAY to "Tuesday",
-            Calendar.WEDNESDAY to "Wednesday",
-            Calendar.THURSDAY to "Thursday",
-            Calendar.FRIDAY to "Friday",
-            Calendar.SATURDAY to "Saturday",
-            Calendar.SUNDAY to "Sunday"
+            Calendar.MONDAY to getString(R.string.common_day_monday),
+            Calendar.TUESDAY to getString(R.string.common_day_tuesday),
+            Calendar.WEDNESDAY to getString(R.string.common_day_wednesday),
+            Calendar.THURSDAY to getString(R.string.common_day_thursday),
+            Calendar.FRIDAY to getString(R.string.common_day_friday),
+            Calendar.SATURDAY to getString(R.string.common_day_saturday),
+            Calendar.SUNDAY to getString(R.string.common_day_sunday)
         )
         FocusDialog.multiChoice(
             this,
-            "Which days?",
-            "Leave everything off for every day.",
+            getString(R.string.common_which_days_title),
+            getString(R.string.rule_editor_pick_days_subtitle),
             days.map { FocusDialog.Choice(it.first.toString(), it.second) },
             rule.conditionDays.map { it.toString() }.toSet()
         ) { selected ->

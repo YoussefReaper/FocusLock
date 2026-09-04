@@ -17,7 +17,10 @@ import android.widget.LinearLayout
  */
 class AdvancedHelpActivity : FocusScreenActivity() {
 
-    private val stopCommand = getString(R.string.advanced_help_stop_command)
+    // Lazy, not a plain field initializer: this runs in the constructor, before
+    // Activity.attachBaseContext() gives getString() a Context to resolve
+    // against, and would throw at construction time otherwise.
+    private val stopCommand by lazy { getString(R.string.advanced_help_stop_command) }
 
     override fun screenTitle(): String = getString(R.string.advanced_help_title)
 

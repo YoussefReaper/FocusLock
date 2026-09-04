@@ -43,24 +43,24 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.pageHeader(
                 activity,
                 tokens,
-                "Rules",
-                "Every one of these is yours to set. Nothing here is decided for you."
+                activity.getString(R.string.rules_title),
+                activity.getString(R.string.rules_subtitle)
             )
         )
 
         add(buildSummary())
 
-        add(FocusUi.sectionLabel(activity, tokens, "What to manage"))
+        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_what_to_manage)))
         add(buildEditors())
 
-        add(FocusUi.sectionLabel(activity, tokens, "Test the block"))
+        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_test_section)))
         add(buildTestCard())
 
-        add(FocusUi.sectionLabel(activity, tokens, "Capabilities"))
+        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_capabilities)))
         add(buildCapabilityIntro())
         Capabilities.grouped().forEach { entry -> add(buildCapabilityGroup(entry.first, entry.second)) }
 
-        add(FocusUi.sectionLabel(activity, tokens, "Move your setup"))
+        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_move_setup)))
         add(buildProfileCard())
 
         Motion.stagger(added, tokens)
@@ -75,7 +75,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 activity,
                 tokens,
                 AppRules.blockedPackages(activity).size.toString(),
-                "Apps blocked"
+                activity.getString(R.string.rules_stat_apps_blocked)
             )
         )
         row.addView(
@@ -83,7 +83,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 activity,
                 tokens,
                 KeywordRules.activeRules(activity).size.toString(),
-                "Words watched"
+                activity.getString(R.string.rules_stat_words_watched)
             )
         )
         row.addView(
@@ -91,7 +91,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 activity,
                 tokens,
                 (RuleStore.all(activity).size + ScheduleManager.getSchedules(activity).size).toString(),
-                "Rules and windows"
+                activity.getString(R.string.rules_stat_rules_and_windows)
             )
         )
         row.layoutParams = LinearLayout.LayoutParams(
@@ -108,72 +108,89 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         val entries = listOf(
             Editor(
-                "Apps",
-                AppRules.blockedPackages(activity).size.toString() + " blocked, " +
-                    AppRules.alwaysAllowed(activity).size + " always allowed",
+                activity.getString(R.string.rules_editor_apps_title),
+                activity.getString(
+                    R.string.rules_editor_apps_subtitle,
+                    AppRules.blockedPackages(activity).size,
+                    AppRules.alwaysAllowed(activity).size
+                ),
                 Intent(activity, AppRulesActivity::class.java),
                 R.drawable.ic_glyph_apps
             ),
             Editor(
-                "Always-allowed apps",
-                "Essentials nothing can lock away",
+                activity.getString(R.string.rules_editor_always_allowed_title),
+                activity.getString(R.string.rules_editor_always_allowed_subtitle),
                 Intent(activity, AlwaysAllowedActivity::class.java),
                 R.drawable.ic_glyph_apps
             ),
             Editor(
-                "Websites",
-                AllowlistStore.getWebAllowlistUrls(activity).size.toString() + " sites on the list",
+                activity.getString(R.string.rules_editor_websites_title),
+                activity.getString(
+                    R.string.rules_editor_websites_subtitle,
+                    AllowlistStore.getWebAllowlistUrls(activity).size
+                ),
                 Intent(activity, WebAllowlistEditorActivity::class.java),
                 R.drawable.ic_glyph_guard
             ),
             Editor(
-                "Keyword guard",
-                KeywordRules.userRules(activity).size.toString() + " of your own words",
+                activity.getString(R.string.rules_editor_keyword_guard_title),
+                activity.getString(
+                    R.string.rules_editor_keyword_guard_subtitle,
+                    KeywordRules.userRules(activity).size
+                ),
                 Intent(activity, KeywordGuardActivity::class.java),
                 R.drawable.ic_glyph_keywords
             ),
             Editor(
-                "Schedules",
-                ScheduleManager.getSchedules(activity).size.toString() + " quiet windows",
+                activity.getString(R.string.rules_editor_schedules_title),
+                activity.getString(
+                    R.string.rules_editor_schedules_subtitle,
+                    ScheduleManager.getSchedules(activity).size
+                ),
                 Intent(activity, ScheduleActivity::class.java),
                 R.drawable.ic_glyph_schedules
             ),
             Editor(
-                "Daily limits",
-                (AppLimits.allMinuteLimits(activity).size + AppLimits.allOpenLimits(activity).size)
-                    .toString() + " budgets set",
+                activity.getString(R.string.rules_editor_daily_limits_title),
+                activity.getString(
+                    R.string.rules_editor_daily_limits_subtitle,
+                    AppLimits.allMinuteLimits(activity).size + AppLimits.allOpenLimits(activity).size
+                ),
                 Intent(activity, AppLimitsActivity::class.java),
                 R.drawable.ic_glyph_limits
             ),
             Editor(
-                "Bedtime",
+                activity.getString(R.string.rules_editor_bedtime_title),
                 if (CapabilityRegistry.isEnabled(activity, Capabilities.BEDTIME_MODE)) {
                     Bedtime.formatWindow(activity)
                 } else {
-                    "Off"
+                    activity.getString(R.string.common_off)
                 },
                 Intent(activity, BedtimeActivity::class.java),
                 R.drawable.ic_glyph_bedtime
             ),
             Editor(
-                "Places and networks",
-                PlaceRules.all(activity).size.toString() + " saved",
+                activity.getString(R.string.rules_editor_places_title),
+                activity.getString(R.string.rules_editor_places_subtitle, PlaceRules.all(activity).size),
                 Intent(activity, PlaceRulesActivity::class.java),
                 R.drawable.ic_glyph_places
             ),
             Editor(
-                "Custom rules",
-                RuleStore.all(activity).size.toString() + " if-this-then-that rules",
+                activity.getString(R.string.rules_editor_custom_rules_title),
+                activity.getString(R.string.rules_editor_custom_rules_subtitle, RuleStore.all(activity).size),
                 Intent(activity, RuleEditorActivity::class.java),
                 R.drawable.ic_glyph_rules
             ),
             Editor(
-                "Tasks and earning",
+                activity.getString(R.string.rules_editor_tasks_title),
                 if (EarnMode.isEnabled(activity)) {
-                    FocusTaskStore.open(activity).size.toString() + " open · " +
+                    activity.getString(
+                        R.string.rules_editor_tasks_subtitle,
+                        FocusTaskStore.open(activity).size,
                         EarnBudget.formatBalance(activity)
+                    )
                 } else {
-                    "Earn mode is off"
+                    activity.getString(R.string.rules_editor_tasks_off)
                 },
                 Intent(activity, MainActivity::class.java)
                     .putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_TASKS)
@@ -218,11 +235,9 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 activity,
                 tokens,
                 if (active) {
-                    "Live right now, " + TestMode.formatRemaining(activity) + " left. Open any app to see " +
-                        "exactly what your rules would do to it."
+                    activity.getString(R.string.rules_test_active_body, TestMode.formatRemaining(activity))
                 } else {
-                    "See what your rules actually do before they matter. Nothing is enforced for real, " +
-                        "and you can end it any time."
+                    activity.getString(R.string.rules_test_inactive_body)
                 }
             )
         )
@@ -230,20 +245,18 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         when {
             active -> card.addView(
-                FocusUi.dangerButton(activity, tokens, "End the test") {
+                FocusUi.dangerButton(activity, tokens, activity.getString(R.string.rules_test_end_button)) {
                     TestMode.end(activity)
                     render()
                 }
             )
             !TestMode.canStart(activity) -> card.addView(
-                FocusUi.caption(
-                    activity,
-                    tokens,
-                    "A session is already running, so this isn't needed - you're already living it."
-                )
+                FocusUi.caption(activity, tokens, activity.getString(R.string.rules_test_session_running))
             )
             else -> card.addView(
-                FocusUi.primaryButton(activity, tokens, "Start a test") { pickTestLength() }
+                FocusUi.primaryButton(activity, tokens, activity.getString(R.string.rules_test_start_button)) {
+                    pickTestLength()
+                }
             )
         }
         return card
@@ -252,22 +265,22 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     private fun pickTestLength() {
         FocusDialog.singleChoice(
             activity,
-            "How long?",
-            "Ends on its own, or tap End the test any time before that.",
+            activity.getString(R.string.rules_test_length_title),
+            activity.getString(R.string.rules_test_length_subtitle),
             listOf(
-                FocusDialog.Choice("5", "5 minutes"),
-                FocusDialog.Choice("10", "10 minutes"),
-                FocusDialog.Choice("20", "20 minutes"),
-                FocusDialog.Choice("30", "30 minutes")
+                FocusDialog.Choice("5", activity.getString(R.string.rules_test_minutes_5)),
+                FocusDialog.Choice("10", activity.getString(R.string.rules_test_minutes_10)),
+                FocusDialog.Choice("20", activity.getString(R.string.rules_test_minutes_20)),
+                FocusDialog.Choice("30", activity.getString(R.string.rules_test_minutes_30))
             ),
             TestMode.DEFAULT_MINUTES.toString()
         ) { selected ->
             val minutes = selected.toIntOrNull() ?: TestMode.DEFAULT_MINUTES
             if (TestMode.start(activity, minutes)) {
-                FocusDialog.toast(activity, "Testing started. Open any app to see what your rules would do.")
+                FocusDialog.toast(activity, activity.getString(R.string.rules_test_started_toast))
                 render()
             } else {
-                FocusDialog.toast(activity, "A session is already running.")
+                FocusDialog.toast(activity, activity.getString(R.string.rules_test_session_running_toast))
             }
         }
     }
@@ -276,14 +289,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
     private fun buildCapabilityIntro(): View {
         val card = FocusUi.card(activity, tokens)
-        card.addView(
-            FocusUi.secondary(
-                activity,
-                tokens,
-                "Every behaviour FocusLock has is one switch here. Turn any of them off and it stops " +
-                    "immediately. If a switch needs a permission Android has not granted yet, it says so."
-            )
-        )
+        card.addView(FocusUi.secondary(activity, tokens, activity.getString(R.string.rules_capability_intro)))
         return card
     }
 
@@ -389,7 +395,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         }
 
         if (enabled && spec.detailScreen != null) {
-            val link = FocusUi.smallButton(activity, tokens, "Set it up") {
+            val link = FocusUi.smallButton(activity, tokens, activity.getString(R.string.rules_set_it_up)) {
                 openDetail(spec.detailScreen)
             }
             link.layoutParams = LinearLayout.LayoutParams(
@@ -405,15 +411,15 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     /** The honest line when a switch is on but Android has not granted the thing it needs. */
     private fun permissionBlocker(spec: CapabilitySpec): String? = when {
         spec.needsUsageAccess && !SetupChecks.hasUsageAccess(activity) ->
-            "Needs usage access before it can do anything. Tap to grant."
+            activity.getString(R.string.rules_perm_usage_access)
         spec.needsAccessibility && !SetupChecks.isContentGuardEnabled(activity) ->
-            "Needs the content guard turned on in Accessibility. Tap to grant."
+            activity.getString(R.string.rules_perm_accessibility)
         spec.needsNotificationAccess && !SetupChecks.isNotificationAccessGranted(activity) ->
-            "Needs notification access. Tap to grant."
+            activity.getString(R.string.rules_perm_notification_access)
         spec.needsDeviceOwner && !SetupChecks.isDeviceOwner(activity) ->
-            "Needs Device Owner, which is set from a computer. Tap to see how."
+            activity.getString(R.string.rules_perm_device_owner)
         spec.needsLocation && !SetupChecks.hasLocationAccess(activity) ->
-            "Needs location permission. Tap to grant."
+            activity.getString(R.string.rules_perm_location)
         else -> null
     }
 
@@ -444,7 +450,7 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         try {
             activity.startActivity(intent)
         } catch (_: Exception) {
-            FocusDialog.toast(activity, "That page is not available on this phone.")
+            FocusDialog.toast(activity, activity.getString(R.string.common_page_not_available))
         }
     }
 
@@ -479,8 +485,8 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.listRow(
                 activity,
                 tokens,
-                "Profiles",
-                "Save this whole setup, switch between setups, or move one to another phone.",
+                activity.getString(R.string.rules_profiles_title),
+                activity.getString(R.string.rules_profiles_subtitle),
                 trailing = FocusUi.chevron(activity, tokens)
             ) { activity.startActivity(Intent(activity, ProfilesActivity::class.java)) }
         )
@@ -489,17 +495,16 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.listRow(
                 activity,
                 tokens,
-                "Reset every capability",
-                "Puts all the switches back to their starting positions. Your lists are untouched.",
+                activity.getString(R.string.rules_reset_title),
+                activity.getString(R.string.rules_reset_subtitle),
                 trailing = FocusUi.chevron(activity, tokens)
             ) {
                 FocusDialog.alert(
                     activity,
-                    title = "Reset the switches?",
-                    message = "Your apps, sites, words and schedules stay exactly as they are. " +
-                        "Only the capability switches go back to defaults.",
-                    confirmLabel = "Reset",
-                    cancelLabel = "Cancel",
+                    title = activity.getString(R.string.rules_reset_confirm_title),
+                    message = activity.getString(R.string.rules_reset_confirm_message),
+                    confirmLabel = activity.getString(R.string.rules_reset_confirm_button),
+                    cancelLabel = activity.getString(R.string.common_cancel),
                     onConfirm = {
                         if (!CapabilityRegistry.resetToDefaults(activity)) {
                             FocusDialog.toast(activity, SessionLock.refusalMessage(activity))

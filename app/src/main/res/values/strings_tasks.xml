@@ -194,4 +194,87 @@
     <string name="task_editor_delete_confirm">Delete</string>
     <string name="task_editor_delete_cancel">Keep</string>
 
+    <!-- ── EarnSessionActivity ──────────────────────────────────── -->
+
+    <string name="earn_session_no_task_title">No task running</string>
+    <string name="earn_session_section_finishing">Finishing</string>
+    <string name="earn_session_section_banked">Banked</string>
+    <string name="earn_session_section_open_now">Open right now</string>
+    <string name="earn_session_stop_button">Stop without finishing</string>
+
+    <string name="earn_session_nothing_running_heading">Nothing is running</string>
+    <string name="earn_session_nothing_running_body">Pick a task from the Tasks tab and start it there.</string>
+    <string name="earn_session_back_to_tasks">Back to tasks</string>
+
+    <string name="earn_session_on_this_task">on this task</string>
+    <string name="earn_session_timer_meter_label">%1$d of %2$d minutes</string>
+    <string name="earn_session_timer_ready">Ready</string>
+    <string name="earn_session_timer_to_go">%1$d to go</string>
+
+    <string name="earn_session_mode_locked">The phone is locked to this task.</string>
+    <string name="earn_session_mode_friction">Running as friction: distracting apps get intercepted, not held shut.</string>
+    <string name="earn_session_mode_narrowing">Narrowing your %1$s session.</string>
+
+    <string name="earn_session_manual_button">I have done it</string>
+    <string name="earn_session_finish_collect_button">Finish and collect</string>
+    <string name="earn_session_keep_going_button">Keep going</string>
+    <string name="earn_session_finish_early_button">Finish early, earn what I have done</string>
+
+    <string name="earn_session_take_photo_button">Take the photo</string>
+    <string name="earn_session_verification_trust_label">Verification trust</string>
+
+    <string name="earn_session_subtasks_empty">This task has no steps, so there is nothing to tick. Add some, or switch it to another way of finishing.</string>
+    <string name="earn_session_tick_steps_first_button">Tick every step first</string>
+
+    <string name="earn_session_no_camera_title">No camera app</string>
+    <string name="earn_session_no_camera_message">Nothing on this phone can take the photo. Switch this task to another way of finishing in the editor.</string>
+    <string name="earn_session_camera_not_opening_toast">The camera would not open.</string>
+
+    <string name="earn_session_collect_button">Collect</string>
+    <string name="earn_session_try_again_button">Try again</string>
+    <string name="earn_session_later_button">Later</string>
+
+    <string name="earn_session_budget_enjoyable">This one pays nothing, which was your call. The work still counts.</string>
+    <string name="earn_session_budget_projected">Finishing now would add about %1$d minutes.</string>
+    <string name="earn_session_budget_keep_going">Keep going and minutes start to add up.</string>
+
+    <string name="earn_session_no_apps_open">FocusLock only. Nothing else opens until this is done.</string>
+    <string name="earn_session_rejected_apps">Asked for but not on your standing allowlist: %1$s.</string>
+    <string name="earn_session_lock_holding_toast">The lock is holding that one.</string>
+
+    <string name="earn_session_task_done_title">Task done</string>
+    <string name="earn_session_good_button">Good</string>
+    <string name="earn_session_use_minutes_now_button">Use %1$d min now</string>
+
+    <string name="earn_session_stop_confirm_title">Stop this task?</string>
+    <string name="earn_session_stop_confirm_message">It stays on your list exactly as it is. Nothing is lost and nothing is deducted — the minutes you did not earn simply were not earned.</string>
+    <string name="earn_session_stop_confirm_button">Stop</string>
+
+    <!-- ── LibraryTab ───────────────────────────────────────────── -->
+
+    <string name="library_title">Library</string>
+    <string name="library_subtitle">Somewhere to put the urge, instead of nowhere.</string>
+    <string name="library_apps_you_can_open_section">Apps you can open now</string>
+    <string name="library_all_off_empty_state">You have turned every library surface off. That is a valid choice; turn one back on in Rules if the empty phone stops working for you.</string>
+
+    <string name="library_browser_heading">Safe browser</string>
+    <string name="library_browser_body">Only the sites on your list load. No address bar to wander out of.</string>
+    <string name="library_browser_open_button">Open the browser</string>
+    <string name="library_browser_sites_edit_button">%1$d sites allowed - edit</string>
+
+    <string name="library_text_search_heading">Text search</string>
+    <string name="library_text_search_body">Google with images, video and thumbnails stripped out, and SafeSearch forced on. It answers questions without becoming a feed.</string>
+    <string name="library_text_search_button">Search something</string>
+
+    <string name="library_video_heading">Video library</string>
+    <string name="library_video_one_ready">One ready</string>
+    <string name="library_video_locked">Locked</string>
+    <string name="library_video_pick_folder">Pick a folder of your own videos. One new one unlocks every 24 hours and stays unlocked.</string>
+    <string name="library_video_ready_body">Today\'s unlock is waiting. Everything you have already opened stays open.</string>
+    <string name="library_video_waiting_body">Next unlock in %1$s. %2$d already yours.</string>
+    <string name="library_video_open_button">Open the library</string>
+
+    <string name="library_no_screen_toast">That app has no screen to open.</string>
+    <string name="library_kiosk_holding_toast">The kiosk session is holding that one shut.</string>
+
 </resources>

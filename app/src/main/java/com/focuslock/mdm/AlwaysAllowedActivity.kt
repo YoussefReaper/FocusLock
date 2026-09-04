@@ -13,10 +13,9 @@ import android.widget.LinearLayout
  */
 class AlwaysAllowedActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Always allowed"
+    override fun screenTitle(): String = getString(R.string.always_allowed_title)
 
-    override fun screenSubtitle(): String =
-        "Apps that stay reachable no matter what else is running."
+    override fun screenSubtitle(): String = getString(R.string.always_allowed_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         val enabled = CapabilityRegistry.isEnabled(this, Capabilities.ALWAYS_ALLOWED)
@@ -24,9 +23,9 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
         column.addView(buildStateCard(enabled))
         if (!enabled) return
 
-        column.addView(sectionLabel("Your list"))
+        column.addView(sectionLabel(getString(R.string.always_allowed_section_your_list)))
         column.addView(buildList())
-        column.addView(sectionLabel("Suggestions"))
+        column.addView(sectionLabel(getString(R.string.always_allowed_section_suggestions)))
         column.addView(buildSuggestions())
     }
 
@@ -35,8 +34,8 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Honour this list",
-                "When off, a session can lock away everything, including the phone app.",
+                getString(R.string.always_allowed_honour_title),
+                getString(R.string.always_allowed_honour_subtitle),
                 enabled
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.ALWAYS_ALLOWED, value)) {
@@ -54,13 +53,7 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
 
         return card { card ->
             if (current.isEmpty()) {
-                card.addView(
-                    FocusUi.emptyState(
-                        this,
-                        tokens,
-                        "Nothing here yet. Most people start with their dialler, messages and maps."
-                    )
-                )
+                card.addView(FocusUi.emptyState(this, tokens, getString(R.string.always_allowed_empty)))
             } else {
                 current.forEachIndexed { index, packageName ->
                     card.addView(
@@ -69,7 +62,7 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                             tokens,
                             AppCatalog.label(this, packageName),
                             packageName,
-                            trailing = FocusUi.smallButton(this, tokens, "Remove") {
+                            trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_remove)) {
                                 if (!AppRules.setAlwaysAllowed(this, current - packageName)) {
                                     FocusDialog.toast(this, SessionLock.refusalMessage(this))
                                 }
@@ -84,10 +77,10 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
 
             card.addView(FocusUi.spacer(this, 12))
             card.addView(
-                FocusUi.primaryButton(this, tokens, "Choose apps") {
+                FocusUi.primaryButton(this, tokens, getString(R.string.always_allowed_choose_apps)) {
                     pickApps(
-                        title = "Always allowed",
-                        subtitle = "These stay open through every session, window and bedtime.",
+                        title = getString(R.string.always_allowed_title),
+                        subtitle = getString(R.string.always_allowed_pick_subtitle),
                         selected = AppRules.alwaysAllowedRaw(this),
                         includeSystem = true
                     ) { selected ->
@@ -113,19 +106,11 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
 
         return card { card ->
             if (suggestions.isEmpty()) {
-                card.addView(
-                    FocusUi.secondary(this, tokens, "Your essentials are already covered.")
-                )
+                card.addView(FocusUi.secondary(this, tokens, getString(R.string.always_allowed_covered)))
                 return@card
             }
 
-            card.addView(
-                FocusUi.secondary(
-                    this,
-                    tokens,
-                    "These look like essentials on this phone. Add any you want protected."
-                )
-            )
+            card.addView(FocusUi.secondary(this, tokens, getString(R.string.always_allowed_suggestions_intro)))
             card.addView(FocusUi.spacer(this, 8))
 
             suggestions.forEach { packageName ->
@@ -135,7 +120,7 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
                         tokens,
                         AppCatalog.label(this, packageName),
                         packageName,
-                        trailing = FocusUi.smallButton(this, tokens, "Add") {
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_add)) {
                             if (!AppRules.addAlwaysAllowed(this, packageName)) {
                                 FocusDialog.toast(this, SessionLock.refusalMessage(this))
                             }
@@ -148,7 +133,7 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
 
             card.addView(FocusUi.spacer(this, 10))
             card.addView(
-                FocusUi.secondaryButton(this, tokens, "Add all of them") {
+                FocusUi.secondaryButton(this, tokens, getString(R.string.always_allowed_add_all)) {
                     if (!AppRules.setAlwaysAllowed(this, current + suggestions)) {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     }

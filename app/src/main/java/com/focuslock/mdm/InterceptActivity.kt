@@ -132,7 +132,7 @@ class InterceptActivity : AppCompatActivity() {
             val banner = FocusUi.pill(
                 this,
                 tokens,
-                "Testing your rules — " + TestMode.formatRemaining(this) + " left",
+                getString(R.string.intercept_testing_banner, TestMode.formatRemaining(this)),
                 tokens.warning
             )
             banner.layoutParams = LinearLayout.LayoutParams(
@@ -228,31 +228,33 @@ class InterceptActivity : AppCompatActivity() {
             column.addView(label)
             column.addView(FocusUi.spacer(this, 14))
 
-            val continueAnyway = FocusUi.secondaryButton(this, tokens, "Open " + appLabel() + " anyway") {
-                openAnyway()
-            }
+            val continueAnyway = FocusUi.secondaryButton(
+                this,
+                tokens,
+                getString(R.string.intercept_open_anyway, appLabel())
+            ) { openAnyway() }
             continueAnyway.isEnabled = false
             continueAnyway.alpha = 0.4f
             continueButton = continueAnyway
 
-            column.addView(FocusUi.primaryButton(this, tokens, "Not now, go back") { leave() })
+            column.addView(FocusUi.primaryButton(this, tokens, getString(R.string.intercept_not_now_go_back)) { leave() })
             column.addView(FocusUi.spacer(this, 10))
             column.addView(continueAnyway)
 
             if (testMode) {
                 column.addView(FocusUi.spacer(this, 10))
-                column.addView(FocusUi.ghostButton(this, tokens, "End the test") { endTest() })
+                column.addView(FocusUi.ghostButton(this, tokens, getString(R.string.intercept_end_test_button)) { endTest() })
             }
 
             handler.postDelayed(ticker, 1_000L)
             return column
         }
 
-        column.addView(FocusUi.primaryButton(this, tokens, "Back to FocusLock") { leave() })
+        column.addView(FocusUi.primaryButton(this, tokens, getString(R.string.intercept_back_to_focuslock)) { leave() })
 
         if (testMode) {
             column.addView(FocusUi.spacer(this, 10))
-            column.addView(FocusUi.ghostButton(this, tokens, "End the test") { endTest() })
+            column.addView(FocusUi.ghostButton(this, tokens, getString(R.string.intercept_end_test_button)) { endTest() })
         }
 
         if (offersBreak && TakeABreak.canStart(this)) {
@@ -263,7 +265,7 @@ class InterceptActivity : AppCompatActivity() {
                 FocusUi.secondaryButton(
                     this,
                     tokens,
-                    "Take " + minutes + " minutes (" + left + " left today)"
+                    getString(R.string.intercept_take_break_button, minutes, left)
                 ) { startBreak() }
             )
         } else if (offersBreak) {
@@ -285,7 +287,7 @@ class InterceptActivity : AppCompatActivity() {
                     FocusUi.secondaryButton(
                         this,
                         tokens,
-                        "Use " + spend + " earned minutes (" + balance + " banked)"
+                        getString(R.string.intercept_use_earned_button, spend, balance)
                     ) { confirmSpendEarned(spend) }
                 )
             }
@@ -304,17 +306,16 @@ class InterceptActivity : AppCompatActivity() {
     private fun confirmSpendEarned(minutes: Int) {
         FocusDialog.alert(
             this,
-            title = "Use " + minutes + " minutes?",
-            message = "Blocked apps open for that long, then close again. Stopping early banks " +
-                "whatever is left, so nothing is wasted.",
-            confirmLabel = "Use them",
-            cancelLabel = "Keep them",
+            title = getString(R.string.intercept_use_minutes_title, minutes),
+            message = getString(R.string.intercept_use_minutes_message),
+            confirmLabel = getString(R.string.intercept_use_them_button),
+            cancelLabel = getString(R.string.intercept_keep_them_button),
             onConfirm = {
                 if (EarnBudget.spend(this, minutes)) {
                     FocusDialog.toast(this, Copy.earnSpending(this, minutes))
                     openBlockedApp()
                 } else {
-                    FocusDialog.toast(this, "Those minutes are already spent.")
+                    FocusDialog.toast(this, getString(R.string.intercept_already_spent_toast))
                     leave()
                 }
             }
@@ -347,7 +348,7 @@ class InterceptActivity : AppCompatActivity() {
     private fun buildAlternatives(): View {
         val column = FocusUi.column(this)
 
-        val label = FocusUi.caption(this, tokens, "OR DO THIS INSTEAD")
+        val label = FocusUi.caption(this, tokens, getString(R.string.intercept_or_do_this_instead))
         label.gravity = Gravity.CENTER
         label.letterSpacing = 0.08f
         column.addView(label)
@@ -394,7 +395,7 @@ class InterceptActivity : AppCompatActivity() {
         if (open.isEmpty()) return null
 
         val column = FocusUi.column(this)
-        val label = FocusUi.caption(this, tokens, "STILL OPEN")
+        val label = FocusUi.caption(this, tokens, getString(R.string.intercept_still_open))
         label.gravity = Gravity.CENTER
         label.letterSpacing = 0.08f
         column.addView(label)
@@ -447,7 +448,7 @@ class InterceptActivity : AppCompatActivity() {
             .coerceIn(3, 60)
 
     private fun appLabel(): String =
-        if (blockedPackage.isBlank()) "it" else AppCatalog.label(this, blockedPackage)
+        if (blockedPackage.isBlank()) getString(R.string.intercept_it_fallback) else AppCatalog.label(this, blockedPackage)
 
     /**
      * A pause is not a wall. Letting the person through after the countdown is

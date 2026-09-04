@@ -193,4 +193,87 @@
     <string name="task_editor_delete_confirm">حذف</string>
     <string name="task_editor_delete_cancel">إبقاء</string>
 
+    <!-- ── EarnSessionActivity ──────────────────────────────────── -->
+
+    <string name="earn_session_no_task_title">لا مهمة تعمل</string>
+    <string name="earn_session_section_finishing">الإنهاء</string>
+    <string name="earn_session_section_banked">مصرفي</string>
+    <string name="earn_session_section_open_now">مفتوح الآن</string>
+    <string name="earn_session_stop_button">التوقف دون الإنهاء</string>
+
+    <string name="earn_session_nothing_running_heading">لا شيء يعمل</string>
+    <string name="earn_session_nothing_running_body">اختر مهمة من تبويب المهام وابدأها من هناك.</string>
+    <string name="earn_session_back_to_tasks">العودة إلى المهام</string>
+
+    <string name="earn_session_on_this_task">على هذه المهمة</string>
+    <string name="earn_session_timer_meter_label">%1$d من %2$d دقيقة</string>
+    <string name="earn_session_timer_ready">جاهز</string>
+    <string name="earn_session_timer_to_go">تبقى %1$d</string>
+
+    <string name="earn_session_mode_locked">الهاتف مقفل على هذه المهمة.</string>
+    <string name="earn_session_mode_friction">يعمل كوضع احتكاك: التطبيقات المشتتة تُعترض، لا تُغلق تمامًا.</string>
+    <string name="earn_session_mode_narrowing">يُضيّق جلسة %1$s الخاصة بك.</string>
+
+    <string name="earn_session_manual_button">قمت بها</string>
+    <string name="earn_session_finish_collect_button">الإنهاء والتحصيل</string>
+    <string name="earn_session_keep_going_button">متابعة</string>
+    <string name="earn_session_finish_early_button">الإنهاء مبكرًا، كسب ما أنجزته</string>
+
+    <string name="earn_session_take_photo_button">التقاط الصورة</string>
+    <string name="earn_session_verification_trust_label">ثقة التحقق</string>
+
+    <string name="earn_session_subtasks_empty">هذه المهمة بلا خطوات، فلا شيء لتحديده. أضف بعضها، أو بدّل إلى طريقة إنهاء أخرى.</string>
+    <string name="earn_session_tick_steps_first_button">حدد كل خطوة أولًا</string>
+
+    <string name="earn_session_no_camera_title">لا تطبيق كاميرا</string>
+    <string name="earn_session_no_camera_message">لا شيء على هذا الهاتف يمكنه التقاط الصورة. بدّل هذه المهمة إلى طريقة إنهاء أخرى في المحرر.</string>
+    <string name="earn_session_camera_not_opening_toast">تعذّر فتح الكاميرا.</string>
+
+    <string name="earn_session_collect_button">تحصيل</string>
+    <string name="earn_session_try_again_button">حاول مجددًا</string>
+    <string name="earn_session_later_button">لاحقًا</string>
+
+    <string name="earn_session_budget_enjoyable">هذه لا تدفع شيئًا، وكان ذلك اختيارك. العمل لا يزال محسوبًا.</string>
+    <string name="earn_session_budget_projected">الإنهاء الآن سيضيف حوالي %1$d دقيقة.</string>
+    <string name="earn_session_budget_keep_going">تابع، والدقائق تبدأ بالتراكم.</string>
+
+    <string name="earn_session_no_apps_open">FocusLock فقط. لا شيء آخر يفتح حتى تنتهي هذه المهمة.</string>
+    <string name="earn_session_rejected_apps">مطلوبة لكنها ليست على قائمتك الدائمة المسموح بها: %1$s.</string>
+    <string name="earn_session_lock_holding_toast">القفل يحبس ذلك التطبيق.</string>
+
+    <string name="earn_session_task_done_title">اكتملت المهمة</string>
+    <string name="earn_session_good_button">جيد</string>
+    <string name="earn_session_use_minutes_now_button">استخدام %1$d دقيقة الآن</string>
+
+    <string name="earn_session_stop_confirm_title">إيقاف هذه المهمة؟</string>
+    <string name="earn_session_stop_confirm_message">تبقى في قائمتك تمامًا كما هي. لا شيء يُفقد ولا شيء يُخصم — الدقائق التي لم تُكسب ببساطة لم تُكسب.</string>
+    <string name="earn_session_stop_confirm_button">إيقاف</string>
+
+    <!-- ── LibraryTab ───────────────────────────────────────────── -->
+
+    <string name="library_title">المكتبة</string>
+    <string name="library_subtitle">مكان لوضع الرغبة فيه، بدلًا من لا مكان.</string>
+    <string name="library_apps_you_can_open_section">تطبيقات يمكنك فتحها الآن</string>
+    <string name="library_all_off_empty_state">لقد أطفأت كل واجهات المكتبة. هذا خيار صحيح؛ أعد تشغيل واحدة في القواعد إذا توقف الهاتف الفارغ عن العمل من أجلك.</string>
+
+    <string name="library_browser_heading">المتصفح الآمن</string>
+    <string name="library_browser_body">فقط المواقع في قائمتك تُحمَّل. لا شريط عنوان لتتجول خارجه.</string>
+    <string name="library_browser_open_button">فتح المتصفح</string>
+    <string name="library_browser_sites_edit_button">%1$d مواقع مسموحة - تعديل</string>
+
+    <string name="library_text_search_heading">بحث نصي</string>
+    <string name="library_text_search_body">جوجل بدون صور أو فيديو أو صور مصغّرة، مع تفعيل البحث الآمن إجباريًا. يجيب عن الأسئلة دون أن يتحول إلى خلاصة.</string>
+    <string name="library_text_search_button">ابحث عن شيء</string>
+
+    <string name="library_video_heading">مكتبة الفيديو</string>
+    <string name="library_video_one_ready">واحد جاهز</string>
+    <string name="library_video_locked">مقفل</string>
+    <string name="library_video_pick_folder">اختر مجلد فيديوهاتك الخاصة. فيديو جديد يُفتح كل 24 ساعة ويبقى مفتوحًا.</string>
+    <string name="library_video_ready_body">فتح اليوم بانتظارك. كل ما فتحته من قبل يبقى مفتوحًا.</string>
+    <string name="library_video_waiting_body">الفتح التالي خلال %1$s. %2$d أصبحت لك بالفعل.</string>
+    <string name="library_video_open_button">فتح المكتبة</string>
+
+    <string name="library_no_screen_toast">هذا التطبيق ليس له شاشة لفتحها.</string>
+    <string name="library_kiosk_holding_toast">جلسة الكشك تحبس ذلك التطبيق مغلقًا.</string>
+
 </resources>

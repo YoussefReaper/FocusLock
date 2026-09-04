@@ -16,7 +16,10 @@ import android.widget.LinearLayout
  */
 class DeviceOwnerHelpActivity : FocusScreenActivity() {
 
-    private val command = getString(R.string.device_owner_help_command)
+    // Lazy, not a plain field initializer: this runs in the constructor, before
+    // Activity.attachBaseContext() gives getString() a Context to resolve
+    // against, and would throw at construction time otherwise.
+    private val command by lazy { getString(R.string.device_owner_help_command) }
 
     override fun screenTitle(): String = getString(R.string.device_owner_help_title)
 

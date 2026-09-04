@@ -13,10 +13,9 @@ import android.widget.LinearLayout
  */
 class AppLimitsActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Daily limits"
+    override fun screenTitle(): String = getString(R.string.app_limits_title)
 
-    override fun screenSubtitle(): String =
-        "Budgets that reset at midnight. Nothing is blocked until a budget runs out."
+    override fun screenSubtitle(): String = getString(R.string.app_limits_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildSwitches())
@@ -25,13 +24,13 @@ class AppLimitsActivity : FocusScreenActivity() {
             column.addView(buildUsageWarning())
         }
 
-        column.addView(sectionLabel("Minute budgets"))
+        column.addView(sectionLabel(getString(R.string.app_limits_section_minute_budgets)))
         column.addView(buildMinuteList())
 
-        column.addView(sectionLabel("Open caps"))
+        column.addView(sectionLabel(getString(R.string.app_limits_open_caps_title)))
         column.addView(buildOpenList())
 
-        column.addView(sectionLabel("Take a break"))
+        column.addView(sectionLabel(getString(R.string.app_limits_section_take_a_break)))
         column.addView(buildBreakCard())
     }
 
@@ -40,8 +39,8 @@ class AppLimitsActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Time limits",
-                "Blocks an app once its daily minutes are used.",
+                getString(R.string.app_limits_time_limits_title),
+                getString(R.string.app_limits_time_limits_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.PER_APP_LIMITS)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.PER_APP_LIMITS, value)) {
@@ -55,8 +54,8 @@ class AppLimitsActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Open caps",
-                "Blocks an app once it has been opened that many times today.",
+                getString(R.string.app_limits_open_caps_title),
+                getString(R.string.app_limits_open_caps_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.OPEN_COUNT_LIMITS)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.OPEN_COUNT_LIMITS, value)) {
@@ -68,24 +67,17 @@ class AppLimitsActivity : FocusScreenActivity() {
     }
 
     private fun buildUsageWarning(): View = card { card ->
-        card.addView(FocusUi.heading(this, tokens, "Usage access is off"))
+        card.addView(FocusUi.heading(this, tokens, getString(R.string.app_limits_usage_off_heading)))
         card.addView(FocusUi.spacer(this, 6))
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "Budgets are measured from Android's usage records. Without access to them, " +
-                    "these limits cannot count anything."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.app_limits_usage_off_body)))
         card.addView(FocusUi.spacer(this, 12))
         card.addView(
-            FocusUi.primaryButton(this, tokens, "Grant usage access") {
+            FocusUi.primaryButton(this, tokens, getString(R.string.app_limits_grant_usage_access)) {
                 LockManager.allowSettingsUntil(this, System.currentTimeMillis() + 2 * 60 * 1000)
                 try {
                     startActivity(android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 } catch (_: Exception) {
-                    FocusDialog.toast(this, "That page is not available on this phone.")
+                    FocusDialog.toast(this, getString(R.string.common_page_not_available))
                 }
             }
         )
@@ -96,7 +88,7 @@ class AppLimitsActivity : FocusScreenActivity() {
 
         if (limits.isEmpty()) {
             card.addView(
-                FocusUi.emptyState(this, tokens, "No minute budgets yet.")
+                FocusUi.emptyState(this, tokens, getString(R.string.app_limits_no_minute_budgets))
             )
         } else {
             limits.entries.sortedBy { AppCatalog.label(this, it.key) }.forEach { entry ->
@@ -108,8 +100,8 @@ class AppLimitsActivity : FocusScreenActivity() {
                         this,
                         tokens,
                         AppCatalog.label(this, entry.key),
-                        used.toString() + " of " + entry.value + " minutes used today",
-                        trailing = FocusUi.smallButton(this, tokens, "Change") {
+                        getString(R.string.app_limits_minute_row_subtitle, used, entry.value),
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_change)) {
                             askMinutes(entry.key)
                         },
                         leading = FocusUi.appIcon(this, tokens, entry.key, 34)
@@ -131,7 +123,7 @@ class AppLimitsActivity : FocusScreenActivity() {
 
         card.addView(FocusUi.spacer(this, 10))
         card.addView(
-            FocusUi.primaryButton(this, tokens, "Add a minute budget") { pickAppFor(true) }
+            FocusUi.primaryButton(this, tokens, getString(R.string.app_limits_add_minute_budget)) { pickAppFor(true) }
         )
     }
 
@@ -139,7 +131,7 @@ class AppLimitsActivity : FocusScreenActivity() {
         val limits = AppLimits.allOpenLimits(this)
 
         if (limits.isEmpty()) {
-            card.addView(FocusUi.emptyState(this, tokens, "No open caps yet."))
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.app_limits_no_open_caps)))
         } else {
             limits.entries.sortedBy { AppCatalog.label(this, it.key) }.forEach { entry ->
                 card.addView(
@@ -147,8 +139,8 @@ class AppLimitsActivity : FocusScreenActivity() {
                         this,
                         tokens,
                         AppCatalog.label(this, entry.key),
-                        AppLimits.opensToday(this, entry.key).toString() + " of " + entry.value + " opens today",
-                        trailing = FocusUi.smallButton(this, tokens, "Change") { askOpens(entry.key) },
+                        getString(R.string.app_limits_open_row_subtitle, AppLimits.opensToday(this, entry.key), entry.value),
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_change)) { askOpens(entry.key) },
                         leading = FocusUi.appIcon(this, tokens, entry.key, 34)
                     )
                 )
@@ -156,7 +148,7 @@ class AppLimitsActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 10))
-        card.addView(FocusUi.primaryButton(this, tokens, "Add an open cap") { pickAppFor(false) })
+        card.addView(FocusUi.primaryButton(this, tokens, getString(R.string.app_limits_add_open_cap)) { pickAppFor(false) })
     }
 
     private fun pickAppFor(minutes: Boolean) {
@@ -165,7 +157,11 @@ class AppLimitsActivity : FocusScreenActivity() {
         }
         FocusDialog.singleChoice(
             this,
-            title = if (minutes) "Which app gets a minute budget?" else "Which app gets an open cap?",
+            title = if (minutes) {
+                getString(R.string.app_limits_pick_minute_title)
+            } else {
+                getString(R.string.app_limits_pick_open_title)
+            },
             subtitle = null,
             choices = choices,
             selectedKey = null
@@ -178,8 +174,8 @@ class AppLimitsActivity : FocusScreenActivity() {
         FocusDialog.textInput(
             this,
             title = AppCatalog.label(this, packageName),
-            subtitle = "Minutes a day. Leave empty to remove the budget.",
-            hint = "Minutes",
+            subtitle = getString(R.string.app_limits_minutes_subtitle),
+            hint = getString(R.string.common_minutes_hint),
             value = (AppLimits.allMinuteLimits(this)[packageName] ?: "").toString(),
             numeric = true
         ) { value ->
@@ -194,8 +190,8 @@ class AppLimitsActivity : FocusScreenActivity() {
         FocusDialog.textInput(
             this,
             title = AppCatalog.label(this, packageName),
-            subtitle = "Opens a day. Leave empty to remove the cap.",
-            hint = "Opens",
+            subtitle = getString(R.string.app_limits_opens_subtitle),
+            hint = getString(R.string.common_opens_hint),
             value = (AppLimits.allOpenLimits(this)[packageName] ?: "").toString(),
             numeric = true
         ) { value ->
@@ -215,8 +211,8 @@ class AppLimitsActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Allow breaks",
-                "Lets you deliberately unlock a blocked app for a few minutes.",
+                getString(R.string.app_limits_allow_breaks_title),
+                getString(R.string.app_limits_allow_breaks_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.TAKE_A_BREAK)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.TAKE_A_BREAK, value)) {
@@ -232,29 +228,29 @@ class AppLimitsActivity : FocusScreenActivity() {
             FocusUi.sliderRow(
                 this,
                 tokens,
-                "How long a break lasts",
+                getString(R.string.app_limits_break_length_label),
                 1,
                 30,
                 TakeABreak.breakMinutes(this),
-                { it.toString() + " min" }
+                { getString(R.string.app_limits_min_suffix, it) }
             ) { value -> TakeABreak.setBreakMinutes(this, value) }
         )
         card.addView(
             FocusUi.sliderRow(
                 this,
                 tokens,
-                "Breaks a day",
+                getString(R.string.app_limits_breaks_per_day_label),
                 0,
                 10,
                 TakeABreak.dailyMax(this),
-                { if (it == 0) "None" else it.toString() }
+                { if (it == 0) getString(R.string.common_none) else it.toString() }
             ) { value -> TakeABreak.setDailyMax(this, value) }
         )
         card.addView(
             FocusUi.caption(
                 this,
                 tokens,
-                TakeABreak.remainingToday(this).toString() + " left today."
+                getString(R.string.app_limits_left_today, TakeABreak.remainingToday(this))
             )
         )
     }

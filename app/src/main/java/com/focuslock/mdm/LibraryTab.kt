@@ -45,8 +45,8 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
             FocusUi.pageHeader(
                 activity,
                 tokens,
-                "Library",
-                "Somewhere to put the urge, instead of nowhere."
+                activity.getString(R.string.library_title),
+                activity.getString(R.string.library_subtitle)
             )
         )
 
@@ -74,20 +74,13 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
         if (UiPrefs.showAllowedApps(activity)) {
             val open = openableApps()
             if (open.isNotEmpty()) {
-                add(FocusUi.sectionLabel(activity, tokens, "Apps you can open now"))
+                add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.library_apps_you_can_open_section)))
                 add(buildAppGrid(open))
             }
         }
 
         if (!anything) {
-            add(
-                FocusUi.emptyState(
-                    activity,
-                    tokens,
-                    "You have turned every library surface off. That is a valid choice; " +
-                        "turn one back on in Rules if the empty phone stops working for you."
-                )
-            )
+            add(FocusUi.emptyState(activity, tokens, activity.getString(R.string.library_all_off_empty_state)))
         }
 
         Motion.stagger(added, tokens)
@@ -100,15 +93,9 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
             activity.startActivity(Intent(activity, WebViewActivity::class.java))
         }
 
-        card.addView(FocusUi.heading(activity, tokens, "Safe browser"))
+        card.addView(FocusUi.heading(activity, tokens, activity.getString(R.string.library_browser_heading)))
         card.addView(FocusUi.spacer(activity, 6))
-        card.addView(
-            FocusUi.secondary(
-                activity,
-                tokens,
-                "Only the sites on your list load. No address bar to wander out of."
-            )
-        )
+        card.addView(FocusUi.secondary(activity, tokens, activity.getString(R.string.library_browser_body)))
 
         val categories = AllowlistStore.getWebCategories(activity).take(6)
         if (categories.isNotEmpty()) {
@@ -130,7 +117,7 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
 
         card.addView(FocusUi.spacer(activity, 14))
         card.addView(
-            FocusUi.primaryButton(activity, tokens, "Open the browser") {
+            FocusUi.primaryButton(activity, tokens, activity.getString(R.string.library_browser_open_button)) {
                 activity.startActivity(Intent(activity, WebViewActivity::class.java))
             }
         )
@@ -139,7 +126,7 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
             FocusUi.ghostButton(
                 activity,
                 tokens,
-                AllowlistStore.getWebAllowlistUrls(activity).size.toString() + " sites allowed - edit"
+                activity.getString(R.string.library_browser_sites_edit_button, AllowlistStore.getWebAllowlistUrls(activity).size)
             ) {
                 activity.startActivity(Intent(activity, WebAllowlistEditorActivity::class.java))
             }
@@ -151,19 +138,12 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
         val card = FocusUi.card(activity, tokens) {
             activity.startActivity(Intent(activity, TextSearchActivity::class.java))
         }
-        card.addView(FocusUi.heading(activity, tokens, "Text search"))
+        card.addView(FocusUi.heading(activity, tokens, activity.getString(R.string.library_text_search_heading)))
         card.addView(FocusUi.spacer(activity, 6))
-        card.addView(
-            FocusUi.secondary(
-                activity,
-                tokens,
-                "Google with images, video and thumbnails stripped out, and SafeSearch forced on. " +
-                    "It answers questions without becoming a feed."
-            )
-        )
+        card.addView(FocusUi.secondary(activity, tokens, activity.getString(R.string.library_text_search_body)))
         card.addView(FocusUi.spacer(activity, 14))
         card.addView(
-            FocusUi.secondaryButton(activity, tokens, "Search something") {
+            FocusUi.secondaryButton(activity, tokens, activity.getString(R.string.library_text_search_button)) {
                 activity.startActivity(Intent(activity, TextSearchActivity::class.java))
             }
         )
@@ -180,7 +160,7 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
         }
 
         val header = FocusUi.row(activity)
-        val title = FocusUi.heading(activity, tokens, "Video library")
+        val title = FocusUi.heading(activity, tokens, activity.getString(R.string.library_video_heading))
         title.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         header.addView(title)
 
@@ -189,7 +169,7 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
             FocusUi.pill(
                 activity,
                 tokens,
-                if (ready) "One ready" else "Locked",
+                if (ready) activity.getString(R.string.library_video_one_ready) else activity.getString(R.string.library_video_locked),
                 if (ready) tokens.success else tokens.textMuted
             )
         )
@@ -201,19 +181,22 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
                 activity,
                 tokens,
                 if (!VideoManager.isFolderSelected(activity)) {
-                    "Pick a folder of your own videos. One new one unlocks every 24 hours and stays unlocked."
+                    activity.getString(R.string.library_video_pick_folder)
                 } else if (ready) {
-                    "Today's unlock is waiting. Everything you have already opened stays open."
+                    activity.getString(R.string.library_video_ready_body)
                 } else {
-                    "Next unlock in " + VideoManager.nextUnlockFormatted(activity) + ". " +
-                        VideoManager.unlockedCount(activity) + " already yours."
+                    activity.getString(
+                        R.string.library_video_waiting_body,
+                        VideoManager.nextUnlockFormatted(activity),
+                        VideoManager.unlockedCount(activity)
+                    )
                 }
             )
         )
 
         card.addView(FocusUi.spacer(activity, 14))
         card.addView(
-            FocusUi.secondaryButton(activity, tokens, "Open the library") {
+            FocusUi.secondaryButton(activity, tokens, activity.getString(R.string.library_video_open_button)) {
                 activity.startActivity(Intent(activity, VideoLibraryActivity::class.java))
             }
         )
@@ -319,13 +302,13 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
     private fun launch(packageName: String) {
         val intent = activity.packageManager.getLaunchIntentForPackage(packageName)
         if (intent == null) {
-            FocusDialog.toast(activity, "That app has no screen to open.")
+            FocusDialog.toast(activity, activity.getString(R.string.library_no_screen_toast))
             return
         }
         try {
             activity.startActivity(intent)
         } catch (_: SecurityException) {
-            FocusDialog.toast(activity, "The kiosk session is holding that one shut.")
+            FocusDialog.toast(activity, activity.getString(R.string.library_kiosk_holding_toast))
         }
     }
 }

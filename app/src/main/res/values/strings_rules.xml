@@ -114,6 +114,7 @@
 
     <string name="app_rules_title">Apps</string>
     <string name="app_rules_subtitle">Every app on this phone, and what FocusLock is allowed to do about it.</string>
+    <string name="app_rules_individual_apps_section">Individual apps</string>
     <string name="app_rules_filter_all">All</string>
     <string name="app_rules_filter_blocked">Blocked</string>
     <string name="app_rules_filter_paused">Paused</string>
@@ -167,6 +168,8 @@
 
     <string name="app_limits_title">Daily limits</string>
     <string name="app_limits_subtitle">Budgets that reset at midnight. Nothing is blocked until a budget runs out.</string>
+    <string name="app_limits_section_minute_budgets">Minute budgets</string>
+    <string name="app_limits_section_take_a_break">Take a break</string>
 
     <string name="app_limits_time_limits_title">Time limits</string>
     <string name="app_limits_time_limits_subtitle">Blocks an app once its daily minutes are used.</string>
@@ -326,6 +329,7 @@
     <string name="rule_editor_new_rule">New rule</string>
 
     <string name="rule_editor_target_everything">Everything</string>
+    <string name="rule_editor_every_app">Every app</string>
     <string name="rule_editor_describe_rule">%1$s: %2$s</string>
 
     <string name="rule_editor_condition_always">Always</string>
@@ -377,6 +381,7 @@
 
     <string name="web_allowlist_title">Websites</string>
     <string name="web_allowlist_subtitle">The only addresses the safe browser will load, and the only ones Chrome is allowed.</string>
+    <string name="web_allowlist_bulk_edit_section">Bulk edit</string>
 
     <string name="web_allowlist_blocking_title">Web blocking</string>
     <string name="web_allowlist_blocking_subtitle">Holds every managed browser to this list.</string>
@@ -523,5 +528,24 @@
     <string name="intercept_already_spent_toast">Those minutes are already spent.</string>
     <string name="intercept_or_do_this_instead">OR DO THIS INSTEAD</string>
     <string name="intercept_still_open">STILL OPEN</string>
+    <string name="intercept_end_test_button">End the test</string>
+    <string name="intercept_testing_banner">Testing your rules — %1$s left</string>
+
+    <!-- ── Test the block (RulesTab, and the banner InterceptActivity shows) ── -->
+
+    <string name="rules_test_section">Test the block</string>
+    <string name="rules_test_active_body">Live right now, %1$s left. Open any app to see exactly what your rules would do to it.</string>
+    <string name="rules_test_inactive_body">See what your rules actually do before they matter. Nothing is enforced for real, and you can end it any time.</string>
+    <string name="rules_test_end_button">End the test</string>
+    <string name="rules_test_session_running">A session is already running, so this isn\'t needed - you\'re already living it.</string>
+    <string name="rules_test_start_button">Start a test</string>
+    <string name="rules_test_length_title">How long?</string>
+    <string name="rules_test_length_subtitle">Ends on its own, or tap End the test any time before that.</string>
+    <string name="rules_test_minutes_5">5 minutes</string>
+    <string name="rules_test_minutes_10">10 minutes</string>
+    <string name="rules_test_minutes_20">20 minutes</string>
+    <string name="rules_test_minutes_30">30 minutes</string>
+    <string name="rules_test_started_toast">Testing started. Open any app to see what your rules would do.</string>
+    <string name="rules_test_session_running_toast">A session is already running.</string>
 
 </resources>

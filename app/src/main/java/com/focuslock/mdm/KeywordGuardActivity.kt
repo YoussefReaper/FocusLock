@@ -16,10 +16,9 @@ import android.widget.LinearLayout
  */
 class KeywordGuardActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Keyword guard"
+    override fun screenTitle(): String = getString(R.string.keyword_guard_title)
 
-    override fun screenSubtitle(): String =
-        "Words that make FocusLock back out of a screen, inside apps you still want."
+    override fun screenSubtitle(): String = getString(R.string.keyword_guard_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         if (!SetupChecks.isContentGuardEnabled(this)) {
@@ -27,41 +26,42 @@ class KeywordGuardActivity : FocusScreenActivity() {
         }
 
         column.addView(buildMasterCard())
-        column.addView(sectionLabel("Built-in guards"))
-        column.addView(buildGroupCard(KeywordRules.GROUP_WHATSAPP, Capabilities.WHATSAPP_GUARD, "WhatsApp"))
-        column.addView(buildGroupCard(KeywordRules.GROUP_SHORTS, Capabilities.SHORTS_BLOCK, "Shorts"))
-        column.addView(buildGroupCard(KeywordRules.GROUP_REELS, Capabilities.REELS_BLOCK, "Reels"))
-        column.addView(buildGroupCard(KeywordRules.GROUP_ADULT, Capabilities.ADULT_BLOCK, "Adult content"))
+        column.addView(sectionLabel(getString(R.string.keyword_guard_section_builtin)))
+        column.addView(
+            buildGroupCard(KeywordRules.GROUP_WHATSAPP, Capabilities.WHATSAPP_GUARD, getString(R.string.keyword_guard_whatsapp))
+        )
+        column.addView(
+            buildGroupCard(KeywordRules.GROUP_SHORTS, Capabilities.SHORTS_BLOCK, getString(R.string.keyword_guard_shorts))
+        )
+        column.addView(
+            buildGroupCard(KeywordRules.GROUP_REELS, Capabilities.REELS_BLOCK, getString(R.string.keyword_guard_reels))
+        )
+        column.addView(
+            buildGroupCard(KeywordRules.GROUP_ADULT, Capabilities.ADULT_BLOCK, getString(R.string.keyword_guard_adult))
+        )
 
-        column.addView(sectionLabel("Telegram"))
+        column.addView(sectionLabel(getString(R.string.keyword_guard_section_telegram)))
         column.addView(buildTelegramCard())
 
-        column.addView(sectionLabel("Your words"))
+        column.addView(sectionLabel(getString(R.string.keyword_guard_section_your_words)))
         column.addView(buildUserRules())
 
-        column.addView(sectionLabel("Exceptions"))
+        column.addView(sectionLabel(getString(R.string.keyword_guard_section_exceptions)))
         column.addView(buildExceptions())
     }
 
     private fun buildPermissionCard(): View = card { card ->
-        card.addView(FocusUi.heading(this, tokens, "The guard is not switched on"))
+        card.addView(FocusUi.heading(this, tokens, getString(R.string.keyword_guard_not_on_heading)))
         card.addView(FocusUi.spacer(this, 6))
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "Reading the screen needs an accessibility service. FocusLock only ever reads text; " +
-                    "it never types, taps or sends anything anywhere."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.keyword_guard_not_on_body)))
         card.addView(FocusUi.spacer(this, 12))
         card.addView(
-            FocusUi.primaryButton(this, tokens, "Open Accessibility settings") {
+            FocusUi.primaryButton(this, tokens, getString(R.string.keyword_guard_open_accessibility)) {
                 LockManager.allowSettingsUntil(this, System.currentTimeMillis() + 2 * 60 * 1000)
                 try {
                     startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 } catch (_: Exception) {
-                    FocusDialog.toast(this, "That page is not available on this phone.")
+                    FocusDialog.toast(this, getString(R.string.common_page_not_available))
                 }
             }
         )
@@ -72,8 +72,8 @@ class KeywordGuardActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Content guard",
-                "The master switch. With this off, none of the guards below run.",
+                getString(R.string.keyword_guard_master_title),
+                getString(R.string.keyword_guard_master_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.CONTENT_GUARD)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.CONTENT_GUARD, value)) {
@@ -87,8 +87,8 @@ class KeywordGuardActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "My own keywords",
-                "Runs the words you add below.",
+                getString(R.string.keyword_guard_own_keywords_title),
+                getString(R.string.keyword_guard_own_keywords_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.KEYWORD_BLOCK)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.KEYWORD_BLOCK, value)) {
@@ -108,7 +108,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 label,
-                rules.size.toString() + " phrase" + (if (rules.size == 1) "" else "s") + " watched",
+                resources.getQuantityString(R.plurals.keyword_guard_phrases_watched, rules.size, rules.size),
                 enabled
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, capabilityId, value)) {
@@ -127,14 +127,14 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     tokens,
                     rule.phrase,
                     describeScope(rule) + " - " + rule.action.label.lowercase(),
-                    trailing = FocusUi.smallButton(this, tokens, "Edit") { editRule(rule) }
+                    trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_edit)) { editRule(rule) }
                 ) { editRule(rule) }
             )
         }
 
         card.addView(FocusUi.spacer(this, 8))
         card.addView(
-            FocusUi.smallButton(this, tokens, "Add a phrase to " + label) {
+            FocusUi.smallButton(this, tokens, getString(R.string.keyword_guard_add_phrase_to, label)) {
                 addRule(group)
             }
         )
@@ -166,16 +166,16 @@ class KeywordGuardActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 12))
-        card.addView(FocusUi.primaryButton(this, tokens, "Add a word or phrase") { addRule(null) })
+        card.addView(FocusUi.primaryButton(this, tokens, getString(R.string.keyword_guard_add_word_or_phrase)) { addRule(null) })
     }
 
     private fun describeScope(rule: KeywordRule): String =
         if (rule.appliesEverywhere) {
-            "Every app"
+            getString(R.string.common_every_app)
         } else if (rule.packages.size == 1) {
             AppCatalog.label(this, rule.packages.first())
         } else {
-            rule.packages.size.toString() + " apps"
+            getString(R.string.keyword_guard_apps_count, rule.packages.size)
         }
 
     // ── Editing ───────────────────────────────────────────────────
@@ -187,11 +187,10 @@ class KeywordGuardActivity : FocusScreenActivity() {
         }
         FocusDialog.textInput(
             this,
-            title = "Watch for a phrase",
-            subtitle = "Case does not matter. Short, distinctive phrases work best: a common word " +
-                "will fire on screens you did not mean.",
-            hint = "For example: for you",
-            confirmLabel = "Next"
+            title = getString(R.string.keyword_guard_watch_title),
+            subtitle = getString(R.string.keyword_guard_watch_subtitle),
+            hint = getString(R.string.keyword_guard_watch_hint),
+            confirmLabel = getString(R.string.common_next)
         ) { phrase ->
             if (phrase.isBlank()) return@textInput
             val rule = KeywordRules.newRule(phrase = phrase, group = group)
@@ -211,26 +210,26 @@ class KeywordGuardActivity : FocusScreenActivity() {
         FocusDialog.custom(
             this,
             title = rule.phrase,
-            subtitle = "Where it applies and what happens when it is seen.",
-            confirmLabel = "Save",
-            cancelLabel = "Cancel",
+            subtitle = getString(R.string.keyword_guard_edit_subtitle),
+            confirmLabel = getString(R.string.common_save),
+            cancelLabel = getString(R.string.common_cancel),
             onConfirm = {
                 KeywordRules.update(this, working)
                 refresh()
             }
         ) { body, dialogTokens ->
-            body.addView(FocusUi.caption(this, dialogTokens, "WHERE"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.keyword_guard_caption_where)))
             body.addView(
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    if (working.appliesEverywhere) "Every app" else describeScope(working),
-                    "Tap to choose which apps this watches",
+                    if (working.appliesEverywhere) getString(R.string.common_every_app) else describeScope(working),
+                    getString(R.string.keyword_guard_tap_choose_apps),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
                     pickApps(
-                        title = "Watch " + working.phrase + " in",
-                        subtitle = "Leave everything unticked to watch every app.",
+                        title = getString(R.string.keyword_guard_watch_phrase_in, working.phrase),
+                        subtitle = getString(R.string.keyword_guard_leave_unticked),
                         selected = working.packages
                     ) { selected ->
                         working = working.copy(packages = selected)
@@ -240,12 +239,12 @@ class KeywordGuardActivity : FocusScreenActivity() {
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "WHAT HAPPENS"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.keyword_guard_caption_what_happens)))
             GuardAction.values().forEach { action ->
                 val marker = FocusUi.pill(
                     this,
                     dialogTokens,
-                    if (action == working.action) "Now" else "Set",
+                    if (action == working.action) getString(R.string.common_now) else getString(R.string.common_set),
                     if (action == working.action) dialogTokens.accent else dialogTokens.textMuted
                 )
                 body.addView(
@@ -259,7 +258,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
             body.addView(
-                FocusUi.dangerButton(this, dialogTokens, "Delete this phrase") {
+                FocusUi.dangerButton(this, dialogTokens, getString(R.string.keyword_guard_delete_phrase)) {
                     KeywordRules.remove(this, working.id)
                     refresh()
                 }
@@ -282,8 +281,8 @@ class KeywordGuardActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Only my named chats",
-                "Telegram stays open for the chats you list. Anything else backs out.",
+                getString(R.string.keyword_guard_telegram_title),
+                getString(R.string.keyword_guard_telegram_subtitle),
                 on,
                 enabled = !frozen
             ) { value ->
@@ -304,10 +303,9 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 if (allowed.isEmpty()) {
-                    "Nothing listed yet, so nothing is blocked. Add a chat and everything else " +
-                        "in Telegram starts backing out."
+                    getString(R.string.keyword_guard_telegram_empty)
                 } else {
-                    "Everything except these backs out."
+                    getString(R.string.keyword_guard_telegram_nonempty)
                 }
             )
         )
@@ -319,7 +317,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     tokens,
                     title,
                     null,
-                    trailing = FocusUi.smallButton(this, tokens, "Remove") {
+                    trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_remove)) {
                         if (!TelegramGuard.removeAllowed(this, title)) {
                             FocusDialog.toast(this, SessionLock.refusalMessage(this))
                         }
@@ -337,7 +335,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
         val seen = TelegramGuard.lastSeenTitle(this)
         if (seen != null && allowed.none { it.equals(seen, ignoreCase = true) }) {
             card.addView(
-                FocusUi.secondaryButton(this, tokens, "Allow \"" + seen + "\"") {
+                FocusUi.secondaryButton(this, tokens, getString(R.string.keyword_guard_allow_chat, seen)) {
                     if (!TelegramGuard.addAllowed(this, seen)) {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     }
@@ -348,12 +346,12 @@ class KeywordGuardActivity : FocusScreenActivity() {
         }
 
         card.addView(
-            FocusUi.secondaryButton(this, tokens, "Add a chat by name") {
+            FocusUi.secondaryButton(this, tokens, getString(R.string.keyword_guard_add_chat_by_name)) {
                 FocusDialog.textInput(
                     this,
-                    title = "Allow a Telegram chat",
-                    subtitle = "Type the chat's name as Telegram shows it at the top of the screen.",
-                    hint = "Study group"
+                    title = getString(R.string.keyword_guard_allow_chat_title),
+                    subtitle = getString(R.string.keyword_guard_allow_chat_subtitle),
+                    hint = getString(R.string.keyword_guard_allow_chat_hint)
                 ) { value ->
                     if (!TelegramGuard.addAllowed(this, value)) {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
@@ -365,33 +363,18 @@ class KeywordGuardActivity : FocusScreenActivity() {
 
         if (seen == null) {
             card.addView(FocusUi.spacer(this, 8))
-            card.addView(
-                FocusUi.caption(
-                    this,
-                    tokens,
-                    "FocusLock has not managed to read a chat title yet. Open a Telegram chat " +
-                        "and come back — if this line stays, a Telegram update has probably " +
-                        "moved things and this guard is not running."
-                )
-            )
+            card.addView(FocusUi.caption(this, tokens, getString(R.string.keyword_guard_telegram_not_read)))
         }
     }
 
     private fun buildExceptions(): View = card { card ->
         val exceptions = KeywordRules.exceptions(this)
 
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "Text that looks like a match but is not. The WhatsApp search bar mentions Meta AI, " +
-                    "for instance, and should not trip the guard."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.keyword_guard_exceptions_intro)))
         card.addView(FocusUi.spacer(this, 8))
 
         if (exceptions.isEmpty()) {
-            card.addView(FocusUi.emptyState(this, tokens, "No exceptions."))
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.keyword_guard_no_exceptions)))
         } else {
             exceptions.forEach { phrase ->
                 card.addView(
@@ -400,7 +383,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                         tokens,
                         phrase,
                         null,
-                        trailing = FocusUi.smallButton(this, tokens, "Remove") {
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.common_remove)) {
                             if (!KeywordRules.setExceptions(this, exceptions - phrase)) {
                                 FocusDialog.toast(this, SessionLock.refusalMessage(this))
                             }
@@ -413,16 +396,16 @@ class KeywordGuardActivity : FocusScreenActivity() {
 
         card.addView(FocusUi.spacer(this, 10))
         card.addView(
-            FocusUi.smallButton(this, tokens, "Add an exception") {
+            FocusUi.smallButton(this, tokens, getString(R.string.keyword_guard_add_exception)) {
                 if (SessionLock.isFrozen(this)) {
                     FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     return@smallButton
                 }
                 FocusDialog.textInput(
                     this,
-                    title = "Never treat this as a match",
+                    title = getString(R.string.keyword_guard_never_match_title),
                     subtitle = null,
-                    hint = "Phrase"
+                    hint = getString(R.string.keyword_guard_phrase_hint)
                 ) { phrase ->
                     if (phrase.isNotBlank()) {
                         if (!KeywordRules.setExceptions(this, exceptions + phrase)) {

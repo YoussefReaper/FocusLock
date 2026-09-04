@@ -50,7 +50,7 @@ class EarnSessionActivity : FocusScreenActivity() {
         handleProof(file)
     }
 
-    override fun screenTitle(): String = task?.title ?: "No task running"
+    override fun screenTitle(): String = task?.title ?: getString(R.string.earn_session_no_task_title)
 
     override fun screenSubtitle(): String? = task?.notes?.takeIf { it.isNotBlank() }
 
@@ -78,20 +78,20 @@ class EarnSessionActivity : FocusScreenActivity() {
         }
 
         column.addView(buildClockCard(current))
-        column.addView(sectionLabel("Finishing"))
+        column.addView(sectionLabel(getString(R.string.earn_session_section_finishing)))
         column.addView(buildVerificationCard(current))
 
         if (EarnMode.showsBudgetWhileActive(this)) {
-            column.addView(sectionLabel("Banked"))
+            column.addView(sectionLabel(getString(R.string.earn_session_section_banked)))
             column.addView(buildBudgetCard())
         }
 
-        column.addView(sectionLabel("Open right now"))
+        column.addView(sectionLabel(getString(R.string.earn_session_section_open_now)))
         column.addView(buildAllowedApps(current))
 
         column.addView(FocusUi.spacer(this, 10))
         column.addView(
-            FocusUi.ghostButton(this, tokens, "Stop without finishing") { confirmStop(current) }
+            FocusUi.ghostButton(this, tokens, getString(R.string.earn_session_stop_button)) { confirmStop(current) }
         )
 
         column.addView(FocusUi.spacer(this, 14))
@@ -101,14 +101,12 @@ class EarnSessionActivity : FocusScreenActivity() {
     }
 
     private fun buildNoSessionCard(): View = card { card ->
-        card.addView(FocusUi.heading(this, tokens, "Nothing is running"))
+        card.addView(FocusUi.heading(this, tokens, getString(R.string.earn_session_nothing_running_heading)))
         card.addView(FocusUi.spacer(this, 6))
-        card.addView(
-            FocusUi.secondary(this, tokens, "Pick a task from the Tasks tab and start it there.")
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.earn_session_nothing_running_body)))
         card.addView(FocusUi.spacer(this, 12))
         card.addView(
-            FocusUi.primaryButton(this, tokens, "Back to tasks") {
+            FocusUi.primaryButton(this, tokens, getString(R.string.earn_session_back_to_tasks)) {
                 MainActivity.open(this, MainActivity.TAB_TASKS)
                 finish()
             }
@@ -127,7 +125,7 @@ class EarnSessionActivity : FocusScreenActivity() {
         timerView = elapsed
         card.addView(elapsed)
 
-        val caption = FocusUi.caption(this, tokens, "on this task")
+        val caption = FocusUi.caption(this, tokens, getString(R.string.earn_session_on_this_task))
         caption.gravity = Gravity.CENTER
         card.addView(caption)
 
@@ -139,8 +137,12 @@ class EarnSessionActivity : FocusScreenActivity() {
                 FocusUi.meter(
                     this,
                     tokens,
-                    done.toString() + " of " + target + " minutes",
-                    if (done >= target) "Ready" else (target - done).toString() + " to go",
+                    getString(R.string.earn_session_timer_meter_label, done, target),
+                    if (done >= target) {
+                        getString(R.string.earn_session_timer_ready)
+                    } else {
+                        getString(R.string.earn_session_timer_to_go, target - done)
+                    },
                     done.toFloat() / target.toFloat(),
                     if (done >= target) tokens.success else tokens.accent
                 )
@@ -149,12 +151,12 @@ class EarnSessionActivity : FocusScreenActivity() {
 
         val mode = if (EarnSession.isStandalone(this)) {
             if (EarnMode.hasHardEnforcement(this)) {
-                "The phone is locked to this task."
+                getString(R.string.earn_session_mode_locked)
             } else {
-                "Running as friction: distracting apps get intercepted, not held shut."
+                getString(R.string.earn_session_mode_friction)
             }
         } else {
-            "Narrowing your " + SessionManager.mode(this).label.lowercase() + " session."
+            getString(R.string.earn_session_mode_narrowing, SessionManager.mode(this).label.lowercase())
         }
         card.addView(FocusUi.spacer(this, 10))
         val note = FocusUi.caption(this, tokens, mode)
@@ -172,7 +174,7 @@ class EarnSessionActivity : FocusScreenActivity() {
 
         when (current.verification) {
             Verification.MANUAL -> card.addView(
-                FocusUi.primaryButton(this, tokens, "I have done it") { completeTask(current) }
+                FocusUi.primaryButton(this, tokens, getString(R.string.earn_session_manual_button)) { completeTask(current) }
             )
 
             Verification.TIMER -> {
@@ -180,7 +182,11 @@ class EarnSessionActivity : FocusScreenActivity() {
                 val button = FocusUi.primaryButton(
                     this,
                     tokens,
-                    if (ready) "Finish and collect" else "Keep going"
+                    if (ready) {
+                        getString(R.string.earn_session_finish_collect_button)
+                    } else {
+                        getString(R.string.earn_session_keep_going_button)
+                    }
                 ) {
                     if (ready) completeTask(current) else refresh()
                 }
@@ -191,7 +197,7 @@ class EarnSessionActivity : FocusScreenActivity() {
                 if (!ready) {
                     card.addView(FocusUi.spacer(this, 8))
                     card.addView(
-                        FocusUi.ghostButton(this, tokens, "Finish early, earn what I have done") {
+                        FocusUi.ghostButton(this, tokens, getString(R.string.earn_session_finish_early_button)) {
                             completeTask(current)
                         }
                     )
@@ -200,7 +206,7 @@ class EarnSessionActivity : FocusScreenActivity() {
 
             Verification.PHOTO -> {
                 card.addView(
-                    FocusUi.primaryButton(this, tokens, "Take the photo") { capture(current) }
+                    FocusUi.primaryButton(this, tokens, getString(R.string.earn_session_take_photo_button)) { capture(current) }
                 )
                 card.addView(FocusUi.spacer(this, 10))
                 card.addView(FocusUi.caption(this, tokens, PhotoProof.describeChecks(this)))
@@ -218,8 +224,8 @@ class EarnSessionActivity : FocusScreenActivity() {
                         FocusUi.meter(
                             this,
                             tokens,
-                            "Verification trust",
-                            (current.credibility * 100).toInt().toString() + "%",
+                            getString(R.string.earn_session_verification_trust_label),
+                            getString(R.string.task_editor_percent_value, (current.credibility * 100).toInt()),
                             current.credibility,
                             if (current.credibility < 0.6f) tokens.warning else tokens.success
                         )
@@ -229,14 +235,7 @@ class EarnSessionActivity : FocusScreenActivity() {
 
             Verification.SUBTASKS_ALL -> {
                 if (current.subtasks.isEmpty()) {
-                    card.addView(
-                        FocusUi.secondary(
-                            this,
-                            tokens,
-                            "This task has no steps, so there is nothing to tick. Add some, or " +
-                                "switch it to another way of finishing."
-                        )
-                    )
+                    card.addView(FocusUi.secondary(this, tokens, getString(R.string.earn_session_subtasks_empty)))
                 } else {
                     current.subtasks.forEach { subtask ->
                         val toggle = FocusUi.switchControl(this, tokens, subtask.done) { done ->
@@ -257,7 +256,11 @@ class EarnSessionActivity : FocusScreenActivity() {
                     val button = FocusUi.primaryButton(
                         this,
                         tokens,
-                        if (allDone) "Finish and collect" else "Tick every step first"
+                        if (allDone) {
+                            getString(R.string.earn_session_finish_collect_button)
+                        } else {
+                            getString(R.string.earn_session_tick_steps_first_button)
+                        }
                     ) { if (allDone) completeTask(current) }
                     button.isEnabled = allDone
                     button.alpha = if (allDone) 1f else 0.5f
@@ -273,9 +276,8 @@ class EarnSessionActivity : FocusScreenActivity() {
         if (!PhotoProof.isCaptureAvailable(this)) {
             FocusDialog.info(
                 this,
-                "No camera app",
-                "Nothing on this phone can take the photo. Switch this task to another way of " +
-                    "finishing in the editor."
+                getString(R.string.earn_session_no_camera_title),
+                getString(R.string.earn_session_no_camera_message)
             )
             return
         }
@@ -287,7 +289,7 @@ class EarnSessionActivity : FocusScreenActivity() {
         } catch (_: Exception) {
             pendingProof = null
             PhotoProof.discard(file)
-            FocusDialog.toast(this, "The camera would not open.")
+            FocusDialog.toast(this, getString(R.string.earn_session_camera_not_opening_toast))
         }
     }
 
@@ -309,7 +311,7 @@ class EarnSessionActivity : FocusScreenActivity() {
                 this,
                 title = result.headline,
                 message = result.detail,
-                confirmLabel = "Collect",
+                confirmLabel = getString(R.string.earn_session_collect_button),
                 onConfirm = { completeTask(updated) }
             )
         } else {
@@ -318,8 +320,8 @@ class EarnSessionActivity : FocusScreenActivity() {
                 this,
                 title = result.headline,
                 message = result.detail + "\n\n" + Copy.earnPhotoRetry(this, EarnSession.photoAttempts(this)),
-                confirmLabel = "Try again",
-                cancelLabel = "Later",
+                confirmLabel = getString(R.string.earn_session_try_again_button),
+                cancelLabel = getString(R.string.earn_session_later_button),
                 onConfirm = { capture(updated) }
             )
             refresh()
@@ -338,11 +340,10 @@ class EarnSessionActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 when {
-                    task?.enjoyable == true ->
-                        "This one pays nothing, which was your call. The work still counts."
+                    task?.enjoyable == true -> getString(R.string.earn_session_budget_enjoyable)
                     EarnBudget.capReachedToday(this) -> Copy.earnCapReached(this)
-                    projected > 0 -> "Finishing now would add about " + projected + " minutes."
-                    else -> "Keep going and minutes start to add up."
+                    projected > 0 -> getString(R.string.earn_session_budget_projected, projected)
+                    else -> getString(R.string.earn_session_budget_keep_going)
                 }
             )
         )
@@ -356,13 +357,7 @@ class EarnSessionActivity : FocusScreenActivity() {
             .sortedBy { AppCatalog.label(this, it) }
 
         if (allowed.isEmpty()) {
-            card.addView(
-                FocusUi.emptyState(
-                    this,
-                    tokens,
-                    "FocusLock only. Nothing else opens until this is done."
-                )
-            )
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.earn_session_no_apps_open)))
         } else {
             val strip = FocusUi.row(this)
             strip.layoutParams = ViewGroup.LayoutParams(
@@ -385,8 +380,7 @@ class EarnSessionActivity : FocusScreenActivity() {
             val warning = FocusUi.caption(
                 this,
                 tokens,
-                "Asked for but not on your standing allowlist: " +
-                    rejected.joinToString { AppCatalog.label(this, it) } + "."
+                getString(R.string.earn_session_rejected_apps, rejected.joinToString { AppCatalog.label(this, it) })
             )
             warning.setTextColor(tokens.warning)
             card.addView(warning)
@@ -398,7 +392,7 @@ class EarnSessionActivity : FocusScreenActivity() {
         try {
             startActivity(intent)
         } catch (_: Exception) {
-            FocusDialog.toast(this, "The lock is holding that one.")
+            FocusDialog.toast(this, getString(R.string.earn_session_lock_holding_toast))
         }
     }
 
@@ -419,12 +413,12 @@ class EarnSessionActivity : FocusScreenActivity() {
 
         FocusDialog.alert(
             this,
-            title = "Task done",
+            title = getString(R.string.earn_session_task_done_title),
             message = Copy.earnCompleted(this, granted) +
                 (if (capped) "\n\n" + Copy.earnCapReached(this) else "") +
                 (if (spendable > 0 && !canSpendNow) "\n\n" + Copy.earnSpendBlockedInKiosk(this) else ""),
-            confirmLabel = "Good",
-            cancelLabel = if (canSpendNow) "Use " + spendable + " min now" else null,
+            confirmLabel = getString(R.string.earn_session_good_button),
+            cancelLabel = if (canSpendNow) getString(R.string.earn_session_use_minutes_now_button, spendable) else null,
             onConfirm = { leave() },
             onCancel = {
                 if (EarnBudget.spend(this, spendable)) {
@@ -442,11 +436,10 @@ class EarnSessionActivity : FocusScreenActivity() {
     private fun confirmStop(current: FocusTask) {
         FocusDialog.alert(
             this,
-            title = "Stop this task?",
-            message = "It stays on your list exactly as it is. Nothing is lost and nothing is " +
-                "deducted — the minutes you did not earn simply were not earned.",
-            confirmLabel = "Stop",
-            cancelLabel = "Keep going",
+            title = getString(R.string.earn_session_stop_confirm_title),
+            message = getString(R.string.earn_session_stop_confirm_message),
+            confirmLabel = getString(R.string.earn_session_stop_confirm_button),
+            cancelLabel = getString(R.string.earn_session_keep_going_button),
             onConfirm = {
                 EarnSession.stop(this)
                 leave()

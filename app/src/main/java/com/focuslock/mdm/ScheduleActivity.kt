@@ -14,18 +14,17 @@ import java.util.Calendar
  */
 class ScheduleActivity : FocusScreenActivity() {
 
-    override fun screenTitle(): String = "Schedules"
+    override fun screenTitle(): String = getString(R.string.schedule_title)
 
-    override fun screenSubtitle(): String =
-        "Windows that start themselves. Useful for the hours you already know are hard."
+    override fun screenSubtitle(): String = getString(R.string.schedule_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildToggle())
         if (!CapabilityRegistry.isEnabled(this, Capabilities.SCHEDULES)) return
 
-        column.addView(sectionLabel("Windows"))
+        column.addView(sectionLabel(getString(R.string.schedule_section_windows)))
         column.addView(buildWindowList())
-        column.addView(sectionLabel("Plan"))
+        column.addView(sectionLabel(getString(R.string.schedule_section_plan)))
         column.addView(buildPlanCard())
     }
 
@@ -34,8 +33,8 @@ class ScheduleActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "Schedules",
-                "With this off, the windows below are kept but none of them run.",
+                getString(R.string.schedule_title),
+                getString(R.string.schedule_toggle_subtitle),
                 CapabilityRegistry.isEnabled(this, Capabilities.SCHEDULES)
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(this, Capabilities.SCHEDULES, value)) {
@@ -48,9 +47,9 @@ class ScheduleActivity : FocusScreenActivity() {
         ScheduleManager.activeWindowIfEnabled(this)?.let { window ->
             card.addView(FocusUi.spacer(this, 8))
             val label = if (window.overlay) {
-                "Overlaying until " + ScheduleManager.formatTime(window.endMinutes)
+                getString(R.string.schedule_overlaying_until, ScheduleManager.formatTime(window.endMinutes))
             } else {
-                "Running until " + ScheduleManager.formatTime(window.endMinutes)
+                getString(R.string.schedule_running_until, ScheduleManager.formatTime(window.endMinutes))
             }
             card.addView(FocusUi.pill(this, tokens, label, if (window.overlay) tokens.warning else tokens.accent))
         }
@@ -60,9 +59,8 @@ class ScheduleActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Always-allowed apps",
-                AppRules.alwaysAllowedRaw(this).size.toString() +
-                    " apps stay open inside every window",
+                getString(R.string.common_always_allowed_apps_title),
+                getString(R.string.schedule_always_allowed_subtitle, AppRules.alwaysAllowedRaw(this).size),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 startActivity(android.content.Intent(this, AlwaysAllowedActivity::class.java))
@@ -82,11 +80,14 @@ class ScheduleActivity : FocusScreenActivity() {
                     FocusUi.listRow(
                         this,
                         tokens,
-                        ScheduleManager.formatTime(schedule.startMinutes) + " to " +
-                            ScheduleManager.formatTime(schedule.endMinutes),
+                        getString(
+                            R.string.schedule_window_time_range,
+                            ScheduleManager.formatTime(schedule.startMinutes),
+                            ScheduleManager.formatTime(schedule.endMinutes)
+                        ),
                         describe(schedule),
                         trailing = if (schedule.id == active) {
-                            FocusUi.pill(this, tokens, "Now", tokens.accent)
+                            FocusUi.pill(this, tokens, getString(R.string.common_now), tokens.accent)
                         } else {
                             FocusUi.chevron(this, tokens)
                         }
@@ -97,38 +98,38 @@ class ScheduleActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 12))
-        card.addView(FocusUi.primaryButton(this, tokens, "Add a window") { editWindow(null) })
+        card.addView(FocusUi.primaryButton(this, tokens, getString(R.string.schedule_add_window)) { editWindow(null) })
     }
 
     private fun describe(schedule: ScheduleWindow): String {
         val repeat = when (schedule.repeat) {
-            RepeatType.DAILY -> "Every day"
+            RepeatType.DAILY -> getString(R.string.common_every_day)
             RepeatType.WEEKLY ->
                 if (schedule.daysOfWeek.isEmpty()) {
-                    "Every day"
+                    getString(R.string.common_every_day)
                 } else {
                     schedule.daysOfWeek.sorted().joinToString { dayName(it) }
                 }
-            RepeatType.MONTHLY -> "Day " + schedule.dayOfMonth + " each month"
+            RepeatType.MONTHLY -> getString(R.string.schedule_monthly_repeat, schedule.dayOfMonth)
         }
         val extras = if (schedule.allowedApps.isEmpty()) {
-            "essentials only"
+            getString(R.string.schedule_extras_essentials_only)
         } else {
-            schedule.allowedApps.size.toString() + " extra apps allowed"
+            getString(R.string.schedule_extras_count, schedule.allowedApps.size)
         }
-        val overlay = if (schedule.overlay) " · overlay" else ""
+        val overlay = if (schedule.overlay) " · " + getString(R.string.schedule_overlay_marker) else ""
         val message = if (schedule.message.isBlank()) "" else schedule.message + " · "
         return message + repeat + " · " + extras + overlay
     }
 
     private fun dayName(day: Int): String = when (day) {
-        Calendar.MONDAY -> "Mon"
-        Calendar.TUESDAY -> "Tue"
-        Calendar.WEDNESDAY -> "Wed"
-        Calendar.THURSDAY -> "Thu"
-        Calendar.FRIDAY -> "Fri"
-        Calendar.SATURDAY -> "Sat"
-        else -> "Sun"
+        Calendar.MONDAY -> getString(R.string.common_day_mon)
+        Calendar.TUESDAY -> getString(R.string.common_day_tue)
+        Calendar.WEDNESDAY -> getString(R.string.common_day_wed)
+        Calendar.THURSDAY -> getString(R.string.common_day_thu)
+        Calendar.FRIDAY -> getString(R.string.common_day_fri)
+        Calendar.SATURDAY -> getString(R.string.common_day_sat)
+        else -> getString(R.string.common_day_sun)
     }
 
     // ── Editing ───────────────────────────────────────────────────
@@ -149,13 +150,13 @@ class ScheduleActivity : FocusScreenActivity() {
 
         FocusDialog.custom(
             this,
-            title = if (existing == null) "New window" else "Edit window",
-            subtitle = "Inside a window, only your always-allowed apps and the extras you pick will open.",
-            confirmLabel = "Save",
-            cancelLabel = "Cancel",
+            title = if (existing == null) getString(R.string.schedule_new_window_title) else getString(R.string.schedule_edit_window_title),
+            subtitle = getString(R.string.schedule_edit_subtitle),
+            confirmLabel = getString(R.string.common_save),
+            cancelLabel = getString(R.string.common_cancel),
             onConfirm = {
                 if (repeat == RepeatType.WEEKLY && days.isEmpty()) {
-                    FocusDialog.toast(this, "Pick at least one day.")
+                    FocusDialog.toast(this, getString(R.string.schedule_pick_day_toast))
                 } else {
                     val window = existing?.copy(
                         startMinutes = start,
@@ -189,13 +190,13 @@ class ScheduleActivity : FocusScreenActivity() {
             val startRow = FocusUi.listRow(
                 this,
                 dialogTokens,
-                "Starts",
+                getString(R.string.common_starts_label),
                 ScheduleManager.formatTime(start),
                 trailing = FocusUi.chevron(this, dialogTokens)
             ) {
-                FocusDialog.timePicker(this, "Starts at", start) { value ->
+                FocusDialog.timePicker(this, getString(R.string.common_starts_at), start) { value ->
                     start = value
-                    FocusDialog.toast(this, "Starts " + ScheduleManager.formatTime(value))
+                    FocusDialog.toast(this, getString(R.string.schedule_starts_toast, ScheduleManager.formatTime(value)))
                 }
             }
             body.addView(startRow)
@@ -204,24 +205,24 @@ class ScheduleActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Ends",
+                    getString(R.string.common_ends_label),
                     ScheduleManager.formatTime(end),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
-                    FocusDialog.timePicker(this, "Ends at", end) { value ->
+                    FocusDialog.timePicker(this, getString(R.string.common_ends_at), end) { value ->
                         end = value
-                        FocusDialog.toast(this, "Ends " + ScheduleManager.formatTime(value))
+                        FocusDialog.toast(this, getString(R.string.schedule_ends_toast, ScheduleManager.formatTime(value)))
                     }
                 }
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, "REPEATS"))
+            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.schedule_caption_repeats)))
             RepeatType.values().forEach { type ->
                 val marker = FocusUi.pill(
                     this,
                     dialogTokens,
-                    if (type == repeat) "Now" else "Set",
+                    if (type == repeat) getString(R.string.common_now) else getString(R.string.common_set),
                     if (type == repeat) dialogTokens.accent else dialogTokens.textMuted
                 )
                 body.addView(
@@ -238,13 +239,13 @@ class ScheduleActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "Extra apps allowed",
-                    allowedApps.size.toString() + " chosen",
+                    getString(R.string.schedule_extra_apps_allowed_title),
+                    getString(R.string.common_chosen_count, allowedApps.size),
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
                     pickApps(
-                        title = "Allowed inside this window",
-                        subtitle = "Your always-allowed apps are open here regardless.",
+                        title = getString(R.string.schedule_pick_allowed_title),
+                        subtitle = getString(R.string.schedule_pick_allowed_subtitle),
                         selected = allowedApps
                     ) { selected -> allowedApps = selected }
                 }
@@ -254,15 +255,15 @@ class ScheduleActivity : FocusScreenActivity() {
                 FocusUi.listRow(
                     this,
                     dialogTokens,
-                    "What it says",
-                    message.ifBlank { "Nothing yet" },
+                    getString(R.string.schedule_what_it_says_title),
+                    message.ifBlank { getString(R.string.schedule_nothing_yet) },
                     trailing = FocusUi.chevron(this, dialogTokens)
                 ) {
                     FocusDialog.textInput(
                         this,
-                        "What should this window say?",
-                        "It appears on the block screen. Something you would want to read.",
-                        "For example: this is study time",
+                        getString(R.string.schedule_what_says_title),
+                        getString(R.string.schedule_what_says_subtitle),
+                        getString(R.string.schedule_what_says_hint),
                         message
                     ) { value -> message = value }
                 }
@@ -273,10 +274,8 @@ class ScheduleActivity : FocusScreenActivity() {
                 FocusUi.toggleRow(
                     this,
                     dialogTokens,
-                    "Overlay this window",
-                    "Locks the phone for real - not even the home screen opens anything outside " +
-                        "always-allowed and this window's own apps. No break, no exceptions, and " +
-                        "every rule (including this window) is frozen until it ends.",
+                    getString(R.string.schedule_overlay_toggle_title),
+                    getString(R.string.schedule_overlay_toggle_subtitle),
                     overlay
                 ) { value -> overlay = value }
             )
@@ -284,7 +283,7 @@ class ScheduleActivity : FocusScreenActivity() {
             if (existing != null) {
                 body.addView(FocusUi.divider(this, dialogTokens, 8))
                 body.addView(
-                    FocusUi.dangerButton(this, dialogTokens, "Delete this window") {
+                    FocusUi.dangerButton(this, dialogTokens, getString(R.string.schedule_delete_window)) {
                         ScheduleManager.removeSchedule(this, existing.id)
                         refresh()
                     }
@@ -294,24 +293,24 @@ class ScheduleActivity : FocusScreenActivity() {
     }
 
     private fun repeatLabel(type: RepeatType): String = when (type) {
-        RepeatType.DAILY -> "Every day"
-        RepeatType.WEEKLY -> "Certain days"
-        RepeatType.MONTHLY -> "Once a month"
+        RepeatType.DAILY -> getString(R.string.common_every_day)
+        RepeatType.WEEKLY -> getString(R.string.schedule_repeat_certain_days)
+        RepeatType.MONTHLY -> getString(R.string.schedule_repeat_once_a_month)
     }
 
     private fun pickDays(current: Set<Int>, onSave: (Set<Int>) -> Unit) {
         val days = listOf(
-            Calendar.MONDAY to "Monday",
-            Calendar.TUESDAY to "Tuesday",
-            Calendar.WEDNESDAY to "Wednesday",
-            Calendar.THURSDAY to "Thursday",
-            Calendar.FRIDAY to "Friday",
-            Calendar.SATURDAY to "Saturday",
-            Calendar.SUNDAY to "Sunday"
+            Calendar.MONDAY to getString(R.string.common_day_monday),
+            Calendar.TUESDAY to getString(R.string.common_day_tuesday),
+            Calendar.WEDNESDAY to getString(R.string.common_day_wednesday),
+            Calendar.THURSDAY to getString(R.string.common_day_thursday),
+            Calendar.FRIDAY to getString(R.string.common_day_friday),
+            Calendar.SATURDAY to getString(R.string.common_day_saturday),
+            Calendar.SUNDAY to getString(R.string.common_day_sunday)
         )
         FocusDialog.multiChoice(
             this,
-            "Which days?",
+            getString(R.string.common_which_days_title),
             null,
             days.map { FocusDialog.Choice(it.first.toString(), it.second) },
             current.map { it.toString() }.toSet()
@@ -323,15 +322,15 @@ class ScheduleActivity : FocusScreenActivity() {
     private fun pickDayOfMonth(current: Int, onSave: (Int) -> Unit) {
         FocusDialog.textInput(
             this,
-            "Which day of the month?",
-            "1 to 31.",
-            "Day",
+            getString(R.string.schedule_which_day_of_month_title),
+            getString(R.string.schedule_day_of_month_subtitle),
+            getString(R.string.schedule_day_hint),
             current.toString(),
             numeric = true
         ) { value ->
             val parsed = value.toIntOrNull()
             if (parsed == null || parsed !in 1..31) {
-                FocusDialog.toast(this, "Pick a day between 1 and 31.")
+                FocusDialog.toast(this, getString(R.string.schedule_day_range_toast))
             } else {
                 onSave(parsed)
             }
@@ -342,28 +341,21 @@ class ScheduleActivity : FocusScreenActivity() {
 
     /** A place to write down what the windows are actually for. */
     private fun buildPlanCard(): View = card { card ->
-        card.addView(
-            FocusUi.secondary(
-                this,
-                tokens,
-                "What are you actually doing with this time? Writing it down is the difference " +
-                    "between a blocked phone and a plan."
-            )
-        )
+        card.addView(FocusUi.secondary(this, tokens, getString(R.string.schedule_plan_intro)))
         card.addView(FocusUi.spacer(this, 10))
 
         val field = FocusUi.input(
             this,
             tokens,
-            "This week I want to...",
+            getString(R.string.schedule_plan_hint),
             FocusStore.getString(this, Constants.KEY_PLAN_TEXT, ""),
             multiline = true
         )
         card.addView(field)
         card.addView(
-            FocusUi.secondaryButton(this, tokens, "Save the plan") {
+            FocusUi.secondaryButton(this, tokens, getString(R.string.schedule_save_plan_button)) {
                 FocusStore.setString(this, Constants.KEY_PLAN_TEXT, field.text.toString())
-                FocusDialog.toast(this, "Saved.")
+                FocusDialog.toast(this, getString(R.string.common_saved_toast))
             }
         )
     }
