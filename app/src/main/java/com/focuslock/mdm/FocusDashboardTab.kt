@@ -392,7 +392,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             card.layoutParams = LinearLayout.LayoutParams(
                 FocusUi.dp(activity, 210),
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { rightMargin = FocusUi.dp(activity, 10) }
+            ).apply { marginEnd = FocusUi.dp(activity, 10) }
 
             val title = FocusUi.body(activity, tokens, scenario.title)
             title.setTextColor(tokens.textPrimary)

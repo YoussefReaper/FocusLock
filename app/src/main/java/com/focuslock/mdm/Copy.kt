@@ -12,6 +12,14 @@ import android.content.Context
  * removed, for people who find encouragement patronising.
  *
  * Nothing here scolds, counts failures, or threatens a streak.
+ *
+ * Every line lives in `res/values/copy_strings.xml` / `copy_arrays.xml` (and
+ * their `values-ar` Arabic counterparts), never as a Kotlin literal, so a
+ * locale switch reaches this file for free. Every rotated ("kind", several
+ * phrasings) line is a `<string-array>` fed through [pick]; every dynamic
+ * line uses a positional `%1$s`/`%2$s` format placeholder rather than string
+ * concatenation, because only a format placeholder can be reordered per
+ * language - Arabic word order does not match English.
  */
 object Copy {
 
@@ -29,6 +37,12 @@ object Copy {
         return options[index]
     }
 
+    /** [pick] against a resolved `<string-array>` resource, then applies the format args. */
+    private fun pickFormatted(context: Context, arrayResId: Int, vararg args: Any): String {
+        val options = context.resources.getStringArray(arrayResId).toList()
+        return String.format(pick(options), *args)
+    }
+
     private fun appLabel(context: Context, packageName: String): String =
         AppCatalog.label(context, packageName)
 
@@ -37,169 +51,127 @@ object Copy {
     fun blockHeadline(context: Context, packageName: String): String {
         val label = appLabel(context, packageName)
         return if (kind(context)) {
-            pick(
-                listOf(
-                    label + " is resting",
-                    "Not " + label + " right now",
-                    label + " is put away for now"
-                )
-            )
+            pickFormatted(context, R.array.copy_block_headline_kind, label)
         } else {
-            label + " is blocked"
+            context.getString(R.string.copy_block_headline_plain, label)
         }
     }
 
     fun blockDetail(context: Context, packageName: String): String {
-        if (!kind(context)) return "Blocked by your app rules."
-        return pick(
-            listOf(
-                "You decided this one gets in the way. That decision is still good.",
-                "Earlier you asked for this to be out of reach. Here it is, out of reach.",
-                "This was your call, made calmly, ahead of time."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_block_detail_plain)
+        return pick(context.resources.getStringArray(R.array.copy_block_detail_kind).toList())
     }
 
     fun pauseHeadline(context: Context, packageName: String): String {
         val label = appLabel(context, packageName)
         return if (kind(context)) {
-            pick(
-                listOf(
-                    "Before " + label + " opens",
-                    "One moment first",
-                    "A short pause"
-                )
-            )
+            pickFormatted(context, R.array.copy_pause_headline_kind, label)
         } else {
-            "Pause before " + label
+            context.getString(R.string.copy_pause_headline_plain, label)
         }
     }
 
     fun pauseDetail(context: Context): String {
-        if (!kind(context)) return "Wait for the timer, then continue or go back."
-        return pick(
-            listOf(
-                "Take a breath. If you still want it after this, it opens.",
-                "No judgement either way. Just a few seconds between the reach and the app.",
-                "Most of the time the urge passes in less time than this takes."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_pause_detail_plain)
+        return pick(context.resources.getStringArray(R.array.copy_pause_detail_kind).toList())
     }
 
     fun softDetail(context: Context): String {
-        if (!kind(context)) return "Soft mode. Continue or go back."
-        return "Soft mode does not hold anything shut. This is only a reminder of what you asked for."
+        if (!kind(context)) return context.getString(R.string.copy_soft_detail_plain)
+        return context.getString(R.string.copy_soft_detail_kind)
     }
 
     fun kioskDetail(context: Context): String {
         val remaining = SessionManager.formatRemaining(context)
-        if (!kind(context)) return "Kiosk session active. " + remaining + " remaining."
-        return pick(
-            listOf(
-                "Kiosk is running for another " + remaining + ". The phone comes back on its own.",
-                remaining + " left in this session. Nothing here needs you to be strong right now.",
-                "You set this up so you would not have to decide again. " + remaining + " to go."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_kiosk_detail_plain, remaining)
+        return pickFormatted(context, R.array.copy_kiosk_detail_kind, remaining)
     }
 
     fun kioskHomeHeadline(context: Context): String =
-        if (kind(context)) "This is home for now" else "Launcher blocked"
+        if (kind(context)) context.getString(R.string.copy_kiosk_home_headline_kind)
+        else context.getString(R.string.copy_kiosk_home_headline_plain)
 
     fun kioskHomeDetail(context: Context): String {
-        if (!kind(context)) return "The launcher is disabled during a kiosk session."
-        return "Your usual home screen is waiting. It comes back when the session ends."
+        if (!kind(context)) return context.getString(R.string.copy_kiosk_home_detail_plain)
+        return context.getString(R.string.copy_kiosk_home_detail_kind)
     }
 
     fun overlayGuardHeadline(context: Context): String =
-        if (kind(context)) "That page can switch FocusLock off" else "Permission page blocked"
+        if (kind(context)) context.getString(R.string.copy_overlay_guard_headline_kind)
+        else context.getString(R.string.copy_overlay_guard_headline_plain)
 
     fun overlayGuardDetail(context: Context): String {
-        if (!kind(context)) return "Overlay permission settings are blocked during a session."
-        return "It is the one screen that could end the session early by accident, so it stays shut until the session does."
+        if (!kind(context)) return context.getString(R.string.copy_overlay_guard_detail_plain)
+        return context.getString(R.string.copy_overlay_guard_detail_kind)
     }
 
     // ── Schedules, bedtime, place ─────────────────────────────────
 
     fun scheduleHeadline(context: Context, window: ScheduleWindow): String {
         if (window.message.isNotBlank()) return window.message
-        return if (kind(context)) "This time is spoken for" else "Scheduled block"
+        return if (kind(context)) context.getString(R.string.copy_schedule_headline_kind)
+        else context.getString(R.string.copy_schedule_headline_plain)
     }
 
     fun scheduleDetail(context: Context, window: ScheduleWindow): String {
         val until = ScheduleManager.formatTime(window.endMinutes)
-        if (!kind(context)) return "Window ends at " + until + "."
-        return pick(
-            listOf(
-                "You put this window in the calendar yourself. It opens up again at " + until + ".",
-                "Until " + until + ", the phone is holding the line for you.",
-                "Back to normal at " + until + "."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_schedule_detail_plain, until)
+        return pickFormatted(context, R.array.copy_schedule_detail_kind, until)
     }
 
     fun scheduleOverlayHeadline(context: Context, window: ScheduleWindow): String {
         if (window.message.isNotBlank()) return window.message
-        return if (kind(context)) "This time is locked in" else "Locked schedule window"
+        return if (kind(context)) context.getString(R.string.copy_schedule_overlay_headline_kind)
+        else context.getString(R.string.copy_schedule_overlay_headline_plain)
     }
 
     /** Same shape as [scheduleDetail], but never offers a break - this window doesn't bend. */
     fun scheduleOverlayDetail(context: Context, window: ScheduleWindow): String {
         val until = ScheduleManager.formatTime(window.endMinutes)
-        if (!kind(context)) return "Locked until " + until + ". No break, no exceptions."
-        return pick(
-            listOf(
-                "You set this one to overlay, so nothing - not even a break - talks you out of it. " +
-                    "Opens up again at " + until + ".",
-                "This window doesn't bend. Back to normal at " + until + ".",
-                "No exceptions until " + until + " - that was the whole point of locking it."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_schedule_overlay_detail_plain, until)
+        return pickFormatted(context, R.array.copy_schedule_overlay_detail_kind, until)
     }
 
     fun bedtimeHeadline(context: Context): String =
-        if (kind(context)) "It is night" else "Bedtime block"
+        if (kind(context)) context.getString(R.string.copy_bedtime_headline_kind)
+        else context.getString(R.string.copy_bedtime_headline_plain)
 
     fun bedtimeDetail(context: Context): String {
         val end = Bedtime.formatTime(Bedtime.endMinutes(context))
-        if (!kind(context)) return "Bedtime runs until " + end + "."
-        return pick(
-            listOf(
-                "This comes back at " + end + ". Sleep is the thing that makes tomorrow work.",
-                "Nothing on there needs an answer tonight. Back at " + end + ".",
-                "You asked for quiet after this hour. Quiet until " + end + "."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_bedtime_detail_plain, end)
+        return pickFormatted(context, R.array.copy_bedtime_detail_kind, end)
     }
 
     fun placeHeadline(context: Context, place: Place): String {
-        if (!kind(context)) return "Blocked at " + place.label
+        if (!kind(context)) return context.getString(R.string.copy_place_headline_plain, place.label)
         return if (place.trigger == PlaceTrigger.INSIDE) {
-            "Not while you are at " + place.label
+            context.getString(R.string.copy_place_headline_inside_kind, place.label)
         } else {
-            "Only at " + place.label
+            context.getString(R.string.copy_place_headline_outside_kind, place.label)
         }
     }
 
     fun placeDetail(context: Context, place: Place): String {
-        if (!kind(context)) return "Place rule: " + place.label
-        return "You set this up for " + place.label + ". It lifts by itself when you move."
+        if (!kind(context)) return context.getString(R.string.copy_place_detail_plain, place.label)
+        return context.getString(R.string.copy_place_detail_kind, place.label)
     }
 
     fun limitHeadline(context: Context, packageName: String): String {
         val label = appLabel(context, packageName)
-        return if (kind(context)) label + " has had its time today" else label + ": limit reached"
+        return if (kind(context)) context.getString(R.string.copy_limit_headline_kind, label)
+        else context.getString(R.string.copy_limit_headline_plain, label)
     }
 
     fun ruleHeadline(context: Context, rule: Rule): String {
         if (rule.label.isNotBlank()) return rule.label
-        return if (kind(context)) "One of your rules caught this" else "Blocked by rule"
+        return if (kind(context)) context.getString(R.string.copy_rule_headline_kind)
+        else context.getString(R.string.copy_rule_headline_plain)
     }
 
     fun ruleDetail(context: Context, rule: Rule): String {
         val condition = rule.conditionType.label.lowercase()
-        if (!kind(context)) return "Rule condition: " + condition + "."
-        return "Your rule for " + condition + " is holding. You can change it in Rules any time."
+        if (!kind(context)) return context.getString(R.string.copy_rule_detail_plain, condition)
+        return context.getString(R.string.copy_rule_detail_kind, condition)
     }
 
     // ── Earn mode ─────────────────────────────────────────────────
@@ -214,87 +186,63 @@ object Copy {
     fun earnHeadline(context: Context, packageName: String): String {
         val label = appLabel(context, packageName)
         return if (kind(context)) {
-            pick(
-                listOf(
-                    label + " is waiting on the task",
-                    "Task first, then " + label,
-                    "Not yet, " + label
-                )
-            )
+            pickFormatted(context, R.array.copy_earn_headline_kind, label)
         } else {
-            label + " is blocked during this task"
+            context.getString(R.string.copy_earn_headline_plain, label)
         }
     }
 
     fun earnDetail(context: Context, task: FocusTask): String {
-        if (!kind(context)) return "Active task: " + task.title
+        if (!kind(context)) return context.getString(R.string.copy_earn_detail_plain, task.title)
         val reward = task.rewardMin
         val tail = when {
-            task.enjoyable -> "No minutes attached to this one, by your choice."
-            reward != null && reward > 0 -> "Finish it and " + reward + " minutes come back."
-            else -> "Finish it and the time you put in comes back at your rate."
+            task.enjoyable -> context.getString(R.string.copy_earn_tail_enjoyable)
+            reward != null && reward > 0 -> context.getString(R.string.copy_earn_tail_reward, reward)
+            else -> context.getString(R.string.copy_earn_tail_default)
         }
-        return "You are on " + task.title + ". " + tail
+        return context.getString(R.string.copy_earn_detail_kind, task.title, tail)
     }
 
     fun earnCompleted(context: Context, minutes: Int): String {
         if (minutes <= 0) {
             return if (kind(context)) {
-                "Done. No minutes on this one, which was the point."
+                context.getString(R.string.copy_earn_completed_zero_kind)
             } else {
-                "Task complete. No reward configured."
+                context.getString(R.string.copy_earn_completed_zero_plain)
             }
         }
-        if (!kind(context)) return minutes.toString() + " minutes credited."
-        return pick(
-            listOf(
-                "You earned " + minutes + " minutes. It was your time to begin with.",
-                minutes.toString() + " minutes back. Spend them or bank them.",
-                "That is " + minutes + " minutes, on the deal you set yourself."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_earn_completed_plain, minutes)
+        return pickFormatted(context, R.array.copy_earn_completed_kind, minutes)
     }
 
     fun earnCapReached(context: Context): String {
-        if (!kind(context)) return "Daily earning cap reached."
-        return "That is the cap you set for today. The work still counted."
+        if (!kind(context)) return context.getString(R.string.copy_earn_cap_reached_plain)
+        return context.getString(R.string.copy_earn_cap_reached_kind)
     }
 
     fun earnMissed(context: Context, task: FocusTask): String {
-        if (!kind(context)) return "Deadline passed: " + task.title
-        return pick(
-            listOf(
-                "The deadline on " + task.title + " went by. Pick it up today.",
-                task.title + " did not happen in time. Nothing is lost but the date.",
-                "That one slipped. It is still here when you want it."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_earn_missed_plain, task.title)
+        return pickFormatted(context, R.array.copy_earn_missed_kind, task.title)
     }
 
     fun earnSpending(context: Context, minutes: Int): String {
-        if (!kind(context)) return minutes.toString() + " minutes unlocked."
-        return "The next " + minutes + " minutes are yours. Nothing is watching how you use them."
+        if (!kind(context)) return context.getString(R.string.copy_earn_spending_plain, minutes)
+        return context.getString(R.string.copy_earn_spending_kind, minutes)
     }
 
     fun earnSpendBlockedInKiosk(context: Context): String {
-        if (!kind(context)) return "Cannot spend earned time during a kiosk session."
-        return "A kiosk session runs to the end, so earned minutes wait for it. They do not expire."
+        if (!kind(context)) return context.getString(R.string.copy_earn_spend_blocked_plain)
+        return context.getString(R.string.copy_earn_spend_blocked_kind)
     }
 
     fun earnPhotoRetry(context: Context, attempts: Int): String {
-        if (!kind(context)) return "Not accepted. Attempt " + attempts + "."
-        return pick(
-            listOf(
-                "Have another go. Nothing was recorded about that one.",
-                "Try a different angle.",
-                "That did not pass. No harm done, take another."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_earn_photo_retry_plain, attempts)
+        return pick(context.resources.getStringArray(R.array.copy_earn_photo_retry_kind).toList())
     }
 
     fun earnDeal(context: Context): String =
         if (kind(context)) {
-            "Your deal, your numbers: " + EarnMode.describeDeal(context)
+            context.getString(R.string.copy_earn_deal_kind_prefix, EarnMode.describeDeal(context))
         } else {
             EarnMode.describeDeal(context)
         }
@@ -302,39 +250,26 @@ object Copy {
     /** Shown wherever tasks or proof photos are handled. */
     fun onDeviceFooter(context: Context): String =
         if (kind(context)) {
-            "Tasks, notes, attachments and proof photos stay on this phone. There is no account and " +
-                "nowhere for them to go."
+            context.getString(R.string.copy_on_device_footer_kind)
         } else {
-            "All task data is local. No network calls."
+            context.getString(R.string.copy_on_device_footer_plain)
         }
 
     // ── Sessions ──────────────────────────────────────────────────
 
     fun sessionStarted(context: Context, mode: FocusMode): String {
-        if (!kind(context)) return mode.label + " session started."
-        return pick(
-            listOf(
-                "Session running. Nothing else to decide for a while.",
-                mode.label + " is on. The phone will hold this for you.",
-                "You are in. Go do the thing."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_session_started_plain, mode.label)
+        return pickFormatted(context, R.array.copy_session_started_kind, mode.label)
     }
 
     fun sessionEnded(context: Context): String {
-        if (!kind(context)) return "Session ended."
-        return pick(
-            listOf(
-                "Session done. That counted.",
-                "Finished. However it went, you showed up for it.",
-                "That is the end of it. The phone is yours again."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_session_ended_plain)
+        return pick(context.resources.getStringArray(R.array.copy_session_ended_kind).toList())
     }
 
     fun sessionEndedEarly(context: Context): String {
-        if (!kind(context)) return "Session ended early."
-        return "Ended early, and that is allowed. The time before you stopped still happened."
+        if (!kind(context)) return context.getString(R.string.copy_session_ended_early_plain)
+        return context.getString(R.string.copy_session_ended_early_kind)
     }
 
     /**
@@ -345,75 +280,84 @@ object Copy {
      * of setting it up in advance.
      */
     fun rulesFrozen(context: Context, remaining: String): String {
-        if (!kind(context)) return "Rules are locked during a session. " + remaining + " remaining."
-        return "Your rules are held still until this session ends, in " + remaining +
-            ". You decided that ahead of time, back when it was an easy call."
+        if (!kind(context)) return context.getString(R.string.copy_rules_frozen_plain, remaining)
+        return context.getString(R.string.copy_rules_frozen_kind, remaining)
     }
 
     /** Same refusal, for an overlay schedule window rather than a session - see [ScheduleWindow.overlay]. */
     fun rulesFrozenBySchedule(context: Context, until: String): String {
-        if (!kind(context)) return "Rules are locked by an overlay window. Opens up again at " + until + "."
-        return "Your rules are held still until this window opens up again, at " + until +
-            ". You set it to overlay yourself, back when it was an easy call."
+        if (!kind(context)) return context.getString(R.string.copy_rules_frozen_by_schedule_plain, until)
+        return context.getString(R.string.copy_rules_frozen_by_schedule_kind, until)
     }
 
     /** The line under a frozen switch, explaining why it will not move. */
     fun rulesFrozenHint(context: Context): String {
-        if (!kind(context)) return "Locked right now."
-        return "Held still right now."
+        if (!kind(context)) return context.getString(R.string.copy_rules_frozen_hint_plain)
+        return context.getString(R.string.copy_rules_frozen_hint_kind)
     }
 
     fun breakStarted(context: Context, minutes: Int): String {
-        if (!kind(context)) return minutes.toString() + " minute pass started."
-        return "Take " + minutes + " minutes. Choosing a break on purpose is not the same as losing the thread."
+        if (!kind(context)) return context.getString(R.string.copy_break_started_plain, minutes)
+        return context.getString(R.string.copy_break_started_kind, minutes)
     }
 
     fun breakUnavailable(context: Context): String {
-        if (!kind(context)) return "No breaks left today."
-        return "That is the last of today's breaks. Tomorrow the count starts again."
+        if (!kind(context)) return context.getString(R.string.copy_break_unavailable_plain)
+        return context.getString(R.string.copy_break_unavailable_kind)
     }
 
     fun relapseNote(context: Context): String {
-        if (!kind(context)) return "Session interrupted."
-        return pick(
-            listOf(
-                "A gap is not a collapse. Pick it up from here.",
-                "Nothing to make up for. Just carry on.",
-                "One day off the pattern does not undo the pattern."
-            )
-        )
+        if (!kind(context)) return context.getString(R.string.copy_relapse_note_plain)
+        return pick(context.resources.getStringArray(R.array.copy_relapse_note_kind).toList())
     }
 
     // ── Onboarding and settings ───────────────────────────────────
 
-    fun weakenWarning(spec: CapabilitySpec): String =
-        spec.weakenNote ?: "This leaves an escape route open. That is your call."
+    fun weakenWarning(context: Context, spec: CapabilitySpec): String =
+        spec.weakenNote ?: context.getString(R.string.copy_weaken_warning_fallback)
 
     fun emptyRules(context: Context): String =
         if (kind(context)) {
-            "No rules yet. That is a fine place to start."
+            context.getString(R.string.copy_empty_rules_kind)
         } else {
-            "No rules."
+            context.getString(R.string.copy_empty_rules_plain)
         }
 
     fun emptySchedules(context: Context): String =
         if (kind(context)) {
-            "No windows yet. Add one for the hours you already know are hard."
+            context.getString(R.string.copy_empty_schedules_kind)
         } else {
-            "No schedule windows."
+            context.getString(R.string.copy_empty_schedules_plain)
         }
 
     fun emptyKeywords(context: Context): String =
         if (kind(context)) {
-            "No words of your own yet. The built-in guards are still running."
+            context.getString(R.string.copy_empty_keywords_kind)
         } else {
-            "No custom keywords."
+            context.getString(R.string.copy_empty_keywords_plain)
         }
+
+    // ── Content guard ─────────────────────────────────────────────
+
+    /** Names the exact keyword rule that fired - `phrase` is the rule's own text, never raw on-screen content. */
+    fun contentGuardHeadline(context: Context, packageName: String, phrase: String): String {
+        val label = appLabel(context, packageName)
+        return if (kind(context)) {
+            pickFormatted(context, R.array.copy_content_guard_headline_kind, label, phrase)
+        } else {
+            context.getString(R.string.copy_content_guard_headline_plain, label, phrase)
+        }
+    }
+
+    fun contentGuardDetail(context: Context, phrase: String): String {
+        if (!kind(context)) return context.getString(R.string.copy_content_guard_detail_plain, phrase)
+        return context.getString(R.string.copy_content_guard_detail_kind)
+    }
 
     fun analyticsIntro(context: Context): String =
         if (kind(context)) {
-            "This is information, not a verdict. It only leaves this phone if you carry it out yourself."
+            context.getString(R.string.copy_analytics_intro_kind)
         } else {
-            "Local usage data. Nothing is uploaded."
+            context.getString(R.string.copy_analytics_intro_plain)
         }
 }

@@ -512,7 +512,7 @@ object FocusUi {
         view.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             dp(context, tokens.density.quickButtonHeightDp)
-        ).apply { rightMargin = dp(context, 8) }
+        ).apply { marginEnd = dp(context, 8) }
         return view
     }
 
@@ -844,7 +844,7 @@ object FocusUi {
         view.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { rightMargin = dp(context, 6) }
+        ).apply { marginEnd = dp(context, 6) }
         return view
     }
 

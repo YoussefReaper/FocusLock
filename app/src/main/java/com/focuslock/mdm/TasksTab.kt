@@ -23,7 +23,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
     private lateinit var container: LinearLayout
     private var filter = 0
-    private val filters = listOf("Today", "Overdue", "All", "Done")
+    private val filters get() = activity.resources.getStringArray(R.array.tasks_filters).toList()
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
@@ -59,11 +59,11 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.pageHeader(
                 activity,
                 tokens,
-                "Tasks",
+                activity.getString(R.string.tasks_page_title),
                 if (EarnMode.isEnabled(activity)) {
                     Copy.earnDeal(activity)
                 } else {
-                    "What you actually mean to do. Earn Mode can attach time to these."
+                    activity.getString(R.string.tasks_page_subtitle)
                 }
             )
         )
@@ -83,7 +83,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         add(buildTaskList())
 
         add(FocusUi.spacer(activity, 4))
-        add(FocusUi.primaryButton(activity, tokens, "Add a task") { openEditor(null) })
+        add(FocusUi.primaryButton(activity, tokens, activity.getString(R.string.tasks_add_task_button)) { openEditor(null) })
 
         add(FocusUi.spacer(activity, 16))
         val footer = FocusUi.caption(activity, tokens, Copy.onDeviceFooter(activity))
@@ -105,14 +105,13 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
      */
     private fun buildEarnIntro(): View {
         val card = FocusUi.card(activity, tokens, elevated = true)
-        card.addView(FocusUi.heading(activity, tokens, "Earn mode is off"))
+        card.addView(FocusUi.heading(activity, tokens, activity.getString(R.string.tasks_earn_intro_heading)))
         card.addView(FocusUi.spacer(activity, 8))
         card.addView(
             FocusUi.secondary(
                 activity,
                 tokens,
-                "With it on, finishing a task unlocks leisure minutes and the rest of the phone. " +
-                    "You set the rate, what counts as done, and which apps a task may use."
+                activity.getString(R.string.tasks_earn_intro_body)
             )
         )
         card.addView(FocusUi.spacer(activity, 10))
@@ -120,14 +119,12 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.caption(
                 activity,
                 tokens,
-                "Worth knowing first: paying yourself for work you already enjoy tends to make it " +
-                    "less enjoyable, not more. Mark those tasks as enjoyable and they earn nothing " +
-                    "on purpose. Earn mode is best pointed at the dull, necessary work."
+                activity.getString(R.string.tasks_earn_intro_caption)
             )
         )
         card.addView(FocusUi.spacer(activity, 14))
         card.addView(
-            FocusUi.primaryButton(activity, tokens, "Turn on Earn mode") {
+            FocusUi.primaryButton(activity, tokens, activity.getString(R.string.tasks_earn_intro_button)) {
                 if (!CapabilityRegistry.setEnabled(activity, Capabilities.EARN_MODE, true)) {
                     FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
                 }
@@ -138,7 +135,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         if (!EarnMode.hasHardEnforcement(activity)) {
             card.addView(FocusUi.spacer(activity, 10))
             card.addView(
-                FocusUi.pill(activity, tokens, "Needs Device Owner setup for the hard version", tokens.warning)
+                FocusUi.pill(activity, tokens, activity.getString(R.string.tasks_earn_intro_needs_device_owner), tokens.warning)
             )
         }
         return card
@@ -153,7 +150,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         val title = FocusUi.heading(activity, tokens, task.title)
         title.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         header.addView(title)
-        header.addView(FocusUi.pill(activity, tokens, "Running", tokens.success))
+        header.addView(FocusUi.pill(activity, tokens, activity.getString(R.string.tasks_active_session_running_pill), tokens.success))
         card.addView(header)
 
         card.addView(FocusUi.spacer(activity, 6))
@@ -161,14 +158,24 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.secondary(
                 activity,
                 tokens,
-                SessionManager.formatDuration(EarnSession.elapsedMs(activity)) + " in · " +
-                    task.verification.label.lowercase() +
-                    (if (EarnSession.isStandalone(activity)) " · standalone" else " · on top of your session")
+                if (EarnSession.isStandalone(activity)) {
+                    activity.getString(
+                        R.string.tasks_active_session_summary_standalone,
+                        SessionManager.formatDuration(EarnSession.elapsedMs(activity)),
+                        task.verification.label.lowercase()
+                    )
+                } else {
+                    activity.getString(
+                        R.string.tasks_active_session_summary_linked,
+                        SessionManager.formatDuration(EarnSession.elapsedMs(activity)),
+                        task.verification.label.lowercase()
+                    )
+                }
             )
         )
 
         card.addView(FocusUi.spacer(activity, 14))
-        card.addView(FocusUi.primaryButton(activity, tokens, "Open the session") { openSession() })
+        card.addView(FocusUi.primaryButton(activity, tokens, activity.getString(R.string.tasks_active_session_open_button)) { openSession() })
         return card
     }
 
@@ -179,7 +186,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         if (EarnBudget.isSpending(activity)) {
             val remaining = EarnBudget.remainingSpendMs(activity)
-            card.addView(FocusUi.heading(activity, tokens, "Earned time, running"))
+            card.addView(FocusUi.heading(activity, tokens, activity.getString(R.string.tasks_budget_running_heading)))
             card.addView(FocusUi.spacer(activity, 6))
             card.addView(
                 FocusUi.display(activity, tokens, SessionManager.formatCountdown(remaining))
@@ -189,13 +196,12 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.secondary(
                     activity,
                     tokens,
-                    "Blocked apps are open. Your schedules and bedtime still hold, because those " +
-                        "were about when, not about work."
+                    activity.getString(R.string.tasks_budget_running_body)
                 )
             )
             card.addView(FocusUi.spacer(activity, 12))
             card.addView(
-                FocusUi.secondaryButton(activity, tokens, "Stop and bank the rest") {
+                FocusUi.secondaryButton(activity, tokens, activity.getString(R.string.tasks_budget_stop_button)) {
                     EarnBudget.stopSpending(activity)
                     render()
                 }
@@ -214,7 +220,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.pill(
                     activity,
                     tokens,
-                    "+" + EarnBudget.earnedToday(activity) + " today",
+                    activity.getString(R.string.tasks_budget_earned_today_pill, EarnBudget.earnedToday(activity)),
                     tokens.accent
                 )
             )
@@ -227,10 +233,11 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 activity,
                 tokens,
                 if (balance <= 0) {
-                    "Finish a task with minutes on it and they land here."
+                    activity.getString(R.string.tasks_budget_empty_hint)
+                } else if (EarnMode.decaysUnspent(activity)) {
+                    activity.getString(R.string.tasks_budget_spend_hint_decay)
                 } else {
-                    "Spend them when you want. They do not expire" +
-                        (if (EarnMode.decaysUnspent(activity)) ", though you asked them to fade overnight." else ".")
+                    activity.getString(R.string.tasks_budget_spend_hint)
                 }
             )
         )
@@ -243,14 +250,14 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 )
             } else {
                 card.addView(
-                    FocusUi.primaryButton(activity, tokens, "Use " + balance + " minutes now") {
+                    FocusUi.primaryButton(activity, tokens, activity.getString(R.string.tasks_budget_use_balance_button, balance)) {
                         confirmSpend(balance)
                     }
                 )
                 if (balance > 10) {
                     card.addView(FocusUi.spacer(activity, 8))
                     card.addView(
-                        FocusUi.secondaryButton(activity, tokens, "Use 10 minutes") { confirmSpend(10) }
+                        FocusUi.secondaryButton(activity, tokens, activity.getString(R.string.tasks_budget_use_ten_button)) { confirmSpend(10) }
                     )
                 }
             }
@@ -261,7 +268,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             FocusUi.listRow(
                 activity,
                 tokens,
-                "Your deal",
+                activity.getString(R.string.tasks_budget_deal_row_title),
                 EarnMode.describeDeal(activity),
                 trailing = FocusUi.chevron(activity, tokens)
             ) { openDealSheet() }
@@ -272,11 +279,10 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     private fun confirmSpend(minutes: Int) {
         FocusDialog.alert(
             activity,
-            title = "Use " + minutes + " minutes?",
-            message = "Blocked apps open for that long, then close again. Stopping early banks " +
-                "whatever is left.",
-            confirmLabel = "Start",
-            cancelLabel = "Not now",
+            title = activity.getString(R.string.tasks_confirm_spend_title, minutes),
+            message = activity.getString(R.string.tasks_confirm_spend_message),
+            confirmLabel = activity.getString(R.string.tasks_confirm_spend_confirm),
+            cancelLabel = activity.getString(R.string.tasks_confirm_spend_cancel),
             onConfirm = {
                 if (EarnBudget.spend(activity, minutes)) {
                     FocusDialog.toast(activity, Copy.earnSpending(activity, minutes))
@@ -290,31 +296,31 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     private fun openDealSheet() {
         FocusDialog.custom(
             activity,
-            title = "Your deal",
-            subtitle = "Nobody else set these, and nothing enforces them but you.",
+            title = activity.getString(R.string.tasks_deal_sheet_title),
+            subtitle = activity.getString(R.string.tasks_deal_sheet_subtitle),
             confirmLabel = null,
-            cancelLabel = "Done"
+            cancelLabel = activity.getString(R.string.tasks_deal_sheet_done)
         ) { body, dialogTokens ->
             body.addView(
                 FocusUi.sliderRow(
                     activity,
                     dialogTokens,
-                    "Minutes earned per hour of focus",
+                    activity.getString(R.string.tasks_deal_rate_label),
                     0,
                     60,
                     EarnMode.ratePercent(activity) * 60 / 100,
-                    { if (it == 0) "Only per-task rewards" else it.toString() + " min" }
+                    { if (it == 0) activity.getString(R.string.tasks_deal_rate_zero) else activity.getString(R.string.tasks_deal_minutes_value, it) }
                 ) { value -> EarnMode.setRatePercent(activity, value * 100 / 60) }
             )
             body.addView(
                 FocusUi.sliderRow(
                     activity,
                     dialogTokens,
-                    "Most you can earn in a day",
+                    activity.getString(R.string.tasks_deal_cap_label),
                     0,
                     360,
                     EarnMode.dailyCapMinutes(activity),
-                    { if (it == 0) "No cap" else it.toString() + " min" }
+                    { if (it == 0) activity.getString(R.string.tasks_deal_cap_zero) else activity.getString(R.string.tasks_deal_minutes_value, it) }
                 ) { value -> EarnMode.setDailyCapMinutes(activity, value) }
             )
 
@@ -324,8 +330,8 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.toggleRow(
                     activity,
                     dialogTokens,
-                    "Photo proof",
-                    "Lets a task ask for a photo, checked on this phone.",
+                    activity.getString(R.string.tasks_deal_photo_proof_label),
+                    activity.getString(R.string.tasks_deal_photo_proof_desc),
                     CapabilityRegistry.getBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_PHOTO_PROOF, true)
                 ) { value ->
                     if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_PHOTO_PROOF, value)) {
@@ -337,15 +343,14 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.toggleRow(
                     activity,
                     dialogTokens,
-                    "Tasks cannot widen a running mode",
-                    "A task's apps must also be on your standing allowlist. Turning this off is the " +
-                        "one setting here that opens a way around your own rules.",
+                    activity.getString(R.string.tasks_deal_intersect_label),
+                    activity.getString(R.string.tasks_deal_intersect_desc),
                     EarnMode.intersectsWithAllowlist(activity)
                 ) { value ->
                     if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_INTERSECT, value)) {
                         FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
                     } else if (!value) {
-                        FocusDialog.toast(activity, "A task can now allow apps your modes block.")
+                        FocusDialog.toast(activity, activity.getString(R.string.tasks_deal_intersect_off_toast))
                     }
                 }
             )
@@ -353,7 +358,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.toggleRow(
                     activity,
                     dialogTokens,
-                    "Show the balance during a task",
+                    activity.getString(R.string.tasks_deal_show_budget_label),
                     null,
                     EarnMode.showsBudgetWhileActive(activity)
                 ) { value ->
@@ -366,8 +371,8 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.toggleRow(
                     activity,
                     dialogTokens,
-                    "Track verification trust",
-                    "A quiet score that drops when photo proof is refused.",
+                    activity.getString(R.string.tasks_deal_credibility_label),
+                    activity.getString(R.string.tasks_deal_credibility_desc),
                     EarnMode.showsCredibility(activity)
                 ) { value ->
                     if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_CREDIBILITY, value)) {
@@ -379,8 +384,8 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.toggleRow(
                     activity,
                     dialogTokens,
-                    "Unspent minutes fade overnight",
-                    "Halves the balance each day. Off by default: banking is not a problem.",
+                    activity.getString(R.string.tasks_deal_decay_label),
+                    activity.getString(R.string.tasks_deal_decay_desc),
                     EarnMode.decaysUnspent(activity)
                 ) { value ->
                     if (!CapabilityRegistry.setBoolParam(activity, Capabilities.EARN_MODE, EarnMode.PARAM_DECAY, value)) {
@@ -418,16 +423,16 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     }
 
     private fun emptyMessage(): String = when (filter) {
-        1 -> "Nothing overdue. That is worth noticing."
-        3 -> "Nothing finished yet today."
-        else -> "No tasks yet. One honest line is enough to start."
+        1 -> activity.getString(R.string.tasks_empty_overdue)
+        3 -> activity.getString(R.string.tasks_empty_done)
+        else -> activity.getString(R.string.tasks_empty_default)
     }
 
     private fun buildTaskRow(task: FocusTask): View {
         val column = FocusUi.column(activity)
 
         val trailing = if (EarnMode.isEnabled(activity) && !task.completed) {
-            FocusUi.smallButton(activity, tokens, "Start") { startTask(task) }
+            FocusUi.smallButton(activity, tokens, activity.getString(R.string.tasks_row_start_button)) { startTask(task) }
         } else {
             FocusUi.chevron(activity, tokens)
         }
@@ -448,8 +453,8 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusUi.meter(
                     activity,
                     tokens,
-                    task.subtasks.count { it.done }.toString() + " of " + task.subtasks.size + " steps",
-                    task.progressPercent.toString() + "%",
+                    activity.getString(R.string.tasks_row_steps_meter, task.subtasks.count { it.done }, task.subtasks.size),
+                    activity.getString(R.string.tasks_row_percent, task.progressPercent),
                     task.progressPercent / 100f,
                     tokens.accent
                 )
@@ -463,24 +468,30 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         if (task.completed) {
             task.completedAt?.let {
-                parts.add("Done " + SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(it)))
+                parts.add(activity.getString(R.string.tasks_describe_done, SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(it))))
             }
         } else {
             (task.deadline ?: task.dueDate)?.let { due ->
-                val label = if (task.deadline != null) "Due by " else "For "
-                parts.add(label + SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(due)))
+                val formatted = SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(due))
+                parts.add(
+                    if (task.deadline != null) {
+                        activity.getString(R.string.tasks_describe_due_by, formatted)
+                    } else {
+                        activity.getString(R.string.tasks_describe_for, formatted)
+                    }
+                )
             }
-            if (task.isOverdue) parts.add("overdue")
+            if (task.isOverdue) parts.add(activity.getString(R.string.tasks_describe_overdue))
         }
 
-        task.timeEstimateMin?.let { parts.add(it.toString() + " min") }
+        task.timeEstimateMin?.let { parts.add(activity.getString(R.string.tasks_describe_minutes, it)) }
         parts.add(task.verification.label.lowercase())
 
         if (EarnMode.isEnabled(activity)) {
             when {
-                task.enjoyable -> parts.add("no reward, by choice")
-                task.rewardMin != null -> parts.add("+" + task.rewardMin + " min")
-                else -> parts.add("earns at your rate")
+                task.enjoyable -> parts.add(activity.getString(R.string.tasks_describe_no_reward))
+                task.rewardMin != null -> parts.add(activity.getString(R.string.tasks_describe_reward_min, task.rewardMin))
+                else -> parts.add(activity.getString(R.string.tasks_describe_earns_at_rate))
             }
         }
 
@@ -528,10 +539,10 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         FocusDialog.custom(
             activity,
-            title = "Start " + task.title + "?",
+            title = activity.getString(R.string.tasks_start_title, task.title),
             subtitle = null,
-            confirmLabel = "Start",
-            cancelLabel = "Cancel",
+            confirmLabel = activity.getString(R.string.tasks_start_confirm),
+            cancelLabel = activity.getString(R.string.tasks_start_cancel),
             onConfirm = {
                 EarnSession.start(activity, task, standalone)
                 openSession()
@@ -543,20 +554,18 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     dialogTokens,
                     if (standalone) {
                         if (EarnMode.hasHardEnforcement(activity)) {
-                            "The phone locks to FocusLock and the apps this task needs, until it is done."
+                            activity.getString(R.string.tasks_start_hard_enforcement)
                         } else {
-                            "Without Device Owner this runs as friction rather than a lock: distracting " +
-                                "apps get intercepted, not held shut."
+                            activity.getString(R.string.tasks_start_soft_enforcement)
                         }
                     } else {
-                        "Your " + SessionManager.mode(activity).label.lowercase() +
-                            " session keeps running. This task narrows it further."
+                        activity.getString(R.string.tasks_start_linked_session, SessionManager.mode(activity).label.lowercase())
                     }
                 )
             )
 
             body.addView(FocusUi.spacer(activity, 10))
-            body.addView(FocusUi.caption(activity, dialogTokens, "OPEN DURING THIS TASK"))
+            body.addView(FocusUi.caption(activity, dialogTokens, activity.getString(R.string.tasks_start_open_during_caption)))
 
             val allowed = EarnSession.allowedPackages(activity, task, standalone)
                 .filter { it != activity.packageName }
@@ -566,7 +575,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     activity,
                     dialogTokens,
                     if (allowed.isEmpty()) {
-                        "FocusLock only."
+                        activity.getString(R.string.tasks_start_focuslock_only)
                     } else {
                         allowed.joinToString { AppCatalog.label(activity, it) }
                     }
@@ -580,9 +589,10 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 val warning = FocusUi.caption(
                     activity,
                     dialogTokens,
-                    "Held back because they are not on your standing allowlist: " +
-                        rejected.joinToString { AppCatalog.label(activity, it) } +
-                        ". Add them in Rules first if the task really needs them."
+                    activity.getString(
+                        R.string.tasks_start_rejected_warning,
+                        rejected.joinToString { AppCatalog.label(activity, it) }
+                    )
                 )
                 warning.setTextColor(dialogTokens.warning)
                 body.addView(warning)

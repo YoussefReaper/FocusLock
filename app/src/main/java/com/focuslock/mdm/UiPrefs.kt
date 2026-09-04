@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import androidx.annotation.DrawableRes
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 
 /**
  * The design tokens, and the user's choices about them.
@@ -291,6 +293,36 @@ object UiPrefs {
         prefs(context).edit().putString(Constants.KEY_UI_FONT, id).apply()
     }
 
+    /**
+     * The app's current per-app language, or `"system"` when nothing has
+     * been chosen and it's following the device's own setting.
+     *
+     * Backed by [AppCompatDelegate]'s own locale storage (auto-persisted
+     * since AppCompat 1.6, which this app already depends on) rather than a
+     * separate SharedPreferences key - one source of truth for what locale
+     * is actually applied, instead of two that could drift out of sync.
+     */
+    fun getAppLanguageTag(): String {
+        val locales = AppCompatDelegate.getApplicationLocales()
+        if (locales.isEmpty) return "system"
+        return locales[0]?.language ?: "system"
+    }
+
+    /**
+     * Applies a per-app language. `"system"` clears the override and follows
+     * the device's own setting. Recreates every active `AppCompatActivity`
+     * automatically - that's built into [AppCompatDelegate], not something
+     * this app needs to trigger itself.
+     */
+    fun setAppLanguage(tag: String) {
+        val locales = if (tag == "system") {
+            LocaleListCompat.getEmptyLocaleList()
+        } else {
+            LocaleListCompat.forLanguageTags(tag)
+        }
+        AppCompatDelegate.setApplicationLocales(locales)
+    }
+
     fun getDensity(context: Context): UiDensity {
         val id = prefs(context).getString(Constants.KEY_UI_DENSITY, DEFAULT_DENSITY_ID) ?: DEFAULT_DENSITY_ID
         return densities.firstOrNull { it.id == id } ?: densities.first()
@@ -503,11 +535,30 @@ object UiPrefs {
      * calling this on every [resolve] (i.e. most screen builds) does not
      * mean re-reading the font file each time.
      */
-    private fun resolveTypeface(context: Context, fontId: String): Typeface = when (fontId) {
-        "figtree" -> androidx.core.content.res.ResourcesCompat.getFont(context, R.font.figtree_family)
-            ?: Typeface.DEFAULT
-        "mono" -> Typeface.MONOSPACE
-        else -> Typeface.DEFAULT
+    /**
+     * True when the app's *configured* locale (not just the device's, since
+     * a per-app language override may differ from it) is Arabic. Checked
+     * ahead of every other font choice below: none of Figtree/System/Mono
+     * carry Arabic glyphs, and there is no automatic font-fallback chain
+     * configured anywhere in the app, so Arabic text needs its own bundled
+     * font regardless of which Latin font the user picked.
+     */
+    private fun isArabicLocale(context: Context): Boolean {
+        val locales = context.resources.configuration.locales
+        return !locales.isEmpty && locales[0].language == "ar"
+    }
+
+    private fun resolveTypeface(context: Context, fontId: String): Typeface {
+        if (isArabicLocale(context)) {
+            return androidx.core.content.res.ResourcesCompat.getFont(context, R.font.ibm_plex_sans_arabic_family)
+                ?: Typeface.DEFAULT
+        }
+        return when (fontId) {
+            "figtree" -> androidx.core.content.res.ResourcesCompat.getFont(context, R.font.figtree_family)
+                ?: Typeface.DEFAULT
+            "mono" -> Typeface.MONOSPACE
+            else -> Typeface.DEFAULT
+        }
     }
 
     private fun resolveMonoTypeface(context: Context): Typeface =

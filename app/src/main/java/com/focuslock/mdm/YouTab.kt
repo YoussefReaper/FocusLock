@@ -224,12 +224,50 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             FocusUi.listRow(
                 activity,
                 tokens,
+                "Language",
+                languageLabel(UiPrefs.getAppLanguageTag()),
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { pickLanguage() }
+        )
+
+        card.addView(FocusUi.divider(activity, tokens))
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
                 "Wallpaper, background and sections",
                 "The rest of the appearance settings",
                 trailing = FocusUi.chevron(activity, tokens)
             ) { activity.startActivity(Intent(activity, PersonalizationActivity::class.java)) }
         )
         return card
+    }
+
+    private fun languageLabel(tag: String): String = when (tag) {
+        "ar" -> "العربية"
+        "en" -> "English"
+        else -> "System default"
+    }
+
+    /**
+     * The app's own switch, independent of system Settings -> App info ->
+     * Language (which reaches the same place via `android:localeConfig` -
+     * this is just the faster, in-app route to it).
+     */
+    private fun pickLanguage() {
+        FocusDialog.singleChoice(
+            activity,
+            "Language",
+            "Changes every screen in the app - the block screens included.",
+            listOf(
+                FocusDialog.Choice("system", "System default"),
+                FocusDialog.Choice("en", "English"),
+                FocusDialog.Choice("ar", "العربية")
+            ),
+            UiPrefs.getAppLanguageTag()
+        ) { selected ->
+            UiPrefs.setAppLanguage(selected)
+        }
     }
 
     private fun buildAccentRow(): View {

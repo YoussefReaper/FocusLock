@@ -94,7 +94,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
 
         column.addView(
             TextView(this).apply {
-                text = "This needs fixing before the phone goes back to normal"
+                text = getString(R.string.permission_recovery_headline)
                 textSize = 22f
                 setTextColor(tokens.textPrimary)
                 gravity = Gravity.CENTER
@@ -103,8 +103,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
         )
         column.addView(
             TextView(this).apply {
-                text = "A permission the running session depends on was turned off. " +
-                    "Nothing else works properly until it's back on."
+                text = getString(R.string.permission_recovery_body)
                 textSize = 15f
                 setTextColor(tokens.textSecondary)
                 gravity = Gravity.CENTER
@@ -138,7 +137,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
             if (intent != null) {
                 column.addView(
                     Button(this).apply {
-                        text = "Turn it back on"
+                        text = getString(R.string.permission_recovery_turn_back_on)
                         setTextColor(tokens.onAccent)
                         backgroundTintList = android.content.res.ColorStateList.valueOf(tokens.accent)
                         typeface = tokens.typeface
@@ -155,8 +154,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
             } else {
                 column.addView(
                     TextView(this).apply {
-                        text = "This can only be restored by re-provisioning device " +
-                            "owner from a computer, over ADB, the same way it was set up."
+                        text = getString(R.string.permission_recovery_needs_reprovisioning)
                         textSize = 13f
                         setTextColor(tokens.textSecondary)
                         gravity = Gravity.CENTER
@@ -175,7 +173,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
         if (SessionManager.canEndEarly(this)) {
             column.addView(
                 TextView(this).apply {
-                    text = "Ending the session works the same as always, and clears this too."
+                    text = getString(R.string.permission_recovery_end_session_note)
                     textSize = 12f
                     setTextColor(tokens.textSecondary)
                     gravity = Gravity.CENTER
@@ -185,7 +183,7 @@ class PermissionRecoveryActivity : AppCompatActivity() {
             )
             column.addView(
                 Button(this).apply {
-                    text = "End the session"
+                    text = getString(R.string.permission_recovery_end_session_button)
                     setTextColor(tokens.textPrimary)
                     backgroundTintList = android.content.res.ColorStateList.valueOf(tokens.surfaceAlt)
                     typeface = tokens.typeface
@@ -198,10 +196,10 @@ class PermissionRecoveryActivity : AppCompatActivity() {
     private fun confirmEndSession() {
         FocusDialog.alert(
             this,
-            title = "End the session?",
-            message = "Everything unlocks straight away, including this. The time you already did still counts.",
-            confirmLabel = "End it",
-            cancelLabel = "Keep going",
+            title = getString(R.string.permission_recovery_end_session_title),
+            message = getString(R.string.permission_recovery_end_session_message),
+            confirmLabel = getString(R.string.permission_recovery_end_session_confirm),
+            cancelLabel = getString(R.string.permission_recovery_end_session_cancel),
             onConfirm = {
                 SessionManager.end(this)
                 KioskPolicy.syncLockTaskState(this)

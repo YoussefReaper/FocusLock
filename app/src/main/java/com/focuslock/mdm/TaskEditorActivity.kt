@@ -46,7 +46,7 @@ class TaskEditorActivity : FocusScreenActivity() {
         mutate { it.copy(attachments = it.attachments + Attachment(kind, uri.toString(), fileLabel(uri))) }
     }
 
-    override fun screenTitle(): String = if (isNew) "New task" else "Task"
+    override fun screenTitle(): String = if (isNew) getString(R.string.task_editor_title_new) else getString(R.string.task_editor_title_existing)
 
     override fun screenSubtitle(): String? = null
 
@@ -83,19 +83,19 @@ class TaskEditorActivity : FocusScreenActivity() {
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildBasics())
-        column.addView(sectionLabel("Steps"))
+        column.addView(sectionLabel(getString(R.string.task_editor_section_steps)))
         column.addView(buildSubtasks())
-        column.addView(sectionLabel("When"))
+        column.addView(sectionLabel(getString(R.string.task_editor_section_when)))
         column.addView(buildScheduling())
-        column.addView(sectionLabel("Details"))
+        column.addView(sectionLabel(getString(R.string.task_editor_section_details)))
         column.addView(buildDetails())
 
         if (EarnMode.isEnabled(this)) {
-            column.addView(sectionLabel("Earning"))
+            column.addView(sectionLabel(getString(R.string.task_editor_section_earning)))
             column.addView(buildEarnCard())
         }
 
-        column.addView(sectionLabel("Attachments"))
+        column.addView(sectionLabel(getString(R.string.task_editor_section_attachments)))
         column.addView(buildAttachments())
 
         if (!isNew) {
@@ -112,7 +112,7 @@ class TaskEditorActivity : FocusScreenActivity() {
     // ── Basics ────────────────────────────────────────────────────
 
     private fun buildBasics(): View = card { card ->
-        val titleField = FocusUi.input(this, tokens, "What is the task?", task.title)
+        val titleField = FocusUi.input(this, tokens, getString(R.string.task_editor_title_hint), task.title)
         titleField.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -122,7 +122,7 @@ class TaskEditorActivity : FocusScreenActivity() {
         })
         card.addView(titleField)
 
-        val notesField = FocusUi.input(this, tokens, "Notes", task.notes, multiline = true)
+        val notesField = FocusUi.input(this, tokens, getString(R.string.task_editor_notes_hint), task.notes, multiline = true)
         notesField.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -133,12 +133,12 @@ class TaskEditorActivity : FocusScreenActivity() {
         card.addView(notesField)
 
         card.addView(
-            FocusUi.secondaryButton(this, tokens, if (isNew) "Save the task" else "Save changes") {
+            FocusUi.secondaryButton(this, tokens, if (isNew) getString(R.string.task_editor_save_new) else getString(R.string.task_editor_save_existing)) {
                 if (task.title.isBlank()) {
-                    FocusDialog.toast(this, "It needs a title first.")
+                    FocusDialog.toast(this, getString(R.string.task_editor_toast_needs_title))
                 } else {
                     mutate { it }
-                    FocusDialog.toast(this, "Saved.")
+                    FocusDialog.toast(this, getString(R.string.task_editor_toast_saved))
                 }
             }
         )
@@ -152,7 +152,7 @@ class TaskEditorActivity : FocusScreenActivity() {
                 FocusUi.emptyState(
                     this,
                     tokens,
-                    "No steps. Add them if the task is big enough that starting is the hard part."
+                    getString(R.string.task_editor_no_steps)
                 )
             )
         } else {
@@ -176,8 +176,8 @@ class TaskEditorActivity : FocusScreenActivity() {
                 FocusUi.meter(
                     this,
                     tokens,
-                    task.subtasks.count { it.done }.toString() + " of " + task.subtasks.size,
-                    task.progressPercent.toString() + "%",
+                    getString(R.string.task_editor_steps_meter, task.subtasks.count { it.done }, task.subtasks.size),
+                    getString(R.string.task_editor_percent_value, task.progressPercent),
                     task.progressPercent / 100f,
                     tokens.accent
                 )
@@ -186,8 +186,8 @@ class TaskEditorActivity : FocusScreenActivity() {
 
         card.addView(FocusUi.spacer(this, 8))
         card.addView(
-            FocusUi.smallButton(this, tokens, "Add a step") {
-                FocusDialog.textInput(this, "Add a step", null, "What is the step?") { value ->
+            FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_step_button)) {
+                FocusDialog.textInput(this, getString(R.string.task_editor_add_step_title), null, getString(R.string.task_editor_add_step_hint)) { value ->
                     if (value.isNotBlank()) {
                         mutate { it.copy(subtasks = it.subtasks + FocusTaskStore.newSubtask(value)) }
                     }
@@ -200,9 +200,9 @@ class TaskEditorActivity : FocusScreenActivity() {
         FocusDialog.alert(
             this,
             title = subtask.title,
-            message = "Remove this step?",
-            confirmLabel = "Remove",
-            cancelLabel = "Keep",
+            message = getString(R.string.task_editor_remove_step_message),
+            confirmLabel = getString(R.string.task_editor_remove_step_confirm),
+            cancelLabel = getString(R.string.task_editor_remove_step_cancel),
             destructive = true,
             onConfirm = {
                 mutate { current -> current.copy(subtasks = current.subtasks.filterNot { it.id == subtask.id }) }
@@ -222,11 +222,11 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Planned for",
-                task.dueDate?.let { formatWhen(it) } ?: "No date",
+                getString(R.string.task_editor_planned_for_label),
+                task.dueDate?.let { formatWhen(it) } ?: getString(R.string.task_editor_planned_for_empty),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
-                FocusDialog.dateTimePicker(this, "Planned for", task.dueDate) { value ->
+                FocusDialog.dateTimePicker(this, getString(R.string.task_editor_planned_for_label), task.dueDate) { value ->
                     mutate { it.copy(dueDate = value) }
                 }
             }
@@ -236,11 +236,11 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Hard deadline",
-                task.deadline?.let { formatWhen(it) } ?: "None",
+                getString(R.string.task_editor_deadline_label),
+                task.deadline?.let { formatWhen(it) } ?: getString(R.string.task_editor_deadline_empty),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
-                FocusDialog.dateTimePicker(this, "Hard deadline", task.deadline) { value ->
+                FocusDialog.dateTimePicker(this, getString(R.string.task_editor_deadline_label), task.deadline) { value ->
                     mutate { it.copy(deadline = value) }
                 }
             }
@@ -250,18 +250,18 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Reminder",
-                task.reminderAt?.let { formatWhen(it) } ?: "None",
+                getString(R.string.task_editor_reminder_label),
+                task.reminderAt?.let { formatWhen(it) } ?: getString(R.string.task_editor_reminder_empty),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
-                FocusDialog.dateTimePicker(this, "Remind me", task.reminderAt) { value ->
+                FocusDialog.dateTimePicker(this, getString(R.string.task_editor_reminder_picker_title), task.reminderAt) { value ->
                     mutate { it.copy(reminderAt = value) }
                 }
             }
         )
         card.addView(FocusUi.divider(this, tokens))
 
-        card.addView(FocusUi.caption(this, tokens, "REPEATS"))
+        card.addView(FocusUi.caption(this, tokens, getString(R.string.task_editor_repeats_caption)))
         card.addView(
             FocusUi.chipStrip(
                 this,
@@ -277,15 +277,15 @@ class TaskEditorActivity : FocusScreenActivity() {
                 FocusUi.sliderRow(
                     this,
                     tokens,
-                    "Every",
+                    getString(R.string.task_editor_every_label),
                     2,
                     30,
                     task.recurrenceEveryDays,
-                    { it.toString() + " days" }
+                    { getString(R.string.task_editor_every_days_value, it) }
                 ) { value -> task = task.copy(recurrenceEveryDays = value) }
             )
             card.addView(
-                FocusUi.smallButton(this, tokens, "Save interval") { mutate { it } }
+                FocusUi.smallButton(this, tokens, getString(R.string.task_editor_save_interval_button)) { mutate { it } }
             )
         }
     }
@@ -296,7 +296,7 @@ class TaskEditorActivity : FocusScreenActivity() {
     // ── Details ───────────────────────────────────────────────────
 
     private fun buildDetails(): View = card { card ->
-        card.addView(FocusUi.caption(this, tokens, "PRIORITY"))
+        card.addView(FocusUi.caption(this, tokens, getString(R.string.task_editor_priority_caption)))
         card.addView(
             FocusUi.chipStrip(
                 this,
@@ -313,29 +313,29 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.sliderRow(
                 this,
                 tokens,
-                "Time estimate",
+                getString(R.string.task_editor_time_estimate_label),
                 0,
                 240,
                 task.timeEstimateMin ?: 0,
-                { if (it == 0) "Not estimated" else it.toString() + " min" }
+                { if (it == 0) getString(R.string.task_editor_time_estimate_zero) else getString(R.string.task_editor_minutes_value, it) }
             ) { value -> task = task.copy(timeEstimateMin = value.takeIf { it > 0 }) }
         )
-        card.addView(FocusUi.smallButton(this, tokens, "Save estimate") { mutate { it } })
+        card.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_save_estimate_button)) { mutate { it } })
 
         card.addView(FocusUi.divider(this, tokens, 8))
         card.addView(
             FocusUi.listRow(
                 this,
                 tokens,
-                "Tags",
-                if (task.tags.isEmpty()) "None" else task.tags.joinToString(" "),
+                getString(R.string.task_editor_tags_label),
+                if (task.tags.isEmpty()) getString(R.string.task_editor_tags_empty) else task.tags.joinToString(" "),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 FocusDialog.textInput(
                     this,
-                    "Tags",
-                    "Separated by spaces or commas.",
-                    "study essay",
+                    getString(R.string.task_editor_tags_title),
+                    getString(R.string.task_editor_tags_subtitle),
+                    getString(R.string.task_editor_tags_hint),
                     task.tags.joinToString(" ")
                 ) { value ->
                     val tags = value.split(",", " ")
@@ -351,7 +351,7 @@ class TaskEditorActivity : FocusScreenActivity() {
     // ── Earning ───────────────────────────────────────────────────
 
     private fun buildEarnCard(): View = card { card ->
-        card.addView(FocusUi.caption(this, tokens, "WHAT COUNTS AS DONE"))
+        card.addView(FocusUi.caption(this, tokens, getString(R.string.task_editor_verification_caption)))
         Verification.values().forEach { verification ->
             val available = verification != Verification.PHOTO ||
                 (EarnMode.photoProofEnabled(this) && PhotoProof.isCaptureAvailable(this))
@@ -359,9 +359,9 @@ class TaskEditorActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 when {
-                    verification == task.verification -> "Now"
-                    !available -> "Off"
-                    else -> "Set"
+                    verification == task.verification -> getString(R.string.task_editor_verification_now)
+                    !available -> getString(R.string.task_editor_verification_off)
+                    else -> getString(R.string.task_editor_verification_set)
                 },
                 if (verification == task.verification) tokens.accent else tokens.textMuted
             )
@@ -377,11 +377,11 @@ class TaskEditorActivity : FocusScreenActivity() {
                 } else {
                     FocusDialog.info(
                         this,
-                        "Photo proof is unavailable",
+                        getString(R.string.task_editor_photo_unavailable_title),
                         if (!EarnMode.photoProofEnabled(this)) {
-                            "You have photo proof switched off in your deal settings."
+                            getString(R.string.task_editor_photo_unavailable_disabled)
                         } else {
-                            "This phone has no camera app that FocusLock can call."
+                            getString(R.string.task_editor_photo_unavailable_no_camera)
                         }
                     )
                 }
@@ -399,7 +399,7 @@ class TaskEditorActivity : FocusScreenActivity() {
             val note = FocusUi.caption(
                 this,
                 tokens,
-                "No time estimate set, so this will use 25 minutes."
+                getString(R.string.task_editor_timer_no_estimate_note)
             )
             note.setTextColor(tokens.warning)
             card.addView(note)
@@ -409,7 +409,7 @@ class TaskEditorActivity : FocusScreenActivity() {
             val note = FocusUi.caption(
                 this,
                 tokens,
-                "No steps yet, so there is nothing to tick. Add some above."
+                getString(R.string.task_editor_subtasks_empty_note)
             )
             note.setTextColor(tokens.warning)
             card.addView(note)
@@ -421,13 +421,13 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.listRow(
                 this,
                 tokens,
-                "Apps this task may use",
+                getString(R.string.task_editor_allowed_apps_label),
                 describeAllowedApps(),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 pickApps(
-                    title = "Open during this task",
-                    subtitle = "Leave everything off to lock down to FocusLock alone.",
+                    title = getString(R.string.task_editor_pick_apps_title),
+                    subtitle = getString(R.string.task_editor_pick_apps_subtitle),
                     selected = task.allowedApps
                 ) { selected -> mutate { it.copy(allowedApps = selected) } }
             }
@@ -438,9 +438,8 @@ class TaskEditorActivity : FocusScreenActivity() {
             FocusUi.toggleRow(
                 this,
                 tokens,
-                "I actually enjoy this one",
-                "Then it earns nothing. Paying yourself for work you already like tends to make it " +
-                    "feel like a chore instead.",
+                getString(R.string.task_editor_enjoy_label),
+                getString(R.string.task_editor_enjoy_desc),
                 task.enjoyable
             ) { value -> mutate { it.copy(enjoyable = value) } }
         )
@@ -450,14 +449,14 @@ class TaskEditorActivity : FocusScreenActivity() {
                 FocusUi.sliderRow(
                     this,
                     tokens,
-                    "Minutes this task pays",
+                    getString(R.string.task_editor_reward_label),
                     0,
                     120,
                     task.rewardMin ?: 0,
-                    { if (it == 0) "Use my hourly rate" else it.toString() + " min" }
+                    { if (it == 0) getString(R.string.task_editor_reward_zero) else getString(R.string.task_editor_minutes_value, it) }
                 ) { value -> task = task.copy(rewardMin = value.takeIf { it > 0 }) }
             )
-            card.addView(FocusUi.smallButton(this, tokens, "Save reward") { mutate { it } })
+            card.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_save_reward_button)) { mutate { it } })
             card.addView(FocusUi.spacer(this, 6))
             card.addView(FocusUi.caption(this, tokens, EarnMode.describeDeal(this)))
         }
@@ -468,8 +467,8 @@ class TaskEditorActivity : FocusScreenActivity() {
                 FocusUi.meter(
                     this,
                     tokens,
-                    "Verification trust",
-                    (task.credibility * 100).toInt().toString() + "%",
+                    getString(R.string.task_editor_credibility_meter_label),
+                    getString(R.string.task_editor_percent_value, (task.credibility * 100).toInt()),
                     task.credibility,
                     if (task.credibility < 0.6f) tokens.warning else tokens.success
                 )
@@ -478,19 +477,19 @@ class TaskEditorActivity : FocusScreenActivity() {
     }
 
     private fun describeAllowedApps(): String {
-        if (task.allowedApps.isEmpty()) return "FocusLock only"
+        if (task.allowedApps.isEmpty()) return getString(R.string.task_editor_allowed_apps_only_focuslock)
         // Previewing, so ask what would happen if this task started right now.
         val rejected = EarnSession.rejectedPackages(this, task, !SessionManager.isActive(this))
         val base = task.allowedApps.joinToString { AppCatalog.label(this, it) }
         if (rejected.isEmpty()) return base
-        return base + " — " + rejected.size + " not on your standing allowlist"
+        return getString(R.string.task_editor_allowed_apps_rejected_suffix, base, rejected.size)
     }
 
     // ── Attachments ───────────────────────────────────────────────
 
     private fun buildAttachments(): View = card { card ->
         if (task.attachments.isEmpty()) {
-            card.addView(FocusUi.emptyState(this, tokens, "Nothing attached."))
+            card.addView(FocusUi.emptyState(this, tokens, getString(R.string.task_editor_no_attachments)))
         } else {
             task.attachments.forEach { attachment ->
                 card.addView(
@@ -499,7 +498,7 @@ class TaskEditorActivity : FocusScreenActivity() {
                         tokens,
                         attachment.label.ifBlank { attachment.value },
                         attachment.kind.id,
-                        trailing = FocusUi.smallButton(this, tokens, "Remove") {
+                        trailing = FocusUi.smallButton(this, tokens, getString(R.string.task_editor_remove_attachment_button)) {
                             mutate { current ->
                                 current.copy(attachments = current.attachments.filterNot { it == attachment })
                             }
@@ -515,9 +514,9 @@ class TaskEditorActivity : FocusScreenActivity() {
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        row.addView(FocusUi.smallButton(this, tokens, "Add a file") { pickFile("*/*") })
-        row.addView(FocusUi.smallButton(this, tokens, "Add an image") { pickFile("image/*") })
-        row.addView(FocusUi.smallButton(this, tokens, "Add a link") { addLink() })
+        row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_file_button)) { pickFile("*/*") })
+        row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_image_button)) { pickFile("image/*") })
+        row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_link_button)) { addLink() })
         card.addView(FocusUi.horizontalScroll(this, row))
     }
 
@@ -532,12 +531,12 @@ class TaskEditorActivity : FocusScreenActivity() {
                 }
             )
         } catch (_: Exception) {
-            FocusDialog.toast(this, "No file picker available.")
+            FocusDialog.toast(this, getString(R.string.task_editor_toast_no_file_picker))
         }
     }
 
     private fun addLink() {
-        FocusDialog.textInput(this, "Add a link", null, "https://example.com") { value ->
+        FocusDialog.textInput(this, getString(R.string.task_editor_add_link_title), null, getString(R.string.task_editor_add_link_hint)) { value ->
             if (value.isNotBlank()) {
                 val normalized = AllowlistStore.normalizeUrl(value)
                 mutate {
@@ -555,7 +554,7 @@ class TaskEditorActivity : FocusScreenActivity() {
         when (attachment.kind) {
             AttachmentKind.LINK -> {
                 startActivity(Intent(this, WebViewActivity::class.java))
-                FocusDialog.toast(this, "Open it from your site list if it is allowed there.")
+                FocusDialog.toast(this, getString(R.string.task_editor_toast_link_open_hint))
             }
             else -> {
                 try {
@@ -566,16 +565,16 @@ class TaskEditorActivity : FocusScreenActivity() {
                         }
                     )
                 } catch (_: Exception) {
-                    FocusDialog.toast(this, "Nothing on this phone can open that.")
+                    FocusDialog.toast(this, getString(R.string.task_editor_toast_nothing_can_open))
                 }
             }
         }
     }
 
     private fun fileLabel(uri: Uri): String = try {
-        uri.lastPathSegment?.substringAfterLast('/') ?: "Attachment"
+        uri.lastPathSegment?.substringAfterLast('/') ?: getString(R.string.task_editor_attachment_fallback_label)
     } catch (_: Exception) {
-        "Attachment"
+        getString(R.string.task_editor_attachment_fallback_label)
     }
 
     // ── Actions ───────────────────────────────────────────────────
@@ -583,7 +582,7 @@ class TaskEditorActivity : FocusScreenActivity() {
     private fun buildActions(): View = card { card ->
         if (EarnMode.isEnabled(this) && !task.completed) {
             card.addView(
-                FocusUi.primaryButton(this, tokens, "Start this task") {
+                FocusUi.primaryButton(this, tokens, getString(R.string.task_editor_start_task_button)) {
                     val standalone = !SessionManager.isActive(this)
                     EarnSession.start(this, task, standalone)
                     startActivity(Intent(this, EarnSessionActivity::class.java))
@@ -595,13 +594,13 @@ class TaskEditorActivity : FocusScreenActivity() {
 
         if (!task.completed) {
             card.addView(
-                FocusUi.secondaryButton(this, tokens, "Mark it done without earning") {
+                FocusUi.secondaryButton(this, tokens, getString(R.string.task_editor_mark_done_no_earn_button)) {
                     FocusDialog.alert(
                         this,
-                        title = "Mark done?",
-                        message = "No minutes for this one. Sometimes a task is just finished.",
-                        confirmLabel = "Mark done",
-                        cancelLabel = "Cancel",
+                        title = getString(R.string.task_editor_mark_done_title),
+                        message = getString(R.string.task_editor_mark_done_message),
+                        confirmLabel = getString(R.string.task_editor_mark_done_confirm),
+                        cancelLabel = getString(R.string.task_editor_mark_done_cancel),
                         onConfirm = {
                             FocusTaskStore.complete(this, task)
                             Streaks.recordActivity(this)
@@ -614,13 +613,13 @@ class TaskEditorActivity : FocusScreenActivity() {
         }
 
         card.addView(
-            FocusUi.dangerButton(this, tokens, "Delete this task") {
+            FocusUi.dangerButton(this, tokens, getString(R.string.task_editor_delete_task_button)) {
                 FocusDialog.alert(
                     this,
-                    title = "Delete " + task.title + "?",
-                    message = "It goes for good. Attachments stay where they are on the phone.",
-                    confirmLabel = "Delete",
-                    cancelLabel = "Keep",
+                    title = getString(R.string.task_editor_delete_title, task.title),
+                    message = getString(R.string.task_editor_delete_message),
+                    confirmLabel = getString(R.string.task_editor_delete_confirm),
+                    cancelLabel = getString(R.string.task_editor_delete_cancel),
                     destructive = true,
                     onConfirm = {
                         FocusTaskStore.remove(this, task.id)

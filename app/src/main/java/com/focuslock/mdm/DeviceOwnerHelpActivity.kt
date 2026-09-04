@@ -16,37 +16,39 @@ import android.widget.LinearLayout
  */
 class DeviceOwnerHelpActivity : FocusScreenActivity() {
 
-    private val command =
-        "adb shell dpm set-device-owner com.focuslock.mdm/.AdminReceiver"
+    private val command = getString(R.string.device_owner_help_command)
 
-    override fun screenTitle(): String = "Device Owner"
+    override fun screenTitle(): String = getString(R.string.device_owner_help_title)
 
-    override fun screenSubtitle(): String =
-        "The one step that has to happen from a computer, and what it actually changes."
+    override fun screenSubtitle(): String = getString(R.string.device_owner_help_subtitle)
 
     override fun buildContent(column: LinearLayout) {
         column.addView(buildStatusCard())
-        column.addView(sectionLabel("What it changes"))
+        column.addView(sectionLabel(getString(R.string.device_owner_help_section_what_changes)))
         column.addView(buildEffectCard())
-        column.addView(sectionLabel("Setting it up from a computer"))
+        column.addView(sectionLabel(getString(R.string.device_owner_help_section_setup)))
         column.addView(buildStepsCard())
-        column.addView(sectionLabel("The QR route"))
+        column.addView(sectionLabel(getString(R.string.device_owner_help_section_qr)))
         column.addView(buildQrCard())
-        column.addView(sectionLabel("What it still cannot do"))
+        column.addView(sectionLabel(getString(R.string.device_owner_help_section_cannot_do)))
         column.addView(buildHonestyCard())
     }
 
     private fun buildStatusCard(): View = card { card ->
         val isOwner = SetupChecks.isDeviceOwner(this)
         val header = FocusUi.row(this)
-        val title = FocusUi.heading(this, tokens, if (isOwner) "Active" else "Not set")
+        val title = FocusUi.heading(
+            this,
+            tokens,
+            if (isOwner) getString(R.string.device_owner_help_status_active) else getString(R.string.device_owner_help_status_not_set)
+        )
         title.layoutParams = LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         header.addView(title)
         header.addView(
             FocusUi.pill(
                 this,
                 tokens,
-                if (isOwner) "Device Owner" else "Sideloaded only",
+                if (isOwner) getString(R.string.device_owner_help_pill_device_owner) else getString(R.string.device_owner_help_pill_sideloaded),
                 if (isOwner) tokens.success else tokens.warning
             )
         )
@@ -57,10 +59,9 @@ class DeviceOwnerHelpActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 if (isOwner) {
-                    "Everything in the Hardening group is available to switch on."
+                    getString(R.string.device_owner_help_status_detail_owner)
                 } else {
-                    "Soft, Block and most guards work without this. Kiosk, Safe Mode blocking, " +
-                        "app suspension and uninstall protection do not."
+                    getString(R.string.device_owner_help_status_detail_not_owner)
                 }
             )
         )
@@ -68,18 +69,18 @@ class DeviceOwnerHelpActivity : FocusScreenActivity() {
 
     private fun buildEffectCard(): View = card { card ->
         listOf(
-            "Safe Mode can be closed" to
-                "Otherwise a reboot into Safe Mode starts the phone with FocusLock switched off.",
-            "Blocked apps can be suspended" to
-                "The system refuses to launch them, instead of FocusLock catching them a moment late.",
-            "Blocked apps can be hidden" to
-                "They disappear from the launcher for the length of a session.",
-            "FocusLock can be the home screen" to
-                "During a kiosk session the home button lands here instead of the launcher.",
-            "Uninstalling can be blocked" to
-                "Removing the app stops being a way to end a session early.",
-            "Browsers can be held to your allowlist" to
-                "Chrome and friends get a managed policy pointing at the same list the safe browser uses."
+            getString(R.string.device_owner_help_effect_1_title) to
+                getString(R.string.device_owner_help_effect_1_detail),
+            getString(R.string.device_owner_help_effect_2_title) to
+                getString(R.string.device_owner_help_effect_2_detail),
+            getString(R.string.device_owner_help_effect_3_title) to
+                getString(R.string.device_owner_help_effect_3_detail),
+            getString(R.string.device_owner_help_effect_4_title) to
+                getString(R.string.device_owner_help_effect_4_detail),
+            getString(R.string.device_owner_help_effect_5_title) to
+                getString(R.string.device_owner_help_effect_5_detail),
+            getString(R.string.device_owner_help_effect_6_title) to
+                getString(R.string.device_owner_help_effect_6_detail)
         ).forEach { pair ->
             card.addView(FocusUi.listRow(this, tokens, pair.first, pair.second))
         }
@@ -88,23 +89,20 @@ class DeviceOwnerHelpActivity : FocusScreenActivity() {
             FocusUi.caption(
                 this,
                 tokens,
-                "Every one of these is still a switch in Rules. Being Device Owner makes them possible, " +
-                    "not automatic."
+                getString(R.string.device_owner_help_effect_note)
             )
         )
     }
 
     private fun buildStepsCard(): View = card { card ->
         val steps = listOf(
-            "Sign out of every Google account on this phone, and remove any other user or work profile. " +
-                "Android refuses to set a Device Owner while an account exists.",
-            "On the phone: Settings, About phone, tap Build number seven times to unlock Developer options.",
-            "In Developer options, turn on USB debugging.",
-            "Plug the phone into a computer with the Android platform-tools installed, and accept the " +
-                "debugging prompt on the phone.",
-            "On the computer, run: adb devices, and check the phone is listed as device rather than unauthorized.",
-            "Run the command below.",
-            "Come back here. This screen should now say Active."
+            getString(R.string.device_owner_help_step_1),
+            getString(R.string.device_owner_help_step_2),
+            getString(R.string.device_owner_help_step_3),
+            getString(R.string.device_owner_help_step_4),
+            getString(R.string.device_owner_help_step_5),
+            getString(R.string.device_owner_help_step_6),
+            getString(R.string.device_owner_help_step_7)
         )
 
         steps.forEachIndexed { index, step ->
@@ -148,10 +146,10 @@ class DeviceOwnerHelpActivity : FocusScreenActivity() {
         container.addView(block)
         container.addView(FocusUi.spacer(this, 10))
         container.addView(
-            FocusUi.secondaryButton(this, tokens, "Copy the command") {
+            FocusUi.secondaryButton(this, tokens, getString(R.string.device_owner_help_copy_command)) {
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 clipboard?.setPrimaryClip(ClipData.newPlainText("FocusLock", command))
-                FocusDialog.toast(this, "Copied.")
+                FocusDialog.toast(this, getString(R.string.device_owner_help_copied_toast))
             }
         )
         return container
@@ -162,25 +160,19 @@ class DeviceOwnerHelpActivity : FocusScreenActivity() {
             FocusUi.secondary(
                 this,
                 tokens,
-                "On a phone that has been factory reset, tapping the welcome screen six times opens " +
-                    "a QR scanner. Provisioning from a QR sets Device Owner without a computer, but it " +
-                    "needs the app hosted at a URL along with its signature checksum, and it wipes the " +
-                    "phone as part of setup. The ADB route above is the practical one for a phone " +
-                    "already in use."
+                getString(R.string.device_owner_help_qr_detail)
             )
         )
     }
 
     private fun buildHonestyCard(): View = card { card ->
         listOf(
-            "A factory reset always works" to
-                "Recovery-mode reset is the ultimate exit and no software tier can close it. " +
-                    "FocusLock does not try, and never removes the reset button from the You tab.",
-            "ADB stays yours to close" to
-                "Provisioning does not disable ADB. Only the button in the You tab does, and only " +
-                    "when you tap it.",
-            "Nothing is remote" to
-                "There is no server, no account and no one else who can lock or unlock this phone."
+            getString(R.string.device_owner_help_honesty_1_title) to
+                getString(R.string.device_owner_help_honesty_1_detail),
+            getString(R.string.device_owner_help_honesty_2_title) to
+                getString(R.string.device_owner_help_honesty_2_detail),
+            getString(R.string.device_owner_help_honesty_3_title) to
+                getString(R.string.device_owner_help_honesty_3_detail)
         ).forEach { pair ->
             card.addView(FocusUi.listRow(this, tokens, pair.first, pair.second))
         }

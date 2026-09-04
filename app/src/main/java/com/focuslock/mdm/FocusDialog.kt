@@ -672,7 +672,7 @@ object FocusDialog {
         val (dialog, card) = shell(context, tokens)
         addTitle(context, tokens, card, spec.label + " is off")
 
-        val note = FocusUi.body(context, tokens, Copy.weakenWarning(spec))
+        val note = FocusUi.body(context, tokens, Copy.weakenWarning(context, spec))
         note.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT

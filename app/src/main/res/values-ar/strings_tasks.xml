@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Arabic draft translation, paired 1:1 by name with values/strings_tasks.xml.
+  Machine-drafted (by Claude, not a certified translator) - needs a native
+  Arabic speaker's review before this ships. Every %1$s/%1$d placeholder is
+  kept in the same position it appears in the source comment; word order
+  around it has been reworked for natural Arabic, which is exactly what the
+  positional format specifier is for.
+-->
+<resources>
+
+    <!-- ── TasksTab ─────────────────────────────────────────────── -->
+
+    <string-array name="tasks_filters">
+        <item>اليوم</item>
+        <item>متأخرة</item>
+        <item>الكل</item>
+        <item>منجزة</item>
+    </string-array>
+
+    <string name="tasks_page_title">المهام</string>
+    <string name="tasks_page_subtitle">ما تنوي فعله فعلًا. وضع الكسب يمكنه ربط وقت بهذه المهام.</string>
+    <string name="tasks_add_task_button">أضف مهمة</string>
+
+    <string name="tasks_earn_intro_heading">وضع الكسب متوقف</string>
+    <string name="tasks_earn_intro_body">عند تفعيله، إنهاء مهمة يفتح لك دقائق فراغ وبقية الهاتف. أنت تحدد المعدّل، وما يُعتبر إنجازًا، والتطبيقات التي يمكن لمهمة استخدامها.</string>
+    <string name="tasks_earn_intro_caption">يستحق أن تعرفه أولًا: مكافأة نفسك على عمل تستمتع به أصلًا غالبًا تجعله أقل متعة، لا أكثر. ضع علامة \"مستمتع بها\" على تلك المهام فلا تكسب شيئًا، عن قصد. وضع الكسب أنسب ما يكون للعمل الممل الضروري.</string>
+    <string name="tasks_earn_intro_button">تفعيل وضع الكسب</string>
+    <string name="tasks_earn_intro_needs_device_owner">يحتاج إعداد \"مالك الجهاز\" للنسخة الصارمة</string>
+
+    <string name="tasks_active_session_running_pill">جارية</string>
+    <string name="tasks_active_session_summary_standalone">%1$s حتى الآن · %2$s · مستقلة</string>
+    <string name="tasks_active_session_summary_linked">%1$s حتى الآن · %2$s · فوق جلستك الحالية</string>
+    <string name="tasks_active_session_open_button">فتح الجلسة</string>
+
+    <string name="tasks_budget_running_heading">الوقت المكتسب، قيد التشغيل</string>
+    <string name="tasks_budget_running_body">التطبيقات المحظورة مفتوحة الآن. جداولك ووقت نومك ما زالا ساريين، فتلك كانت متعلقة بالتوقيت، لا بالعمل.</string>
+    <string name="tasks_budget_stop_button">إيقاف وحفظ الباقي</string>
+    <string name="tasks_budget_earned_today_pill">‎+%1$d اليوم</string>
+    <string name="tasks_budget_empty_hint">أنهِ مهمة عليها دقائق وستصل إلى هنا.</string>
+    <string name="tasks_budget_spend_hint">اصرفها متى شئت. لا تنتهي صلاحيتها.</string>
+    <string name="tasks_budget_spend_hint_decay">اصرفها متى شئت. لا تنتهي صلاحيتها، رغم أنك طلبت أن تتلاشى ليلًا.</string>
+    <string name="tasks_budget_use_balance_button">استخدم %1$d دقيقة الآن</string>
+    <string name="tasks_budget_use_ten_button">استخدم ١٠ دقائق</string>
+    <string name="tasks_budget_deal_row_title">اتفاقك</string>
+
+    <string name="tasks_confirm_spend_title">استخدام %1$d دقيقة؟</string>
+    <string name="tasks_confirm_spend_message">التطبيقات المحظورة تُفتح لتلك المدة، ثم تُغلق من جديد. التوقف مبكرًا يحفظ ما تبقى.</string>
+    <string name="tasks_confirm_spend_confirm">ابدأ</string>
+    <string name="tasks_confirm_spend_cancel">ليس الآن</string>
+
+    <string name="tasks_deal_sheet_title">اتفاقك</string>
+    <string name="tasks_deal_sheet_subtitle">لم يضع أحد آخر هذه القيم، ولا شيء يفرضها سواك.</string>
+    <string name="tasks_deal_sheet_done">تم</string>
+    <string name="tasks_deal_rate_label">الدقائق المكتسبة لكل ساعة تركيز</string>
+    <string name="tasks_deal_rate_zero">مكافآت المهام فقط</string>
+    <string name="tasks_deal_minutes_value">%1$d د</string>
+    <string name="tasks_deal_cap_label">أقصى ما يمكن كسبه في اليوم</string>
+    <string name="tasks_deal_cap_zero">بلا حد</string>
+    <string name="tasks_deal_photo_proof_label">إثبات بالصورة</string>
+    <string name="tasks_deal_photo_proof_desc">يتيح لمهمة أن تطلب صورة، تُفحص على هذا الهاتف.</string>
+    <string name="tasks_deal_intersect_label">المهام لا توسّع وضعًا قيد التشغيل</string>
+    <string name="tasks_deal_intersect_desc">تطبيقات المهمة يجب أن تكون أيضًا على قائمتك الدائمة المسموح بها. إيقاف هذا هو الإعداد الوحيد هنا الذي يفتح طريقًا للالتفاف على قواعدك أنت.</string>
+    <string name="tasks_deal_intersect_off_toast">بات بإمكان مهمة الآن أن تسمح بتطبيقات تحظرها أوضاعك.</string>
+    <string name="tasks_deal_show_budget_label">إظهار الرصيد أثناء المهمة</string>
+    <string name="tasks_deal_credibility_label">تتبّع ثقة التحقق</string>
+    <string name="tasks_deal_credibility_desc">درجة هادئة تنخفض عند رفض إثبات الصورة.</string>
+    <string name="tasks_deal_decay_label">الدقائق غير المصروفة تتلاشى ليلًا</string>
+    <string name="tasks_deal_decay_desc">يخفّض الرصيد إلى النصف كل يوم. متوقف افتراضيًا: الادخار ليس مشكلة.</string>
+
+    <string name="tasks_empty_overdue">لا شيء متأخر. هذا يستحق الملاحظة.</string>
+    <string name="tasks_empty_done">لم يُنجَز شيء بعد اليوم.</string>
+    <string name="tasks_empty_default">لا مهام بعد. سطر صادق واحد يكفي للبدء.</string>
+
+    <string name="tasks_row_start_button">ابدأ</string>
+    <string name="tasks_row_steps_meter">%1$d من %2$d خطوة</string>
+    <string name="tasks_row_percent">%1$d%%</string>
+
+    <string name="tasks_describe_done">أُنجزت في %1$s</string>
+    <string name="tasks_describe_due_by">قبل %1$s</string>
+    <string name="tasks_describe_for">في %1$s</string>
+    <string name="tasks_describe_overdue">متأخرة</string>
+    <string name="tasks_describe_minutes">%1$d د</string>
+    <string name="tasks_describe_no_reward">بلا مكافأة، باختيارك</string>
+    <string name="tasks_describe_reward_min">‎+%1$d د</string>
+    <string name="tasks_describe_earns_at_rate">تكسب بمعدّلك</string>
+
+    <string name="tasks_start_title">بدء %1$s؟</string>
+    <string name="tasks_start_confirm">ابدأ</string>
+    <string name="tasks_start_cancel">إلغاء</string>
+    <string name="tasks_start_hard_enforcement">يُقفل الهاتف على FocusLock والتطبيقات التي تحتاجها هذه المهمة، حتى تنتهي.</string>
+    <string name="tasks_start_soft_enforcement">بدون \"مالك الجهاز\" يعمل هذا كاحتكاك لا كقفل: التطبيقات المشتِّتة تُعترَض، لا تُغلق تمامًا.</string>
+    <string name="tasks_start_linked_session">جلستك %1$s ما زالت تعمل. هذه المهمة تضيّقها أكثر.</string>
+    <string name="tasks_start_open_during_caption">مفتوح أثناء هذه المهمة</string>
+    <string name="tasks_start_focuslock_only">FocusLock فقط.</string>
+    <string name="tasks_start_rejected_warning">مُبقاة خارج القائمة لأنها ليست ضمن قائمتك الدائمة المسموح بها: %1$s. أضفها في القواعد أولًا إذا كانت المهمة تحتاجها فعلًا.</string>
+
+    <!-- ── TaskEditorActivity ───────────────────────────────────── -->
+
+    <string name="task_editor_title_new">مهمة جديدة</string>
+    <string name="task_editor_title_existing">المهمة</string>
+
+    <string name="task_editor_section_steps">الخطوات</string>
+    <string name="task_editor_section_when">التوقيت</string>
+    <string name="task_editor_section_details">التفاصيل</string>
+    <string name="task_editor_section_earning">الكسب</string>
+    <string name="task_editor_section_attachments">المرفقات</string>
+
+    <string name="task_editor_title_hint">ما هي المهمة؟</string>
+    <string name="task_editor_notes_hint">ملاحظات</string>
+    <string name="task_editor_save_new">حفظ المهمة</string>
+    <string name="task_editor_save_existing">حفظ التغييرات</string>
+    <string name="task_editor_toast_needs_title">تحتاج عنوانًا أولًا.</string>
+    <string name="task_editor_toast_saved">تم الحفظ.</string>
+
+    <string name="task_editor_no_steps">لا خطوات. أضفها إن كانت المهمة كبيرة بما يكفي ليكون البدء هو الجزء الصعب.</string>
+    <string name="task_editor_steps_meter">%1$d من %2$d</string>
+    <string name="task_editor_add_step_button">إضافة خطوة</string>
+    <string name="task_editor_add_step_title">إضافة خطوة</string>
+    <string name="task_editor_add_step_hint">ما هي الخطوة؟</string>
+    <string name="task_editor_remove_step_message">حذف هذه الخطوة؟</string>
+    <string name="task_editor_remove_step_confirm">حذف</string>
+    <string name="task_editor_remove_step_cancel">إبقاء</string>
+
+    <string name="task_editor_planned_for_label">مخطَّط لها في</string>
+    <string name="task_editor_planned_for_empty">لا يوجد تاريخ</string>
+    <string name="task_editor_deadline_label">الموعد النهائي الصارم</string>
+    <string name="task_editor_deadline_empty">لا يوجد</string>
+    <string name="task_editor_reminder_label">تذكير</string>
+    <string name="task_editor_reminder_empty">لا يوجد</string>
+    <string name="task_editor_reminder_picker_title">ذكّرني</string>
+    <string name="task_editor_repeats_caption">التكرار</string>
+    <string name="task_editor_every_label">كل</string>
+    <string name="task_editor_every_days_value">%1$d يوم</string>
+    <string name="task_editor_save_interval_button">حفظ الفاصل الزمني</string>
+
+    <string name="task_editor_priority_caption">الأولوية</string>
+    <string name="task_editor_time_estimate_label">الوقت المقدَّر</string>
+    <string name="task_editor_time_estimate_zero">غير مقدَّر</string>
+    <string name="task_editor_minutes_value">%1$d د</string>
+    <string name="task_editor_save_estimate_button">حفظ التقدير</string>
+    <string name="task_editor_tags_label">الوسوم</string>
+    <string name="task_editor_tags_empty">لا يوجد</string>
+    <string name="task_editor_tags_title">الوسوم</string>
+    <string name="task_editor_tags_subtitle">مفصولة بمسافات أو فواصل.</string>
+    <string name="task_editor_tags_hint">دراسة مقال</string>
+
+    <string name="task_editor_verification_caption">ما الذي يُعتبر إنجازًا</string>
+    <string name="task_editor_verification_now">الحالية</string>
+    <string name="task_editor_verification_off">متوقفة</string>
+    <string name="task_editor_verification_set">محددة</string>
+    <string name="task_editor_photo_unavailable_title">إثبات الصورة غير متاح</string>
+    <string name="task_editor_photo_unavailable_disabled">لقد أوقفت إثبات الصورة في إعدادات اتفاقك.</string>
+    <string name="task_editor_photo_unavailable_no_camera">لا يوجد على هذا الهاتف تطبيق كاميرا يمكن لـ FocusLock استدعاؤه.</string>
+    <string name="task_editor_timer_no_estimate_note">لا وقت مقدَّر محدد، لذا سيُستخدم ٢٥ دقيقة.</string>
+    <string name="task_editor_subtasks_empty_note">لا خطوات بعد، فلا شيء ليُعلَّم. أضف بعضها أعلاه.</string>
+
+    <string name="task_editor_allowed_apps_label">التطبيقات التي يمكن لهذه المهمة استخدامها</string>
+    <string name="task_editor_allowed_apps_only_focuslock">FocusLock فقط</string>
+    <string name="task_editor_allowed_apps_rejected_suffix">%1$s — %2$d خارج قائمتك الدائمة المسموح بها</string>
+    <string name="task_editor_pick_apps_title">مفتوحة أثناء هذه المهمة</string>
+    <string name="task_editor_pick_apps_subtitle">اترك كل شيء متوقفًا لتقتصر على FocusLock وحده.</string>
+
+    <string name="task_editor_enjoy_label">أنا فعلًا أستمتع بهذه</string>
+    <string name="task_editor_enjoy_desc">إذًا لا تكسب شيئًا. مكافأة نفسك على عمل تحبه أصلًا غالبًا تجعله يبدو كواجب مرهق بدلًا من ذلك.</string>
+    <string name="task_editor_reward_label">الدقائق التي تدفعها هذه المهمة</string>
+    <string name="task_editor_reward_zero">استخدم معدّلي بالساعة</string>
+    <string name="task_editor_save_reward_button">حفظ المكافأة</string>
+    <string name="task_editor_credibility_meter_label">ثقة التحقق</string>
+    <string name="task_editor_percent_value">%1$d%%</string>
+
+    <string name="task_editor_no_attachments">لا مرفقات.</string>
+    <string name="task_editor_remove_attachment_button">حذف</string>
+    <string name="task_editor_add_file_button">إضافة ملف</string>
+    <string name="task_editor_add_image_button">إضافة صورة</string>
+    <string name="task_editor_add_link_button">إضافة رابط</string>
+    <string name="task_editor_toast_no_file_picker">لا يوجد منتقي ملفات متاح.</string>
+    <string name="task_editor_add_link_title">إضافة رابط</string>
+    <string name="task_editor_add_link_hint">https://example.com</string>
+    <string name="task_editor_toast_link_open_hint">افتحه من قائمة مواقعك إذا كان مسموحًا به هناك.</string>
+    <string name="task_editor_toast_nothing_can_open">لا شيء على هذا الهاتف يمكنه فتح ذلك.</string>
+    <string name="task_editor_attachment_fallback_label">مرفق</string>
+
+    <string name="task_editor_start_task_button">ابدأ هذه المهمة</string>
+    <string name="task_editor_mark_done_no_earn_button">وضع علامة منجزة بلا كسب</string>
+    <string name="task_editor_mark_done_title">وضع علامة \"منجزة\"؟</string>
+    <string name="task_editor_mark_done_message">لا دقائق لهذه. أحيانًا تكون المهمة قد انتهت، هذا كل ما في الأمر.</string>
+    <string name="task_editor_mark_done_confirm">وضع علامة منجزة</string>
+    <string name="task_editor_mark_done_cancel">إلغاء</string>
+    <string name="task_editor_delete_task_button">حذف هذه المهمة</string>
+    <string name="task_editor_delete_title">حذف %1$s؟</string>
+    <string name="task_editor_delete_message">تُحذف نهائيًا. تبقى المرفقات في مكانها على الهاتف.</string>
+    <string name="task_editor_delete_confirm">حذف</string>
+    <string name="task_editor_delete_cancel">إبقاء</string>
+
+</resources>
