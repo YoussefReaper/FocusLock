@@ -222,7 +222,22 @@ data class GuardDecision(
  */
 object RuleEngine {
 
-    fun decide(context: Context, packageName: String, className: String? = null): GuardDecision {
+    /**
+     * [sessionActiveOverride], when non-null, replaces every internal read of
+     * whether a session is running - used only by [TestMode]'s "test the
+     * block" preview, so it can ask "what would this decide right now if a
+     * session were active" using this exact, real decision logic rather than
+     * a second copy of it that could drift out of sync. Every other caller
+     * passes nothing and gets the real, unmodified answer; nothing about
+     * physical enforcement (lock-task, suspend/hide, the rule freeze) reads
+     * this parameter or is reachable from it.
+     */
+    fun decide(
+        context: Context,
+        packageName: String,
+        className: String? = null,
+        sessionActiveOverride: Boolean? = null
+    ): GuardDecision {
         val allow = { source: String ->
             GuardDecision(packageName, GuardOutcome.ALLOW, "", "", source, false)
         }
@@ -347,7 +362,7 @@ object RuleEngine {
         }
 
         if (CapabilityRegistry.isEnabled(context, Capabilities.RULE_ENGINE)) {
-            matchRule(context, packageName)?.let { match ->
+            matchRule(context, packageName, sessionActiveOverride)?.let { match ->
                 when (match.action) {
                     RuleAction.ALLOW -> return allow("rule:" + match.id)
                     RuleAction.ALLOW_TEMP -> {
@@ -388,14 +403,14 @@ object RuleEngine {
         // about *when*, and the reward was for work, not for a later bedtime.
         if (EarnBudget.isSpending(context)) return allow("earnBudget")
 
-        val sessionActive = SessionManager.isActive(context)
+        val sessionActive = sessionActiveOverride ?: SessionManager.isActive(context)
         if (!sessionActive) return allow("noSession")
 
         // Kiosk inverts the model: only what you named stays open. Driven by
         // the lock-task primitive rather than the enum directly, so softening a
         // mode in Advanced cannot accidentally strand someone inside an
         // allowlist they can no longer edit.
-        if (SessionManager.usesAllowlistModel(context) && AppRules.isKioskAllowlistMode(context)) {
+        if (SessionManager.usesAllowlistModel(context, sessionActiveOverride) && AppRules.isKioskAllowlistMode(context)) {
             if (packageName !in AppRules.kioskAllowlist(context)) {
                 if (SystemSurfaces.isLauncher(packageName)) {
                     return GuardDecision(
@@ -441,7 +456,7 @@ object RuleEngine {
                 }
             }
             AppPolicy.BLOCK, AppPolicy.HIDE -> {
-                if (!SessionManager.blocksOutright(context)) {
+                if (!SessionManager.blocksOutright(context, sessionActiveOverride)) {
                     GuardDecision(
                         packageName,
                         GuardOutcome.PAUSE,
@@ -483,10 +498,12 @@ object RuleEngine {
 
     // ── Matching ──────────────────────────────────────────────────
 
-    private fun matchRule(context: Context, packageName: String): Rule? {
+    private fun matchRule(context: Context, packageName: String, sessionActiveOverride: Boolean? = null): Rule? {
         val now = Calendar.getInstance()
         return RuleStore.all(context).firstOrNull { rule ->
-            rule.enabled && matchesTarget(context, rule, packageName) && matchesCondition(context, rule, packageName, now)
+            rule.enabled &&
+                matchesTarget(context, rule, packageName) &&
+                matchesCondition(context, rule, packageName, now, sessionActiveOverride)
         }
     }
 
@@ -502,10 +519,11 @@ object RuleEngine {
         context: Context,
         rule: Rule,
         packageName: String,
-        now: Calendar
+        now: Calendar,
+        sessionActiveOverride: Boolean? = null
     ): Boolean = when (rule.conditionType) {
         RuleConditionType.ALWAYS -> true
-        RuleConditionType.SESSION_ONLY -> SessionManager.isActive(context)
+        RuleConditionType.SESSION_ONLY -> sessionActiveOverride ?: SessionManager.isActive(context)
         RuleConditionType.TIME -> {
             val minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
             withinWindow(minutes, rule.conditionStart, rule.conditionEnd)

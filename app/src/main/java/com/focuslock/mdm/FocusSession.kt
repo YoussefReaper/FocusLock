@@ -300,9 +300,16 @@ object SessionManager {
      *
      * Soft mode's preset turns this off, which is what makes Soft soft. It is
      * a flag rather than an enum check so any mode can be softened.
+     *
+     * [activeOverride], when non-null, replaces the [isActive] read - the one
+     * hook [RuleEngine.decide] uses to answer "what would this decide if a
+     * session were running" for [TestMode], without [isActive] itself ever
+     * reporting true and without touching lock-task, suspend/hide, or the
+     * rule freeze, which all still read [isActive] (or its device-owner
+     * equivalents) directly and are entirely unaffected by a test.
      */
-    fun blocksOutright(context: Context): Boolean =
-        isActive(context) && CapabilityRegistry.isEnabled(context, Capabilities.HARD_BLOCK)
+    fun blocksOutright(context: Context, activeOverride: Boolean? = null): Boolean =
+        (activeOverride ?: isActive(context)) && CapabilityRegistry.isEnabled(context, Capabilities.HARD_BLOCK)
 
     /**
      * Kiosk's allowlist inversion: only the apps you named stay open.
@@ -311,9 +318,11 @@ object SessionManager {
      * legitimately still decides something. Kept separate from
      * [shouldLockTask] on purpose: that one is also true for a standalone Earn
      * task, and an Earn task must not silently inherit Kiosk's allowlist model.
+     *
+     * See [blocksOutright] for what [activeOverride] is for.
      */
-    fun usesAllowlistModel(context: Context): Boolean =
-        isActive(context) &&
+    fun usesAllowlistModel(context: Context, activeOverride: Boolean? = null): Boolean =
+        (activeOverride ?: isActive(context)) &&
             mode(context) == FocusMode.KIOSK &&
             CapabilityRegistry.isEnabled(context, Capabilities.KIOSK_MODE)
 

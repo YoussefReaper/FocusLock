@@ -332,7 +332,7 @@ class AppBlockerService : Service() {
             return
         }
 
-        val decision = RuleEngine.decide(this, packageName, foreground.className)
+        val decision = RuleEngine.decide(this, packageName, foreground.className, TestMode.overrideFor(this))
 
         when (decision.outcome) {
             GuardOutcome.ALLOW -> hideBlockerOverlay()
@@ -346,18 +346,30 @@ class AppBlockerService : Service() {
             }
 
             GuardOutcome.BLOCK -> {
+                // A real block is allowed to silently shove someone back to
+                // FocusLock - that is the whole point of enforcement. A test
+                // is not: nothing here should ever act without a screen
+                // explaining why, since the person testing is not actually
+                // trying to escape anything, and a silent forced navigation
+                // with no visible cause is exactly the kind of surprise
+                // "test the block" exists to prevent, not produce.
+                val testing = TestMode.isActive(this)
                 if (SystemSurfaces.isLauncher(packageName)) {
-                    // Launcher escapes are countered instantly: a throttle here
-                    // is a visible half-second of the home screen.
-                    hideBlockerOverlay()
-                    bringToFront(throttled = false)
+                    if (testing) {
+                        showIntercept(decision)
+                    } else {
+                        // Launcher escapes are countered instantly: a throttle
+                        // here is a visible half-second of the home screen.
+                        hideBlockerOverlay()
+                        bringToFront(throttled = false)
+                    }
                     return
                 }
                 if (SystemSurfaces.isCritical(packageName)) {
                     hideBlockerOverlay()
                     return
                 }
-                if (shouldIntercept(packageName, now)) {
+                if (testing || shouldIntercept(packageName, now)) {
                     lastInterceptAt = now
                     lastInterceptPackage = packageName
                     showIntercept(decision)
@@ -478,6 +490,7 @@ class AppBlockerService : Service() {
     private fun showIntercept(decision: GuardDecision) {
         runOnMain {
             try {
+                val testing = TestMode.isActive(this)
                 startActivity(
                     Intent(this, InterceptActivity::class.java).apply {
                         addFlags(
@@ -490,10 +503,15 @@ class AppBlockerService : Service() {
                         putExtra(InterceptActivity.EXTRA_DETAIL, decision.detail)
                         putExtra(InterceptActivity.EXTRA_SOURCE, decision.source)
                         putExtra(InterceptActivity.EXTRA_PAUSE, decision.isPause)
-                        putExtra(InterceptActivity.EXTRA_OFFERS_BREAK, decision.offersBreak)
+                        putExtra(InterceptActivity.EXTRA_TEST_MODE, testing)
+                        // A test never spends anything real: a break pass would
+                        // eat into the actual daily allowance, and spending Earn
+                        // minutes here would be spending a real reward on a
+                        // screen that was never a real block to begin with.
+                        putExtra(InterceptActivity.EXTRA_OFFERS_BREAK, !testing && decision.offersBreak)
                         putExtra(
                             InterceptActivity.EXTRA_OFFERS_EARNED,
-                            decision.offersEarnedMinutes
+                            !testing && decision.offersEarnedMinutes
                         )
                     }
                 )

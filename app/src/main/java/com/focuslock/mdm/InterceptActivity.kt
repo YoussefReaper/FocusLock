@@ -35,9 +35,11 @@ class InterceptActivity : AppCompatActivity() {
     private var headline: String = ""
     private var detail: String = ""
     private var source: String = ""
+    private var phrase: String = ""
     private var isPause: Boolean = false
     private var offersBreak: Boolean = false
     private var offersEarnedMinutes: Boolean = false
+    private var testMode: Boolean = false
 
     private var countdownSeconds = 0
     private var continueButton: TextView? = null
@@ -67,10 +69,21 @@ class InterceptActivity : AppCompatActivity() {
         headline = intent.getStringExtra(EXTRA_HEADLINE).orEmpty()
         detail = intent.getStringExtra(EXTRA_DETAIL).orEmpty()
         source = intent.getStringExtra(EXTRA_SOURCE).orEmpty()
+        phrase = intent.getStringExtra(EXTRA_PHRASE).orEmpty()
         isPause = intent.getBooleanExtra(EXTRA_PAUSE, false)
         offersBreak = intent.getBooleanExtra(EXTRA_OFFERS_BREAK, false)
         offersEarnedMinutes = intent.getBooleanExtra(EXTRA_OFFERS_EARNED, false)
+        testMode = intent.getBooleanExtra(EXTRA_TEST_MODE, false)
 
+        // The content guard is the one source that names exactly what it saw -
+        // the keyword rule that matched, not the surrounding on-screen text -
+        // so the person is never left guessing what tripped it.
+        if (headline.isBlank() && source == "contentGuard" && phrase.isNotBlank()) {
+            headline = Copy.contentGuardHeadline(this, blockedPackage, phrase)
+        }
+        if (detail.isBlank() && source == "contentGuard" && phrase.isNotBlank()) {
+            detail = Copy.contentGuardDetail(this, phrase)
+        }
         if (headline.isBlank() && blockedPackage.isNotBlank()) {
             headline = Copy.blockHeadline(this, blockedPackage)
         }
@@ -114,6 +127,20 @@ class InterceptActivity : AppCompatActivity() {
 
         content.addView(buildMark())
         content.addView(FocusUi.spacer(this, 26))
+
+        if (testMode) {
+            val banner = FocusUi.pill(
+                this,
+                tokens,
+                "Testing your rules — " + TestMode.formatRemaining(this) + " left",
+                tokens.warning
+            )
+            banner.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = FocusUi.dp(this@InterceptActivity, 14) }
+            content.addView(banner)
+        }
 
         val headlineView = FocusUi.display(this, tokens, headline)
         headlineView.gravity = Gravity.CENTER
@@ -212,11 +239,21 @@ class InterceptActivity : AppCompatActivity() {
             column.addView(FocusUi.spacer(this, 10))
             column.addView(continueAnyway)
 
+            if (testMode) {
+                column.addView(FocusUi.spacer(this, 10))
+                column.addView(FocusUi.ghostButton(this, tokens, "End the test") { endTest() })
+            }
+
             handler.postDelayed(ticker, 1_000L)
             return column
         }
 
         column.addView(FocusUi.primaryButton(this, tokens, "Back to FocusLock") { leave() })
+
+        if (testMode) {
+            column.addView(FocusUi.spacer(this, 10))
+            column.addView(FocusUi.ghostButton(this, tokens, "End the test") { endTest() })
+        }
 
         if (offersBreak && TakeABreak.canStart(this)) {
             val minutes = TakeABreak.breakMinutes(this)
@@ -474,6 +511,12 @@ class InterceptActivity : AppCompatActivity() {
         finish()
     }
 
+    /** Reachable from every test screen, exactly the "end it anytime" the test promised. */
+    private fun endTest() {
+        TestMode.end(this)
+        leave()
+    }
+
     companion object {
         const val EXTRA_PACKAGE = "intercept_package"
         const val EXTRA_HEADLINE = "intercept_headline"
@@ -483,6 +526,7 @@ class InterceptActivity : AppCompatActivity() {
         const val EXTRA_PAUSE = "intercept_pause"
         const val EXTRA_OFFERS_BREAK = "intercept_offers_break"
         const val EXTRA_OFFERS_EARNED = "intercept_offers_earned"
+        const val EXTRA_TEST_MODE = "intercept_test_mode"
 
         /**
          * How much a single tap on the block screen spends.

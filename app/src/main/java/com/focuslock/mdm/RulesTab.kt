@@ -53,6 +53,9 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         add(FocusUi.sectionLabel(activity, tokens, "What to manage"))
         add(buildEditors())
 
+        add(FocusUi.sectionLabel(activity, tokens, "Test the block"))
+        add(buildTestCard())
+
         add(FocusUi.sectionLabel(activity, tokens, "Capabilities"))
         add(buildCapabilityIntro())
         Capabilities.grouped().forEach { entry -> add(buildCapabilityGroup(entry.first, entry.second)) }
@@ -196,6 +199,78 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     }
 
     private data class Editor(val title: String, val subtitle: String, val intent: Intent, val icon: Int)
+
+    // ── Test the block ────────────────────────────────────────────
+
+    /**
+     * A live, honest preview: opening an app while a test is running shows the
+     * exact same intercept screen a real session would, computed by the same
+     * [RuleEngine.decide] - not a mockup that can drift out of sync with what
+     * the rules actually do. Nothing enforced ever engages for real (see
+     * [TestMode]), and it can be ended from here or from the intercept screen
+     * itself at any time.
+     */
+    private fun buildTestCard(): View {
+        val card = FocusUi.card(activity, tokens)
+        val active = TestMode.isActive(activity)
+        card.addView(
+            FocusUi.secondary(
+                activity,
+                tokens,
+                if (active) {
+                    "Live right now, " + TestMode.formatRemaining(activity) + " left. Open any app to see " +
+                        "exactly what your rules would do to it."
+                } else {
+                    "See what your rules actually do before they matter. Nothing is enforced for real, " +
+                        "and you can end it any time."
+                }
+            )
+        )
+        card.addView(FocusUi.spacer(activity, 10))
+
+        when {
+            active -> card.addView(
+                FocusUi.dangerButton(activity, tokens, "End the test") {
+                    TestMode.end(activity)
+                    render()
+                }
+            )
+            !TestMode.canStart(activity) -> card.addView(
+                FocusUi.caption(
+                    activity,
+                    tokens,
+                    "A session is already running, so this isn't needed - you're already living it."
+                )
+            )
+            else -> card.addView(
+                FocusUi.primaryButton(activity, tokens, "Start a test") { pickTestLength() }
+            )
+        }
+        return card
+    }
+
+    private fun pickTestLength() {
+        FocusDialog.singleChoice(
+            activity,
+            "How long?",
+            "Ends on its own, or tap End the test any time before that.",
+            listOf(
+                FocusDialog.Choice("5", "5 minutes"),
+                FocusDialog.Choice("10", "10 minutes"),
+                FocusDialog.Choice("20", "20 minutes"),
+                FocusDialog.Choice("30", "30 minutes")
+            ),
+            TestMode.DEFAULT_MINUTES.toString()
+        ) { selected ->
+            val minutes = selected.toIntOrNull() ?: TestMode.DEFAULT_MINUTES
+            if (TestMode.start(activity, minutes)) {
+                FocusDialog.toast(activity, "Testing started. Open any app to see what your rules would do.")
+                render()
+            } else {
+                FocusDialog.toast(activity, "A session is already running.")
+            }
+        }
+    }
 
     // ── Capabilities ──────────────────────────────────────────────
 

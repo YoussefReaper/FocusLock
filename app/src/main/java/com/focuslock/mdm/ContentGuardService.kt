@@ -37,6 +37,17 @@ class ContentGuardService : AccessibilityService() {
             return
         }
 
+        // Content guard steps back out of a live surface, same family of act as
+        // the per-app policy ladder - it should not be doing that outside a
+        // session either. Schedules/bedtime/places stay session-independent on
+        // purpose (they run on the clock, see FocusRules.decide); this does not,
+        // it reacts to what is on screen right now inside an app the person is
+        // actively using, which is exactly the "am I in a session" question.
+        if (!SessionManager.isActive(this)) {
+            GuardState.clear()
+            return
+        }
+
         val packageName = event.packageName?.toString() ?: return
         if (packageName == packageName()) return
 
@@ -191,14 +202,23 @@ class ContentGuardService : AccessibilityService() {
         lastActionAt = now
 
         when (action) {
-            GuardAction.STEP_BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
+            GuardAction.STEP_BACK -> {
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                // A silent back-press looks like the phone glitched. Naming
+                // exactly what was seen and why is the whole reason this isn't
+                // a full block screen - a step-back is meant to stay quiet,
+                // not stay unexplained.
+                FocusDialog.toast(this, Copy.contentGuardHeadline(this, packageName, phrase))
+            }
             GuardAction.CLOSE_APP -> {
                 performGlobalAction(GLOBAL_ACTION_BACK)
                 showIntercept(packageName, phrase)
             }
             GuardAction.NUDGE -> {
-                // The state record is the whole action: the blocker surfaces a
-                // quiet line without taking the screen away.
+                // The gentlest tier: nothing leaves the screen, but the person
+                // still gets told what was witnessed, the same as every other
+                // tier - GuardState alone was never actually shown anywhere.
+                FocusDialog.toast(this, Copy.contentGuardHeadline(this, packageName, phrase))
             }
         }
     }
