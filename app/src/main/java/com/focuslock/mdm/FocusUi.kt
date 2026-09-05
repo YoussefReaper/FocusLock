@@ -19,7 +19,6 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.annotation.DrawableRes
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.progressindicator.CircularProgressIndicator
 
@@ -289,7 +288,7 @@ object FocusUi {
             context,
             fill,
             tokens.cardRadiusDp,
-            UiPrefs.blend(tokens.divider, fill, 0.2f)
+            tokens.divider
         )
 
         if (onClick != null) {
@@ -392,8 +391,11 @@ object FocusUi {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = dp(context, tokens.density.gapDp + 6)
-            bottomMargin = dp(context, 8)
+            // Fixed per the Components doc ("margin 24 above, 12 below"), not density-derived -
+            // a section label separates groups of content, which doesn't get tighter just
+            // because the density setting shrank button heights and card padding.
+            topMargin = dp(context, 24)
+            bottomMargin = dp(context, 12)
         }
         return view
     }
@@ -450,7 +452,12 @@ object FocusUi {
         onClick: () -> Unit
     ): TextView = baseButton(context, tokens, label, tokens.accent, tokens.onAccent, null, gradient = true, onClick = onClick)
 
-    /** 500 weight, per the doc's secondary-button spec ("Set it up") - one step down from primary's 600. */
+    /**
+     * No fill, a plain 1dp divider border, muted text - the doc's "Set it up"
+     * spec exactly. A filled surfaceAlt button here would compete with the
+     * primary gradient for attention on a screen that's meant to have a
+     * single highest-emphasis action.
+     */
     fun secondaryButton(
         context: Context,
         tokens: UiPrefs.Tokens,
@@ -460,9 +467,9 @@ object FocusUi {
         context,
         tokens,
         label,
-        tokens.surfaceAlt,
-        tokens.textPrimary,
-        UiPrefs.blend(tokens.divider, tokens.surfaceAlt, 0.2f),
+        UiPrefs.withAlpha(tokens.surface, 0),
+        tokens.textSecondary,
+        tokens.divider,
         weight = 500,
         onClick = onClick
     )
@@ -624,32 +631,91 @@ object FocusUi {
 
     // ── Toggle ────────────────────────────────────────────────────
 
+    /**
+     * The Components doc's switch, drawn by hand rather than the platform's
+     * Material one: a flat 44×26 pill and a 20dp knob, not the taller oval
+     * track and shadowed thumb `SwitchCompat` renders - the difference is
+     * small in isolation but every toggle in the app is one of these, so it
+     * was the single biggest reason settings screens still read as
+     * off-the-shelf Android instead of the app's own design.
+     *
+     * `View.background` is left alone here (the track is its own child view)
+     * specifically so [toggleRow]'s missing-permission case can keep doing
+     * what it always did: set a warning-ringed background plus padding on
+     * the returned control to frame it, without that ring ever being
+     * confused for the track itself.
+     */
     fun switchControl(
         context: Context,
         tokens: UiPrefs.Tokens,
         checked: Boolean,
         onChange: (Boolean) -> Unit
-    ): SwitchCompat {
-        val control = SwitchCompat(context)
-        control.isChecked = checked
-        applySwitchTint(control, tokens)
-        control.setOnCheckedChangeListener { _, value ->
-            applySwitchTint(control, tokens)
-            onChange(value)
-        }
+    ): FocusSwitch {
+        val control = FocusSwitch(context, tokens, checked)
+        control.onCheckedChange = onChange
         return control
     }
 
-    private fun applySwitchTint(control: SwitchCompat, tokens: UiPrefs.Tokens) {
-        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-        control.thumbTintList = ColorStateList(
-            states,
-            intArrayOf(tokens.background, UiPrefs.blend(tokens.textMuted, tokens.surface, 0.3f))
-        )
-        control.trackTintList = ColorStateList(
-            states,
-            intArrayOf(tokens.accent, tokens.track)
-        )
+    /** The switch [switchControl] builds - a public type so callers that toggle it programmatically (e.g. a tapped row) can still read/set `isChecked` directly. */
+    class FocusSwitch(
+        context: Context,
+        private val tokens: UiPrefs.Tokens,
+        initialChecked: Boolean
+    ) : FrameLayout(context) {
+        private val trackView = View(context)
+        private val knobView = View(context)
+        private val knobPx = dp(context, 20)
+        private val insetPx = dp(context, 3)
+        private val travelPx = (dp(context, 44) - knobPx - insetPx * 2).toFloat()
+        private val rtl = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+
+        var onCheckedChange: ((Boolean) -> Unit)? = null
+
+        var isChecked: Boolean = initialChecked
+            set(value) {
+                val changed = field != value
+                field = value
+                applyState(animate = changed)
+                if (changed) onCheckedChange?.invoke(value)
+            }
+
+        init {
+            layoutParams = ViewGroup.LayoutParams(dp(context, 44), dp(context, 26))
+            trackView.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            addView(trackView)
+            knobView.layoutParams = LayoutParams(knobPx, knobPx).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                marginStart = insetPx
+            }
+            addView(knobView)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { if (isEnabled) isChecked = !isChecked }
+            applyState(animate = false)
+        }
+
+        private fun applyState(animate: Boolean) {
+            trackView.background = roundedShape(context, if (isChecked) tokens.accent else tokens.track, 20)
+            knobView.background = roundedShape(
+                context,
+                if (isChecked) tokens.background else UiPrefs.blend(tokens.textMuted, tokens.surface, 0.3f),
+                10
+            )
+            val forward = if (rtl) -1f else 1f
+            val target = if (isChecked) travelPx * forward else 0f
+            knobView.animate().cancel()
+            val duration = if (animate && !tokens.reducedMotion) 200L else 0L
+            if (duration > 0L) {
+                knobView.animate().translationX(target).setDuration(duration).start()
+            } else {
+                knobView.translationX = target
+            }
+        }
+
+        override fun setEnabled(enabled: Boolean) {
+            super.setEnabled(enabled)
+            alpha = if (enabled) 1f else 0.5f
+        }
     }
 
     /**
@@ -916,13 +982,13 @@ object FocusUi {
         val tile = LinearLayout(context)
         tile.orientation = LinearLayout.VERTICAL
         tile.gravity = Gravity.CENTER_HORIZONTAL
-        val padding = dp(context, 14)
+        val padding = dp(context, 16)
         tile.setPadding(padding, padding, padding, padding)
         tile.background = roundedShape(
             context,
             tokens.surface,
             (tokens.cardRadiusDp - 2).coerceAtLeast(4), // "r18" against a card default of 20
-            UiPrefs.blend(tokens.divider, tokens.surface, 0.2f)
+            tokens.divider
         )
 
         // Mono numeral - a count being reported, not a word.
