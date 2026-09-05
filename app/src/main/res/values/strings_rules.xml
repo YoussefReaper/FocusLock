@@ -131,7 +131,18 @@
     <string name="app_rules_no_apps_match">No apps match that.</string>
 
     <string name="app_rules_always_allowed_subtitle">Always allowed - nothing can lock this away</string>
-    <string name="app_rules_following_category_subtitle">%1$s - following its category</string>
+
+    <string name="app_rules_filter_count_format">%1$s %2$d</string>
+    <string name="app_rules_category_header_never_blocked">%1$s · never blocked</string>
+    <string name="app_rules_category_header_blocked">%1$s · %2$d blocked</string>
+    <string name="app_rules_category_header_budgeted">%1$s · %2$d apps, budgeted</string>
+    <string name="app_rules_category_header_allowed">%1$s · %2$d allowed</string>
+    <string name="app_rules_category_header_generic">%1$s · %2$d apps</string>
+    <string name="app_rules_usage_today">%1$s today</string>
+    <string name="app_rules_no_usage_today">No usage yet today</string>
+    <string name="app_rules_pause_first_subtitle">Pause %1$ds first</string>
+    <string name="app_rules_budget_used_subtitle">%1$dm of %2$dm used today</string>
+    <string name="app_rules_show_more_apps">Show the other %1$d apps</string>
 
     <string name="app_rules_done">Done</string>
     <string name="app_rules_what_happens_caption">WHAT HAPPENS WHEN I OPEN IT</string>
@@ -519,14 +530,17 @@
     <string name="intercept_it_fallback">it</string>
     <string name="intercept_not_now_go_back">Not now, go back</string>
     <string name="intercept_back_to_focuslock">Back to FocusLock</string>
-    <string name="intercept_take_break_button">Take %1$d minutes (%2$d left today)</string>
-    <string name="intercept_use_earned_button">Use %1$d earned minutes (%2$d banked)</string>
+    <string name="intercept_ways_through">Ways through</string>
+    <string name="intercept_break_row_title">Take %1$d minutes</string>
+    <string name="intercept_break_row_subtitle">%1$d of %2$d breaks left today</string>
+    <string name="intercept_earn_row_title">Use %1$d earned minutes</string>
+    <string name="intercept_earn_row_subtitle">%1$d minutes banked</string>
+    <string name="intercept_overline_format">Your rules · %1$s</string>
     <string name="intercept_use_minutes_title">Use %1$d minutes?</string>
     <string name="intercept_use_minutes_message">Blocked apps open for that long, then close again. Stopping early banks whatever is left, so nothing is wasted.</string>
     <string name="intercept_use_them_button">Use them</string>
     <string name="intercept_keep_them_button">Keep them</string>
     <string name="intercept_already_spent_toast">Those minutes are already spent.</string>
-    <string name="intercept_or_do_this_instead">OR DO THIS INSTEAD</string>
     <string name="intercept_still_open">STILL OPEN</string>
     <string name="intercept_end_test_button">End the test</string>
     <string name="intercept_testing_banner">Testing your rules — %1$s left</string>

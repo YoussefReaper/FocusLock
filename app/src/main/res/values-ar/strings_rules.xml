@@ -128,7 +128,18 @@
     <string name="app_rules_no_apps_match">لا تطبيقات تطابق ذلك.</string>
 
     <string name="app_rules_always_allowed_subtitle">مسموح به دائمًا - لا شيء يمكنه حبس هذا</string>
-    <string name="app_rules_following_category_subtitle">%1$s - يتبع فئته</string>
+
+    <string name="app_rules_filter_count_format">%1$s %2$d</string>
+    <string name="app_rules_category_header_never_blocked">%1$s · لا يُحظر أبدًا</string>
+    <string name="app_rules_category_header_blocked">%1$s · %2$d محظور</string>
+    <string name="app_rules_category_header_budgeted">%1$s · %2$d تطبيق ضمن حصة</string>
+    <string name="app_rules_category_header_allowed">%1$s · %2$d مسموح</string>
+    <string name="app_rules_category_header_generic">%1$s · %2$d تطبيق</string>
+    <string name="app_rules_usage_today">%1$s اليوم</string>
+    <string name="app_rules_no_usage_today">لا استخدام اليوم بعد</string>
+    <string name="app_rules_pause_first_subtitle">إيقاف مؤقت %1$d ثانية أولاً</string>
+    <string name="app_rules_budget_used_subtitle">%1$d من %2$d دقيقة مستخدمة اليوم</string>
+    <string name="app_rules_show_more_apps">عرض الـ %1$d تطبيقًا الأخرى</string>
 
     <string name="app_rules_done">تم</string>
     <string name="app_rules_what_happens_caption">ما الذي يحدث عند فتحه</string>
@@ -520,14 +531,17 @@
     <string name="intercept_it_fallback">إياه</string>
     <string name="intercept_not_now_go_back">ليس الآن، عد</string>
     <string name="intercept_back_to_focuslock">العودة إلى FocusLock</string>
-    <string name="intercept_take_break_button">أخذ %1$d دقيقة (تبقى %2$d اليوم)</string>
-    <string name="intercept_use_earned_button">استخدام %1$d دقيقة مكتسبة (%2$d مصرفية)</string>
+    <string name="intercept_ways_through">طرق للمتابعة</string>
+    <string name="intercept_break_row_title">أخذ %1$d دقيقة</string>
+    <string name="intercept_break_row_subtitle">تبقى %1$d من %2$d استراحات اليوم</string>
+    <string name="intercept_earn_row_title">استخدام %1$d دقيقة مكتسبة</string>
+    <string name="intercept_earn_row_subtitle">%1$d دقيقة مصرفية</string>
+    <string name="intercept_overline_format">قواعدك · %1$s</string>
     <string name="intercept_use_minutes_title">استخدام %1$d دقيقة؟</string>
     <string name="intercept_use_minutes_message">التطبيقات المحظورة تُفتح لتلك المدة، ثم تُغلق مجددًا. التوقف مبكرًا يصرف ما تبقى، فلا يُهدر شيء.</string>
     <string name="intercept_use_them_button">استخدامها</string>
     <string name="intercept_keep_them_button">الاحتفاظ بها</string>
     <string name="intercept_already_spent_toast">هذه الدقائق أُنفقت بالفعل.</string>
-    <string name="intercept_or_do_this_instead">أو افعل هذا بدلًا من ذلك</string>
     <string name="intercept_still_open">لا يزال مفتوحًا</string>
     <string name="intercept_end_test_button">إنهاء الاختبار</string>
     <string name="intercept_testing_banner">اختبار قواعدك — تبقى %1$s</string>

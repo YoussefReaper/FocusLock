@@ -369,6 +369,10 @@ object FocusUi {
     fun secondary(context: Context, tokens: UiPrefs.Tokens, value: CharSequence): TextView =
         text(context, tokens, value, 15f, tokens.textSecondary, 400)
 
+    /** The 15/20/600 title role [listRow] uses internally, exposed for a caller building its own row shape (e.g. a per-row card) instead of the shared row container. */
+    fun rowTitle(context: Context, tokens: UiPrefs.Tokens, value: CharSequence): TextView =
+        text(context, tokens, value, 15f, tokens.textPrimary, 600)
+
     fun caption(context: Context, tokens: UiPrefs.Tokens, value: CharSequence): TextView =
         text(context, tokens, value, 13f, tokens.textMuted, 500)
 

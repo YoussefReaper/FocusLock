@@ -21,6 +21,14 @@ class AppRulesActivity : FocusScreenActivity() {
     private var query: String = ""
     private var filter: Int = 0
 
+    /** Once the "show the other N apps" link is tapped, every category stays fully expanded. */
+    private var expanded: Boolean = false
+
+    private companion object {
+        /** Rows shown per category before "show the other N apps" takes over - keeps a 50+ app phone from being one long scroll. */
+        const val PREVIEW_PER_CATEGORY = 3
+    }
+
     private val filters by lazy {
         listOf(
             getString(R.string.app_rules_filter_all),
@@ -39,13 +47,29 @@ class AppRulesActivity : FocusScreenActivity() {
         column.addView(buildCategoryCard())
         column.addView(sectionLabel(getString(R.string.app_rules_individual_apps_section)))
         column.addView(buildSearch())
-        column.addView(
-            FocusUi.chipStrip(this, tokens, filters, filter) { index ->
-                filter = index
-                refresh()
-            }
-        )
+        column.addView(buildFilterChips())
         column.addView(buildAppList())
+    }
+
+    /** Counts ride along on every chip label, not just "All" - the doc's after mockup shows "Blocked 44", not just "Blocked". */
+    private fun buildFilterChips(): View {
+        val counts = IntArray(filters.size)
+        AppCatalog.launchable(this).forEach { app ->
+            counts[0]++
+            when (AppRules.effectivePolicy(this, app.packageName)) {
+                AppPolicy.BLOCK, AppPolicy.HIDE -> counts[1]++
+                AppPolicy.FRICTION -> counts[2]++
+                AppPolicy.LIMIT -> counts[3]++
+                AppPolicy.ALLOW -> counts[4]++
+            }
+        }
+        val labels = filters.mapIndexed { index, label ->
+            getString(R.string.app_rules_filter_count_format, label, counts[index])
+        }
+        return FocusUi.chipStrip(this, tokens, labels, filter) { index ->
+            filter = index
+            refresh()
+        }
     }
 
     // ── Bulk by category ──────────────────────────────────────────
@@ -134,6 +158,7 @@ class AppRulesActivity : FocusScreenActivity() {
         listHost.removeAllViews()
 
         val needle = query.trim().lowercase(Locale.getDefault())
+        val searching = needle.isNotEmpty()
         val apps = AppCatalog.launchable(this)
             .filter { app ->
                 needle.isEmpty() ||
@@ -147,12 +172,66 @@ class AppRulesActivity : FocusScreenActivity() {
             return
         }
 
-        val card = FocusUi.card(this, tokens)
-        apps.forEachIndexed { index, app ->
-            card.addView(buildAppRow(app))
-            if (index < apps.size - 1) card.addView(FocusUi.divider(this, tokens))
+        // A search or a filter narrows the list to something small and specific
+        // enough that grouping it back into categories would just be noise -
+        // one plain card of results reads better there. Left at "All" with
+        // nothing typed, the full install list groups under category headers
+        // instead of one 50+ row card (see the design doc's before/after for
+        // this screen).
+        if (searching || filter != 0) {
+            val card = FocusUi.card(this, tokens)
+            val sorted = apps.sortedBy { it.label.lowercase(Locale.getDefault()) }
+            sorted.forEachIndexed { index, app ->
+                card.addView(buildAppRow(app))
+                if (index < sorted.size - 1) card.addView(FocusUi.divider(this, tokens))
+            }
+            listHost.addView(card)
+            return
         }
-        listHost.addView(card)
+
+        val grouped = apps.groupBy { it.category }
+        var hidden = 0
+
+        AppCategory.values().filter { grouped.containsKey(it) }.forEach { category ->
+            val inCategory = grouped.getValue(category).sortedBy { it.label.lowercase(Locale.getDefault()) }
+            listHost.addView(sectionLabel(categoryHeader(category, inCategory)))
+
+            val visible = if (expanded) inCategory else inCategory.take(PREVIEW_PER_CATEGORY)
+            hidden += inCategory.size - visible.size
+
+            val card = FocusUi.card(this, tokens)
+            visible.forEachIndexed { index, app ->
+                card.addView(buildAppRow(app))
+                if (index < visible.size - 1) card.addView(FocusUi.divider(this, tokens))
+            }
+            listHost.addView(card)
+        }
+
+        if (hidden > 0) {
+            listHost.addView(
+                FocusUi.ghostButton(this, tokens, getString(R.string.app_rules_show_more_apps, hidden)) {
+                    expanded = true
+                    renderList()
+                }
+            )
+        }
+    }
+
+    /** "Social · 3 blocked", "Essentials · never blocked", "Games · 14 apps, budgeted" - the overline uppercases it. */
+    private fun categoryHeader(category: AppCategory, apps: List<InstalledApp>): String {
+        if (apps.all { AppRules.isAlwaysAllowed(this, it.packageName) }) {
+            return getString(R.string.app_rules_category_header_never_blocked, category.label)
+        }
+        val policies = apps.map { AppRules.effectivePolicy(this, it.packageName) }
+        val blocked = policies.count { it == AppPolicy.BLOCK || it == AppPolicy.HIDE }
+        return when {
+            blocked == apps.size -> getString(R.string.app_rules_category_header_blocked, category.label, blocked)
+            policies.all { it == AppPolicy.LIMIT } ->
+                getString(R.string.app_rules_category_header_budgeted, category.label, apps.size)
+            policies.all { it == AppPolicy.ALLOW } ->
+                getString(R.string.app_rules_category_header_allowed, category.label, apps.size)
+            else -> getString(R.string.app_rules_category_header_generic, category.label, apps.size)
+        }
     }
 
     private fun matchesFilter(policy: AppPolicy): Boolean = when (filter) {
@@ -165,13 +244,24 @@ class AppRulesActivity : FocusScreenActivity() {
 
     private fun buildAppRow(app: InstalledApp): View {
         val policy = AppRules.effectivePolicy(this, app.packageName)
-        val explicit = AppRules.explicitPolicy(this, app.packageName) != null
         val alwaysAllowed = AppRules.isAlwaysAllowed(this, app.packageName)
 
         val subtitle = when {
             alwaysAllowed -> getString(R.string.app_rules_always_allowed_subtitle)
-            explicit -> app.category.label
-            else -> getString(R.string.app_rules_following_category_subtitle, app.category.label)
+            policy == AppPolicy.LIMIT -> {
+                val limit = AppLimits.minuteLimit(this, app.packageName) ?: 0
+                if (limit > 0) {
+                    getString(R.string.app_rules_budget_used_subtitle, AppLimits.usedMinutesToday(this, app.packageName), limit)
+                } else {
+                    usageSubtitle(app.packageName)
+                }
+            }
+            policy == AppPolicy.FRICTION -> {
+                val seconds = CapabilityRegistry.getIntParam(this, Capabilities.LAUNCH_FRICTION, "seconds", 8)
+                    .coerceIn(3, 60)
+                getString(R.string.app_rules_pause_first_subtitle, seconds)
+            }
+            else -> usageSubtitle(app.packageName)
         }
 
         return FocusUi.listRow(
@@ -180,8 +270,17 @@ class AppRulesActivity : FocusScreenActivity() {
             app.label,
             subtitle,
             trailing = FocusUi.pill(this, tokens, policy.label, policyColor(policy)),
-            leading = FocusUi.appIcon(this, tokens, app.packageName, 36)
+            leading = FocusUi.appIcon(this, tokens, app.packageName, 32)
         ) { openAppSheet(app) }
+    }
+
+    private fun usageSubtitle(packageName: String): String {
+        val minutes = AppLimits.usedMinutesToday(this, packageName)
+        return if (minutes <= 0) {
+            getString(R.string.app_rules_no_usage_today)
+        } else {
+            getString(R.string.app_rules_usage_today, UsageAnalytics.formatDuration(minutes * 60_000L))
+        }
     }
 
     private fun policyColor(policy: AppPolicy): Int = when (policy) {

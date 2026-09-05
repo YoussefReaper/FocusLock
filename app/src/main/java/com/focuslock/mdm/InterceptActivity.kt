@@ -118,15 +118,20 @@ class InterceptActivity : AppCompatActivity() {
 
         val root = FocusUi.screenRoot(this, tokens)
 
-        val content = FocusUi.column(this, tokens.density.contentPaddingDp + 6)
-        content.gravity = Gravity.CENTER
-        content.layoutParams = FrameLayout.LayoutParams(
+        // Two stacked groups, not one centred column: the mark/headline float in
+        // whatever space is left above, and "ways through" anchors to the
+        // bottom - the block screen mockup's "breathing room" direction, rather
+        // than a wall of buttons in the middle of the screen.
+        val outer = LinearLayout(this)
+        outer.orientation = LinearLayout.VERTICAL
+        outer.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
 
-        content.addView(buildMark())
-        content.addView(FocusUi.spacer(this, 26))
+        val top = FocusUi.column(this, tokens.density.contentPaddingDp + 6)
+        top.gravity = Gravity.CENTER
+        top.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
 
         if (testMode) {
             val banner = FocusUi.pill(
@@ -139,12 +144,17 @@ class InterceptActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = FocusUi.dp(this@InterceptActivity, 14) }
-            content.addView(banner)
+            top.addView(banner)
         }
+
+        top.addView(buildMark())
+        top.addView(FocusUi.spacer(this, 22))
+        top.addView(buildOverline())
+        top.addView(FocusUi.spacer(this, 6))
 
         val headlineView = FocusUi.display(this, tokens, headline)
         headlineView.gravity = Gravity.CENTER
-        content.addView(headlineView)
+        top.addView(headlineView)
 
         if (detail.isNotBlank()) {
             val detailView = FocusUi.secondary(this, tokens, detail)
@@ -153,27 +163,47 @@ class InterceptActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = FocusUi.dp(this@InterceptActivity, 12) }
-            content.addView(detailView)
+            top.addView(detailView)
         }
 
-        content.addView(FocusUi.spacer(this, 30))
-        content.addView(buildActions())
+        outer.addView(top)
+
+        val bottom = FocusUi.column(this, tokens.density.contentPaddingDp + 6)
+        bottom.setPadding(bottom.paddingLeft, FocusUi.dp(this, 10), bottom.paddingRight, FocusUi.dp(this, 26))
+        bottom.addView(buildWaysThrough())
 
         buildStillOpen()?.let {
-            content.addView(FocusUi.spacer(this, 26))
-            content.addView(it)
+            bottom.addView(FocusUi.spacer(this, 20))
+            bottom.addView(it)
         }
 
-        if (CapabilityRegistry.isEnabled(this, Capabilities.REPLACEMENT_SUGGESTIONS)) {
-            content.addView(FocusUi.spacer(this, 26))
-            content.addView(buildAlternatives())
-        }
+        outer.addView(bottom)
 
-        root.addView(content)
+        root.addView(outer)
         FocusUi.dimOverlay(this, tokens)?.let { root.addView(it) }
         setContentView(root)
 
-        Motion.fadeIn(content, tokens)
+        Motion.fadeIn(outer, tokens)
+    }
+
+    /** "Your rules · Apps", "Your rules · Bedtime" - names which of your own rules this was, the way every screen mockup in the design doc does. */
+    private fun buildOverline(): View {
+        val category = when (source) {
+            "schedule", "scheduleOverlay" -> getString(R.string.schedule_title)
+            "bedtime" -> getString(R.string.bedtime_title)
+            "place" -> getString(R.string.place_rules_title)
+            "contentGuard" -> getString(R.string.keyword_guard_title)
+            "limit" -> getString(R.string.app_limits_title)
+            else -> getString(R.string.app_rules_title)
+        }
+        val view = TextView(this)
+        view.text = getString(R.string.intercept_overline_format, category).uppercase()
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(11f))
+        view.setTextColor(tokens.accent)
+        FocusUi.applyFont(view, tokens, mono = true, weight = 600)
+        view.letterSpacing = 0.09f
+        view.gravity = Gravity.CENTER
+        return view
     }
 
     /**
@@ -215,7 +245,7 @@ class InterceptActivity : AppCompatActivity() {
         return holder
     }
 
-    private fun buildActions(): View {
+    private fun buildWaysThrough(): View {
         val column = FocusUi.column(this)
 
         if (isPause) {
@@ -250,29 +280,29 @@ class InterceptActivity : AppCompatActivity() {
             return column
         }
 
-        column.addView(FocusUi.primaryButton(this, tokens, getString(R.string.intercept_back_to_focuslock)) { leave() })
+        // A plain block reads as a short list of full row-cards to move
+        // through, not a stack of buttons - the break, the banked minutes and
+        // every calm alternative are all "a way through", styled the same.
+        // The one thing that isn't a real choice - just going back - gets no
+        // card at all, the design doc's quietest possible treatment.
+        column.addView(FocusUi.sectionLabel(this, tokens, getString(R.string.intercept_ways_through)))
 
-        if (testMode) {
-            column.addView(FocusUi.spacer(this, 10))
-            column.addView(FocusUi.ghostButton(this, tokens, getString(R.string.intercept_end_test_button)) { endTest() })
-        }
+        var hasCardRow = false
 
         if (offersBreak && TakeABreak.canStart(this)) {
             val minutes = TakeABreak.breakMinutes(this)
             val left = TakeABreak.remainingToday(this)
-            column.addView(FocusUi.spacer(this, 10))
+            val total = TakeABreak.dailyMax(this)
             column.addView(
-                FocusUi.secondaryButton(
-                    this,
-                    tokens,
-                    getString(R.string.intercept_take_break_button, minutes, left)
+                buildWayRow(
+                    R.drawable.ic_glyph_break,
+                    getString(R.string.intercept_break_row_title, minutes),
+                    getString(R.string.intercept_break_row_subtitle, left, total)
                 ) { startBreak() }
             )
+            hasCardRow = true
         } else if (offersBreak) {
-            column.addView(FocusUi.spacer(this, 12))
-            val note = FocusUi.caption(this, tokens, Copy.breakUnavailable(this))
-            note.gravity = Gravity.CENTER
-            column.addView(note)
+            column.addView(buildQuietRow(Copy.breakUnavailable(this)))
         }
 
         // Banked Earn minutes. Without this the block screen just says no to
@@ -282,18 +312,81 @@ class InterceptActivity : AppCompatActivity() {
             val balance = EarnBudget.balanceMinutes(this)
             if (balance > 0) {
                 val spend = minOf(balance, DEFAULT_SPEND_MINUTES)
-                column.addView(FocusUi.spacer(this, 10))
                 column.addView(
-                    FocusUi.secondaryButton(
-                        this,
-                        tokens,
-                        getString(R.string.intercept_use_earned_button, spend, balance)
+                    buildWayRow(
+                        R.drawable.ic_glyph_earn,
+                        getString(R.string.intercept_earn_row_title, spend),
+                        getString(R.string.intercept_earn_row_subtitle, balance)
                     ) { confirmSpendEarned(spend) }
                 )
+                hasCardRow = true
             }
         }
 
+        if (CapabilityRegistry.isEnabled(this, Capabilities.REPLACEMENT_SUGGESTIONS)) {
+            availableAlternatives().forEach { pair ->
+                column.addView(buildWayRow(iconForAlternative(pair.second), pair.first, null) { openAlternative(pair.second) })
+                hasCardRow = true
+            }
+        }
+
+        if (hasCardRow) column.addView(FocusUi.spacer(this, 4))
+        column.addView(buildQuietRow(getString(R.string.intercept_back_to_focuslock)) { leave() })
+
+        if (testMode) {
+            column.addView(FocusUi.spacer(this, 10))
+            column.addView(FocusUi.ghostButton(this, tokens, getString(R.string.intercept_end_test_button)) { endTest() })
+        }
+
         return column
+    }
+
+    /** One "way through": an icon, a title, an optional usage/status subtitle, its own card - the doc's row-card, not a button. */
+    private fun buildWayRow(iconRes: Int, title: String, subtitle: String?, onClick: () -> Unit): View {
+        val row = FocusUi.card(this, tokens, onClick = onClick)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.addView(FocusUi.categoryIcon(this, tokens, iconRes, tokens.accent, 22))
+        row.addView(FocusUi.spacerH(this, 14))
+
+        val textColumn = FocusUi.column(this)
+        textColumn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        textColumn.addView(FocusUi.rowTitle(this, tokens, title))
+        if (!subtitle.isNullOrBlank()) {
+            val subtitleView = FocusUi.caption(this, tokens, subtitle)
+            subtitleView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FocusUi.dp(this@InterceptActivity, 2) }
+            textColumn.addView(subtitleView)
+        }
+        row.addView(textColumn)
+        return row
+    }
+
+    /** The lowest-emphasis row: no card, no icon, centred text - reserved for "just going back", never a real way through. */
+    private fun buildQuietRow(text: String, onClick: (() -> Unit)? = null): View {
+        val label = FocusUi.rowTitle(this, tokens, text)
+        label.setTextColor(tokens.textSecondary)
+        label.gravity = Gravity.CENTER
+        label.setPadding(FocusUi.dp(this, 4), FocusUi.dp(this, 14), FocusUi.dp(this, 4), FocusUi.dp(this, 14))
+        label.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        if (onClick != null) {
+            label.isClickable = true
+            label.isFocusable = true
+            label.setOnClickListener { onClick() }
+        }
+        return label
+    }
+
+    private fun iconForAlternative(key: String): Int = when (key) {
+        "textSearch" -> R.drawable.ic_glyph_keywords
+        "videoLibrary" -> R.drawable.ic_glyph_library
+        "analytics" -> R.drawable.ic_glyph_insight
+        else -> R.drawable.ic_glyph_apps
     }
 
     /**
@@ -343,37 +436,6 @@ class InterceptActivity : AppCompatActivity() {
             return
         }
         finish()
-    }
-
-    private fun buildAlternatives(): View {
-        val column = FocusUi.column(this)
-
-        val label = FocusUi.caption(this, tokens, getString(R.string.intercept_or_do_this_instead))
-        label.gravity = Gravity.CENTER
-        label.letterSpacing = 0.08f
-        column.addView(label)
-        column.addView(FocusUi.spacer(this, 10))
-
-        val strip = FocusUi.row(this)
-        strip.gravity = Gravity.CENTER
-        strip.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-
-        availableAlternatives().forEach { pair ->
-            strip.addView(FocusUi.chip(this, tokens, pair.first, false) { openAlternative(pair.second) })
-        }
-
-        if (strip.childCount == 0) return FocusUi.spacer(this, 0)
-
-        val scroll = FocusUi.horizontalScroll(this, strip)
-        scroll.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        column.addView(scroll)
-        return column
     }
 
     /**
