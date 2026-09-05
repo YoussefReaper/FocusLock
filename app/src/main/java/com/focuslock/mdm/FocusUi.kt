@@ -122,9 +122,9 @@ object FocusUi {
     /**
      * The primary-button gradient - the one deliberate gradient fill in the
      * app, reserved for the single highest-emphasis action on a screen.
-     * `startColor` is the lighter stop; `baseColor` (usually tokens.accent)
-     * is the deep stop, so this looks right for whichever of the 8 accents
-     * the user picked, not just the default blue.
+     * `startColor` (usually tokens.accent) is the light stop; `endColor` is
+     * the deep stop, so this looks right for whichever of the 8 accents the
+     * user picked, not just the default blue.
      */
     fun gradientShape(context: Context, startColor: Int, endColor: Int, radiusDp: Int): GradientDrawable =
         GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(startColor, endColor)).apply {
@@ -132,8 +132,18 @@ object FocusUi {
             cornerRadius = dpf(context, radiusDp)
         }
 
-    /** The lighter gradient stop for a given accent - 25% toward white, same relationship as the brand blue's #4C93FF to #1D4ED8. */
-    fun gradientLight(color: Int): Int = UiPrefs.blend(color, android.graphics.Color.WHITE, 0.25f)
+    /**
+     * The deep gradient stop for a given accent. For the default blue this is
+     * the design doc's exact #1D4ED8 pairing with #4C93FF; the other 7 accents
+     * have no doc-specified deep tone, so theirs is approximated by darkening
+     * 25% toward black.
+     */
+    fun gradientDeep(color: Int): Int =
+        if (color == android.graphics.Color.parseColor("#4C93FF")) {
+            android.graphics.Color.parseColor("#1D4ED8")
+        } else {
+            UiPrefs.blend(color, android.graphics.Color.BLACK, 0.25f)
+        }
 
     /**
      * Press feedback that follows the accent instead of the platform default,
@@ -408,7 +418,7 @@ object FocusUi {
         view.isFocusable = true
 
         val shape = if (gradient) {
-            gradientShape(context, gradientLight(fill), fill, tokens.buttonRadiusDp)
+            gradientShape(context, fill, gradientDeep(fill), tokens.buttonRadiusDp)
         } else {
             roundedShape(context, fill, tokens.buttonRadiusDp, strokeColor)
         }

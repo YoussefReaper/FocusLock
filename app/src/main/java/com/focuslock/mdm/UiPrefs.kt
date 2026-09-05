@@ -147,7 +147,7 @@ object UiPrefs {
             cardAlt = Color.parseColor("#1A1F27"),
             textPrimary = Color.parseColor("#EDF1F7"),
             textSecondary = Color.parseColor("#98A3B4"),
-            accent = Color.parseColor("#1D4ED8"),
+            accent = Color.parseColor("#4C93FF"),
             track = Color.parseColor("#1E2532"),
             divider = Color.parseColor("#232935"),
             input = Color.parseColor("#1E2532")
@@ -248,13 +248,14 @@ object UiPrefs {
 
     val accents: List<UiAccent> = listOf(
         // Retinted to the brand blue (2026-09, design system pass): neon
-        // blue on near-black read as a gaming utility. This is the same
-        // #1D4ED8 the marketing site and app icon use, so the product looks
-        // like one thing across every surface. The lighter #4C93FF gradient
-        // stop lives only on the primary-button gradient (FocusUi.roundedGradientShape),
-        // derived from this at the point buttons are drawn - not stored
-        // here, so it stays correct if someone picks a different accent.
-        UiAccent("accent_blue", "Electric Blue", Color.parseColor("#1D4ED8")),
+        // pink on near-black read as a gaming utility. #4C93FF is the flat
+        // accent the design doc uses everywhere - icons, active states,
+        // borders, text - across every mockup in the set. #1D4ED8 (the
+        // marketing site/app-icon shade) only ever appears as the deep stop
+        // of the primary-button gradient, derived from this at the point
+        // buttons are drawn (see FocusUi.gradientDeep) - not stored here, so
+        // it stays correct if someone picks a different accent.
+        UiAccent("accent_blue", "Electric Blue", Color.parseColor("#4C93FF")),
         UiAccent("accent_green", "Lime Green", Color.parseColor("#22C55E")),
         UiAccent("accent_orange", "Sunset Orange", Color.parseColor("#F97316")),
         UiAccent("accent_pink", "Neon Pink", Color.parseColor("#EC4899")),
