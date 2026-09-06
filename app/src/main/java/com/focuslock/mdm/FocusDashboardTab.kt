@@ -70,12 +70,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             add(buildStarter())
         }
 
-        buildContextCard()?.let { add(it) }
-
-        if (UiPrefs.showStats(activity) && UsageAnalytics.isEnabled(activity)) {
-            add(FocusUi.sectionLabel(activity, tokens, "Today"))
-            add(buildTodayStats())
-        }
+        buildOnATimerCard()?.let { add(it) }
 
         if (UiPrefs.showQuickSettings(activity)) {
             add(FocusUi.sectionLabel(activity, tokens, "Quick settings"))
@@ -85,6 +80,13 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         Motion.stagger(added, tokens)
     }
 
+    /**
+     * The day/time-of-day and the actual status used to be one line ("Good
+     * evening" doubling as both). Split per the design doc's mockup: a small
+     * caption places you in the week, a bold headline says what's actually
+     * happening - "Nothing running" is a different, more useful fact than
+     * "it's evening."
+     */
     private fun buildGreeting(): View {
         val column = FocusUi.column(activity)
         column.layoutParams = LinearLayout.LayoutParams(
@@ -92,7 +94,14 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = FocusUi.dp(activity, tokens.density.gapDp + 4) }
 
-        column.addView(FocusUi.title(activity, tokens, greetingLine()))
+        column.addView(FocusUi.secondary(activity, tokens, dayAndPeriod()))
+
+        val headline = FocusUi.title(activity, tokens, statusHeadline())
+        headline.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FocusUi.dp(activity, 2) }
+        column.addView(headline)
 
         val sub = if (Streaks.isEnabled(activity)) Streaks.summary(activity) else ""
         if (sub.isNotBlank()) {
@@ -106,16 +115,25 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         return column
     }
 
-    private fun greetingLine(): String {
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        return when {
-            SessionManager.isActive(activity) -> "You are in a session"
-            hour < 5 -> "Still up"
-            hour < 12 -> "Good morning"
-            hour < 18 -> "Good afternoon"
-            else -> "Good evening"
+    private fun dayAndPeriod(): String {
+        val calendar = java.util.Calendar.getInstance()
+        val day = SimpleDateFormat("EEEE", Locale.getDefault()).format(calendar.time)
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        val period = when {
+            hour < 5 -> "night"
+            hour < 12 -> "morning"
+            hour < 18 -> "afternoon"
+            else -> "evening"
         }
+        return "$day $period"
     }
+
+    private fun statusHeadline(): String =
+        if (SessionManager.isActive(activity)) {
+            SessionManager.mode(activity).label + " is running"
+        } else {
+            "Nothing running"
+        }
 
     // ── Active session ────────────────────────────────────────────
 
@@ -298,7 +316,9 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
 
         if (selectedMode !in available) selectedMode = available.first()
 
-        available.forEach { mode -> column.addView(buildModeCard(mode)) }
+        column.addView(buildModeGrid(available))
+        column.addView(FocusUi.spacer(activity, 10))
+        column.addView(buildModeSummaryLine())
 
         column.addView(FocusUi.sectionLabel(activity, tokens, "For how long"))
         column.addView(buildDurationPicker())
@@ -308,7 +328,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             FocusUi.primaryButton(
                 activity,
                 tokens,
-                "Start " + selectedMode.label + " for " + SessionManager.formatDuration(selectedDurationMs)
+                "Start " + selectedMode.label + " · " + SessionManager.formatDuration(selectedDurationMs)
             ) { confirmStart() }
         )
 
@@ -411,9 +431,32 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
     }
 
     /**
-     * Each mode states its strength, what it does, and how you get out. The
-     * exit line is not fine print: it is the second line of the card.
+     * A 2×2 grid, each tile just a strength and a name (design doc: "a row is
+     * a title and a state"). What a mode actually does, its exit line, and
+     * the device-owner warning all moved to [buildModeSummaryLine]'s ⓘ -
+     * four full explanations stacked at once was a wall before you had even
+     * picked one.
      */
+    private fun buildModeGrid(available: List<FocusMode>): View {
+        val column = FocusUi.column(activity)
+        available.chunked(2).forEach { pair ->
+            val row = FocusUi.row(activity)
+            row.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = FocusUi.dp(activity, 9) }
+            pair.forEachIndexed { index, mode ->
+                val card = buildModeCard(mode)
+                card.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (index == 0) marginEnd = FocusUi.dp(activity, 9)
+                }
+                row.addView(card)
+            }
+            column.addView(row)
+        }
+        return column
+    }
+
     private fun buildModeCard(mode: FocusMode): View {
         val selected = mode == selectedMode
         val card = FocusUi.card(activity, tokens, elevated = selected) {
@@ -430,59 +473,86 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             )
         }
 
-        val header = FocusUi.row(activity)
-        val name = FocusUi.heading(activity, tokens, mode.label)
-        name.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        header.addView(name)
-        header.addView(buildStrengthDots(mode.strength))
-        card.addView(header)
+        card.addView(buildStrengthDots(mode.strength))
+        card.addView(FocusUi.spacer(activity, 8))
+        card.addView(FocusUi.rowTitle(activity, tokens, mode.label))
 
-        val blurb = FocusUi.secondary(activity, tokens, mode.oneLiner)
-        blurb.layoutParams = LinearLayout.LayoutParams(
+        if (mode.isHard && !SetupChecks.isDeviceOwner(activity)) {
+            card.addView(FocusUi.spacer(activity, 8))
+            val warn = FocusUi.caption(activity, tokens, "Needs Device Owner")
+            warn.setTextColor(tokens.warning)
+            card.addView(warn)
+        }
+        return card
+    }
+
+    /**
+     * The one line the four cards used to say four times over: what the
+     * selected mode does, its exit line, the live preset (and whether it was
+     * edited), and the device-owner warning, all one tap away behind the ⓘ.
+     */
+    private fun buildModeSummaryLine(): View {
+        val row = FocusUi.row(activity)
+        row.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = FocusUi.dp(activity, 8) }
-        card.addView(blurb)
+        ).apply { bottomMargin = FocusUi.dp(activity, 4) }
 
-        val exit = FocusUi.caption(activity, tokens, mode.exitLine)
-        exit.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = FocusUi.dp(activity, 6) }
-        card.addView(exit)
+        val text = FocusUi.caption(activity, tokens, selectedMode.label + " · " + selectedMode.oneLiner)
+        text.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(text)
+        row.addView(FocusUi.spacerH(activity, 8))
+        row.addView(buildInfoGlyph { showModeDetail(selectedMode) })
+        return row
+    }
 
-        // What picking this actually flips, in words, before you commit to it.
-        // Only on the selected card: four of these at once would be a wall.
-        if (selected) {
-            val preview = FocusUi.caption(activity, tokens, mode.presetSummary())
-            preview.setTextColor(tokens.accent)
+    private fun buildInfoGlyph(onClick: () -> Unit): View {
+        val view = TextView(activity)
+        view.text = "ⓘ"
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
+        view.setTextColor(tokens.textMuted)
+        view.isClickable = true
+        view.isFocusable = true
+        val pad = FocusUi.dp(activity, 4)
+        view.setPadding(pad, pad, pad, pad)
+        view.setOnClickListener { onClick() }
+        return view
+    }
+
+    private fun showModeDetail(mode: FocusMode) {
+        FocusDialog.custom(
+            activity,
+            title = mode.label,
+            subtitle = mode.oneLiner,
+            confirmLabel = null,
+            cancelLabel = "Close"
+        ) { body, dialogTokens, _ ->
+            body.addView(FocusUi.body(activity, dialogTokens, mode.exitLine))
+            body.addView(FocusUi.spacer(activity, 16))
+            body.addView(FocusUi.caption(activity, dialogTokens, "WHAT IT CHANGES"))
+            val preview = FocusUi.secondary(activity, dialogTokens, mode.presetSummary())
             preview.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = FocusUi.dp(activity, 8) }
-            card.addView(preview)
+            ).apply { topMargin = FocusUi.dp(activity, 6) }
+            body.addView(preview)
 
             if (!SessionManager.matchesPreset(activity, mode)) {
-                val edited = FocusUi.caption(
-                    activity,
-                    tokens,
-                    "You have changed some of these in You → Advanced. Your version is what runs."
+                body.addView(FocusUi.spacer(activity, 10))
+                body.addView(
+                    FocusUi.caption(
+                        activity,
+                        dialogTokens,
+                        "You have changed some of these in You → Advanced. Your version is what runs."
+                    )
                 )
-                edited.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = FocusUi.dp(activity, 4) }
-                card.addView(edited)
+            }
+
+            if (mode.isHard && !SetupChecks.isDeviceOwner(activity)) {
+                body.addView(FocusUi.spacer(activity, 12))
+                body.addView(FocusUi.pill(activity, dialogTokens, "Needs Device Owner setup", dialogTokens.warning))
             }
         }
-
-        if (mode.isHard && !SetupChecks.isDeviceOwner(activity)) {
-            card.addView(FocusUi.spacer(activity, 10))
-            card.addView(
-                FocusUi.pill(activity, tokens, "Needs Device Owner setup", tokens.warning)
-            )
-        }
-        return card
     }
 
     /** Four dots, filled to the mode's strength: readable at a glance, no icon to decode. */
@@ -752,88 +822,81 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         }
     }
 
-    /** Whatever is shaping the phone right now that is not a session. */
-    private fun buildContextCard(): View? {
-        val lines = ArrayList<Pair<String, String>>()
+    private data class TimerLine(val icon: Int, val title: String, val value: String)
+
+    /**
+     * Whatever is running on its own clock right now, not by a session you
+     * started - bedtime, a schedule window, a task's timer. Design doc:
+     * these read as "on a timer" rows (icon, title, the time itself) rather
+     * than a generic "Active" pill, since the time is the actual answer to
+     * "when does this stop."
+     */
+    private fun buildOnATimerCard(): View? {
+        val lines = ArrayList<TimerLine>()
 
         EarnSession.activeTask(activity)?.let { task ->
             lines.add(
-                "Task running" to (task.title + " · " +
-                    SessionManager.formatDuration(EarnSession.elapsedMs(activity)) + " in")
+                TimerLine(
+                    R.drawable.ic_glyph_earn,
+                    "Task running",
+                    task.title + " · " + SessionManager.formatDuration(EarnSession.elapsedMs(activity)) + " in"
+                )
             )
         }
         if (EarnBudget.isSpending(activity)) {
             lines.add(
-                "Earned time" to (SessionManager.formatDuration(
-                    EarnBudget.remainingSpendMs(activity)
-                ) + " left")
+                TimerLine(
+                    R.drawable.ic_glyph_earn,
+                    "Earned time",
+                    SessionManager.formatDuration(EarnBudget.remainingSpendMs(activity)) + " left"
+                )
             )
         }
-
         ScheduleManager.activeWindowIfEnabled(activity)?.let { window ->
             lines.add(
-                "Schedule running" to (window.message.ifBlank { "Quiet window" } +
-                    " until " + ScheduleManager.formatTime(window.endMinutes))
+                TimerLine(
+                    R.drawable.ic_glyph_schedules,
+                    window.message.ifBlank { "Schedule running" },
+                    "until " + ScheduleManager.formatTime(window.endMinutes)
+                )
             )
         }
         ScheduleManager.nextWindow(activity)?.let { window ->
-            lines.add("Next window" to ScheduleManager.formatTime(window.startMinutes))
+            lines.add(TimerLine(R.drawable.ic_glyph_schedules, "Next window", ScheduleManager.formatTime(window.startMinutes)))
         }
         if (Bedtime.isActive(activity)) {
-            lines.add(
-                "Bedtime" to ("Until " + Bedtime.formatTime(Bedtime.endMinutes(activity)))
-            )
+            lines.add(TimerLine(R.drawable.ic_glyph_bedtime, "Bedtime", "now → " + Bedtime.formatTime(Bedtime.endMinutes(activity))))
         }
         PlaceRules.activePlaces(activity).forEach { place ->
-            lines.add("Place rule" to place.label)
+            lines.add(TimerLine(R.drawable.ic_glyph_places, "Place rule", place.label))
         }
 
         if (lines.isEmpty()) return null
 
         val card = FocusUi.card(activity, tokens)
-        card.addView(FocusUi.heading(activity, tokens, "Also on right now"))
-        lines.forEach { pair ->
+        val header = FocusUi.row(activity)
+        val label = FocusUi.sectionLabel(activity, tokens, "On a timer")
+        (label.layoutParams as? LinearLayout.LayoutParams)?.apply { topMargin = 0; bottomMargin = 0 }
+        label.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        header.addView(label)
+        header.addView(FocusUi.valueLabel(activity, tokens, lines.size.toString() + " active"))
+        card.addView(header)
+        card.addView(FocusUi.spacer(activity, 8))
+
+        lines.forEachIndexed { index, line ->
             card.addView(
                 FocusUi.listRow(
                     activity,
                     tokens,
-                    pair.first,
-                    pair.second,
-                    trailing = FocusUi.pill(activity, tokens, "Active", tokens.accent)
+                    line.title,
+                    null,
+                    trailing = FocusUi.valueLabel(activity, tokens, line.value),
+                    leading = FocusUi.categoryIcon(activity, tokens, line.icon, tokens.accent)
                 )
             )
+            if (index < lines.size - 1) card.addView(FocusUi.divider(activity, tokens))
         }
         return card
-    }
-
-    private fun buildTodayStats(): View {
-        val report = UsageAnalytics.today(activity)
-        val row = FocusUi.row(activity)
-        row.addView(
-            FocusUi.statTile(activity, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time")
-        )
-        row.addView(FocusUi.statTile(activity, tokens, report.opens.toString(), "App opens"))
-        row.addView(
-            FocusUi.statTile(
-                activity,
-                tokens,
-                AppRules.blockedPackages(activity).size.toString(),
-                "Apps blocked"
-            )
-        )
-        row.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = FocusUi.dp(activity, tokens.density.gapDp) }
-
-        val wrapper = FocusUi.column(activity)
-        wrapper.addView(row)
-        wrapper.addView(
-            FocusUi.ghostButton(activity, tokens, "See where the time went") {
-                activity.startActivity(Intent(activity, AnalyticsActivity::class.java))
-            }
-        )
-        return wrapper
     }
 
     private fun buildQuickSettings(): View {

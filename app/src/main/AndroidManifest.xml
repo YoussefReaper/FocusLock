@@ -189,6 +189,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".CapabilitiesActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:lockTaskMode="if_whitelisted" />
+
+        <activity
             android:name=".EarnSessionActivity"
             android:exported="false"
             android:launchMode="singleTop"

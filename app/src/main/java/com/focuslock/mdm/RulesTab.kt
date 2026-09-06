@@ -1,25 +1,22 @@
 package com.focuslock.mdm
 
 import android.content.Intent
+import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.LinearLayout
 
 /**
- * The Rules tab: everything the user owns.
+ * The Rules tab: everything the user owns, as a grid you read in one glance.
  *
- * This is the screen the whole refactor exists for. The top half is the
- * editors — apps, sites, words, times, places, budgets. The bottom half is the
- * Capability Registry itself: one switch per behaviour, grouped, with a plain
- * sentence saying what it does and what it needs.
- *
- * Turning something off here changes the phone immediately. Nothing waits for a
- * restart, and nothing turns itself back on.
+ * Design doc, "one screen, one job": this used to be ten stacked editors plus
+ * the whole capability registry on one scroll. Editors are now eight tiles;
+ * the switchboard (every capability switch) moved one level down, to
+ * [CapabilitiesActivity] - a screen you open twice a year, not one you
+ * scroll past every time you want to check a rule.
  */
 class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity, tokens) {
 
     private lateinit var container: LinearLayout
-    private val collapsed = HashMap<String, Boolean>()
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
@@ -48,174 +45,166 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             )
         )
 
-        add(buildSummary())
+        add(buildRulesGrid())
+        add(FocusUi.spacer(activity, tokens.density.gapDp))
+        add(buildQuickLinksCard())
 
-        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_what_to_manage)))
-        add(buildEditors())
-
-        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_test_section)))
-        add(buildTestCard())
-
-        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_capabilities)))
-        add(buildCapabilityIntro())
-        Capabilities.grouped().forEach { entry -> add(buildCapabilityGroup(entry.first, entry.second)) }
-
-        add(FocusUi.sectionLabel(activity, tokens, activity.getString(R.string.rules_section_move_setup)))
-        add(buildProfileCard())
+        add(FocusUi.spacer(activity, tokens.density.gapDp + 6))
+        add(buildTestSection())
 
         Motion.stagger(added, tokens)
     }
 
-    // ── Summary ───────────────────────────────────────────────────
+    // ── The grid ──────────────────────────────────────────────────
 
-    private fun buildSummary(): View {
-        val row = FocusUi.row(activity)
-        row.addView(
-            FocusUi.statTile(
-                activity,
-                tokens,
-                AppRules.blockedPackages(activity).size.toString(),
-                activity.getString(R.string.rules_stat_apps_blocked)
-            )
-        )
-        row.addView(
-            FocusUi.statTile(
-                activity,
-                tokens,
-                KeywordRules.activeRules(activity).size.toString(),
-                activity.getString(R.string.rules_stat_words_watched)
-            )
-        )
-        row.addView(
-            FocusUi.statTile(
-                activity,
-                tokens,
-                (RuleStore.all(activity).size + ScheduleManager.getSchedules(activity).size).toString(),
-                activity.getString(R.string.rules_stat_rules_and_windows)
-            )
-        )
-        row.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = FocusUi.dp(activity, tokens.density.gapDp) }
-        return row
-    }
+    private data class GridTile(
+        val icon: Int,
+        val title: String,
+        val value: String,
+        val valueColor: Int,
+        val intent: Intent
+    )
 
-    // ── Editors ───────────────────────────────────────────────────
-
-    private fun buildEditors(): View {
-        val card = FocusUi.card(activity, tokens)
-
-        val entries = listOf(
-            Editor(
+    private fun buildRulesGrid(): View {
+        val tiles = listOf(
+            GridTile(
+                R.drawable.ic_glyph_apps,
                 activity.getString(R.string.rules_editor_apps_title),
-                activity.getString(
-                    R.string.rules_editor_apps_subtitle,
-                    AppRules.blockedPackages(activity).size,
-                    AppRules.alwaysAllowed(activity).size
-                ),
-                Intent(activity, AppRulesActivity::class.java),
-                R.drawable.ic_glyph_apps
+                activity.getString(R.string.rules_grid_blocked_count, AppRules.blockedPackages(activity).size),
+                tokens.textMuted,
+                Intent(activity, AppRulesActivity::class.java)
             ),
-            Editor(
-                activity.getString(R.string.rules_editor_always_allowed_title),
-                activity.getString(R.string.rules_editor_always_allowed_subtitle),
-                Intent(activity, AlwaysAllowedActivity::class.java),
-                R.drawable.ic_glyph_apps
-            ),
-            Editor(
-                activity.getString(R.string.rules_editor_websites_title),
-                activity.getString(
-                    R.string.rules_editor_websites_subtitle,
-                    AllowlistStore.getWebAllowlistUrls(activity).size
-                ),
-                Intent(activity, WebAllowlistEditorActivity::class.java),
-                R.drawable.ic_glyph_guard
-            ),
-            Editor(
-                activity.getString(R.string.rules_editor_keyword_guard_title),
-                activity.getString(
-                    R.string.rules_editor_keyword_guard_subtitle,
-                    KeywordRules.userRules(activity).size
-                ),
-                Intent(activity, KeywordGuardActivity::class.java),
-                R.drawable.ic_glyph_keywords
-            ),
-            Editor(
+            GridTile(
+                R.drawable.ic_glyph_schedules,
                 activity.getString(R.string.rules_editor_schedules_title),
-                activity.getString(
-                    R.string.rules_editor_schedules_subtitle,
-                    ScheduleManager.getSchedules(activity).size
-                ),
-                Intent(activity, ScheduleActivity::class.java),
-                R.drawable.ic_glyph_schedules
+                ScheduleManager.getSchedules(activity).size.toString(),
+                tokens.textMuted,
+                Intent(activity, ScheduleActivity::class.java)
             ),
-            Editor(
-                activity.getString(R.string.rules_editor_daily_limits_title),
-                activity.getString(
-                    R.string.rules_editor_daily_limits_subtitle,
-                    AppLimits.allMinuteLimits(activity).size + AppLimits.allOpenLimits(activity).size
-                ),
-                Intent(activity, AppLimitsActivity::class.java),
-                R.drawable.ic_glyph_limits
-            ),
-            Editor(
+            GridTile(
+                R.drawable.ic_glyph_bedtime,
                 activity.getString(R.string.rules_editor_bedtime_title),
                 if (CapabilityRegistry.isEnabled(activity, Capabilities.BEDTIME_MODE)) {
                     Bedtime.formatWindow(activity)
                 } else {
                     activity.getString(R.string.common_off)
                 },
-                Intent(activity, BedtimeActivity::class.java),
-                R.drawable.ic_glyph_bedtime
+                if (CapabilityRegistry.isEnabled(activity, Capabilities.BEDTIME_MODE)) tokens.accent else tokens.textMuted,
+                Intent(activity, BedtimeActivity::class.java)
             ),
-            Editor(
+            GridTile(
+                R.drawable.ic_glyph_limits,
+                activity.getString(R.string.rules_editor_daily_limits_title),
+                (AppLimits.allMinuteLimits(activity).size + AppLimits.allOpenLimits(activity).size).toString(),
+                tokens.textMuted,
+                Intent(activity, AppLimitsActivity::class.java)
+            ),
+            GridTile(
+                R.drawable.ic_glyph_guard,
+                activity.getString(R.string.rules_editor_websites_title),
+                AllowlistStore.getWebAllowlistUrls(activity).size.toString(),
+                tokens.textMuted,
+                Intent(activity, WebAllowlistEditorActivity::class.java)
+            ),
+            GridTile(
+                R.drawable.ic_glyph_keywords,
+                activity.getString(R.string.rules_editor_keyword_guard_title),
+                KeywordRules.userRules(activity).size.toString(),
+                tokens.textMuted,
+                Intent(activity, KeywordGuardActivity::class.java)
+            ),
+            GridTile(
+                R.drawable.ic_glyph_places,
                 activity.getString(R.string.rules_editor_places_title),
-                activity.getString(R.string.rules_editor_places_subtitle, PlaceRules.all(activity).size),
-                Intent(activity, PlaceRulesActivity::class.java),
-                R.drawable.ic_glyph_places
+                PlaceRules.activePlaces(activity).firstOrNull()?.label
+                    ?: PlaceRules.all(activity).size.toString(),
+                if (PlaceRules.activePlaces(activity).isNotEmpty()) tokens.success else tokens.textMuted,
+                Intent(activity, PlaceRulesActivity::class.java)
             ),
-            Editor(
+            GridTile(
+                R.drawable.ic_glyph_rules,
                 activity.getString(R.string.rules_editor_custom_rules_title),
-                activity.getString(R.string.rules_editor_custom_rules_subtitle, RuleStore.all(activity).size),
-                Intent(activity, RuleEditorActivity::class.java),
-                R.drawable.ic_glyph_rules
-            ),
-            Editor(
-                activity.getString(R.string.rules_editor_tasks_title),
-                if (EarnMode.isEnabled(activity)) {
-                    activity.getString(
-                        R.string.rules_editor_tasks_subtitle,
-                        FocusTaskStore.open(activity).size,
-                        EarnBudget.formatBalance(activity)
-                    )
-                } else {
-                    activity.getString(R.string.rules_editor_tasks_off)
-                },
-                Intent(activity, MainActivity::class.java)
-                    .putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_TASKS)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
-                R.drawable.ic_glyph_earn
+                RuleStore.all(activity).size.toString(),
+                tokens.textMuted,
+                Intent(activity, RuleEditorActivity::class.java)
             )
         )
 
-        entries.forEachIndexed { index, editor ->
-            card.addView(
-                FocusUi.listRow(
-                    activity,
-                    tokens,
-                    editor.title,
-                    editor.subtitle,
-                    trailing = FocusUi.chevron(activity, tokens),
-                    leading = FocusUi.categoryIcon(activity, tokens, editor.icon)
-                ) { activity.startActivity(editor.intent) }
-            )
-            if (index < entries.size - 1) card.addView(FocusUi.divider(activity, tokens))
+        val column = FocusUi.column(activity)
+        tiles.chunked(2).forEach { pair ->
+            val row = FocusUi.row(activity)
+            row.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = FocusUi.dp(activity, 9) }
+            pair.forEachIndexed { index, tile ->
+                val tileView = buildGridTile(tile)
+                tileView.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (index == 0) marginEnd = FocusUi.dp(activity, 9)
+                }
+                row.addView(tileView)
+            }
+            column.addView(row)
         }
+        return column
+    }
+
+    private fun buildGridTile(tile: GridTile): View {
+        val card = FocusUi.card(activity, tokens) { activity.startActivity(tile.intent) }
+
+        val topRow = FocusUi.row(activity)
+        topRow.addView(FocusUi.categoryIcon(activity, tokens, tile.icon, tokens.accent, 20))
+        val spacer = View(activity)
+        spacer.layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+        topRow.addView(spacer)
+        val value = FocusUi.caption(activity, tokens, tile.value)
+        value.setTextColor(tile.valueColor)
+        topRow.addView(value)
+        card.addView(topRow)
+
+        card.addView(FocusUi.spacer(activity, 8))
+        card.addView(FocusUi.rowTitle(activity, tokens, tile.title))
         return card
     }
 
-    private data class Editor(val title: String, val subtitle: String, val intent: Intent, val icon: Int)
+    // ── Always allowed · What FocusLock may do · Profiles ──────────
+
+    private fun buildQuickLinksCard(): View {
+        val card = FocusUi.card(activity, tokens)
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
+                activity.getString(R.string.rules_editor_always_allowed_title),
+                activity.getString(R.string.common_apps_count, AppRules.alwaysAllowed(activity).size),
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, AlwaysAllowedActivity::class.java)) }
+        )
+        card.addView(FocusUi.divider(activity, tokens))
+
+        val enabledCount = Capabilities.all.count { CapabilityRegistry.isEnabled(activity, it.id) }
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
+                activity.getString(R.string.capabilities_title),
+                activity.getString(R.string.rules_capabilities_count, enabledCount, Capabilities.all.size),
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, CapabilitiesActivity::class.java)) }
+        )
+        card.addView(FocusUi.divider(activity, tokens))
+
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
+                activity.getString(R.string.rules_profiles_title),
+                activity.getString(R.string.rules_profiles_subtitle),
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, ProfilesActivity::class.java)) }
+        )
+        return card
+    }
 
     // ── Test the block ────────────────────────────────────────────
 
@@ -227,39 +216,52 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
      * [TestMode]), and it can be ended from here or from the intercept screen
      * itself at any time.
      */
-    private fun buildTestCard(): View {
-        val card = FocusUi.card(activity, tokens)
+    private fun buildTestSection(): View {
+        val column = FocusUi.column(activity)
         val active = TestMode.isActive(activity)
-        card.addView(
-            FocusUi.secondary(
-                activity,
-                tokens,
-                if (active) {
-                    activity.getString(R.string.rules_test_active_body, TestMode.formatRemaining(activity))
-                } else {
-                    activity.getString(R.string.rules_test_inactive_body)
-                }
-            )
-        )
-        card.addView(FocusUi.spacer(activity, 10))
 
         when {
-            active -> card.addView(
-                FocusUi.dangerButton(activity, tokens, activity.getString(R.string.rules_test_end_button)) {
-                    TestMode.end(activity)
-                    render()
-                }
-            )
-            !TestMode.canStart(activity) -> card.addView(
+            active -> {
+                column.addView(
+                    FocusUi.secondary(activity, tokens, activity.getString(R.string.rules_test_active_body, TestMode.formatRemaining(activity)))
+                )
+                column.addView(FocusUi.spacer(activity, 10))
+                column.addView(
+                    buildOutlineIconButton(R.drawable.ic_glyph_break, activity.getString(R.string.rules_test_end_button), tokens.danger) {
+                        TestMode.end(activity)
+                        render()
+                    }
+                )
+            }
+            !TestMode.canStart(activity) -> column.addView(
                 FocusUi.caption(activity, tokens, activity.getString(R.string.rules_test_session_running))
             )
-            else -> card.addView(
-                FocusUi.primaryButton(activity, tokens, activity.getString(R.string.rules_test_start_button)) {
+            else -> column.addView(
+                buildOutlineIconButton(R.drawable.ic_glyph_break, activity.getString(R.string.rules_test_start_button), tokens.accent) {
                     pickTestLength()
                 }
             )
         }
-        return card
+        return column
+    }
+
+    private fun buildOutlineIconButton(icon: Int, label: String, tint: Int, onClick: () -> Unit): View {
+        val row = FocusUi.row(activity)
+        row.gravity = Gravity.CENTER
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            FocusUi.dp(activity, tokens.density.buttonHeightDp)
+        )
+        row.background = FocusUi.roundedShape(activity, UiPrefs.withAlpha(tokens.surface, 0), tokens.buttonRadiusDp, tokens.divider)
+        row.isClickable = true
+        row.isFocusable = true
+        row.setOnClickListener { onClick() }
+        row.addView(FocusUi.categoryIcon(activity, tokens, icon, tint, 18))
+        row.addView(FocusUi.spacerH(activity, 9))
+        val text = FocusUi.rowTitle(activity, tokens, label)
+        text.setTextColor(tint)
+        row.addView(text)
+        return row
     }
 
     private fun pickTestLength() {
@@ -283,241 +285,5 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 FocusDialog.toast(activity, activity.getString(R.string.rules_test_session_running_toast))
             }
         }
-    }
-
-    // ── Capabilities ──────────────────────────────────────────────
-
-    private fun buildCapabilityIntro(): View {
-        val card = FocusUi.card(activity, tokens)
-        card.addView(FocusUi.secondary(activity, tokens, activity.getString(R.string.rules_capability_intro)))
-        return card
-    }
-
-    /**
-     * Groups start collapsed except the first, so the list reads as seven
-     * decisions rather than forty. The count in the header is the thing people
-     * actually scan for.
-     */
-    private fun buildCapabilityGroup(group: CapabilityGroup, specs: List<CapabilitySpec>): View {
-        val card = FocusUi.card(activity, tokens)
-        val isCollapsed = collapsed[group.name] ?: (group != CapabilityGroup.MODES)
-        val enabledCount = specs.count { CapabilityRegistry.isEnabled(activity, it.id) }
-
-        val header = FocusUi.row(activity)
-        header.isClickable = true
-        header.isFocusable = true
-        header.setOnClickListener {
-            collapsed[group.name] = !isCollapsed
-            render()
-        }
-
-        val titleColumn = FocusUi.column(activity)
-        titleColumn.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        titleColumn.addView(FocusUi.heading(activity, tokens, group.label))
-        titleColumn.addView(FocusUi.caption(activity, tokens, group.blurb))
-        header.addView(titleColumn)
-
-        header.addView(
-            FocusUi.pill(
-                activity,
-                tokens,
-                enabledCount.toString() + "/" + specs.size,
-                if (enabledCount > 0) tokens.accent else tokens.textMuted
-            )
-        )
-        val marker = FocusUi.chevron(activity, tokens)
-        marker.text = if (isCollapsed) "›" else "⌄"
-        marker.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { marginStart = FocusUi.dp(activity, 10) }
-        header.addView(marker)
-        card.addView(header)
-
-        if (isCollapsed) return card
-
-        card.addView(FocusUi.spacer(activity, 8))
-        specs.forEachIndexed { index, spec ->
-            card.addView(buildCapabilityRow(spec))
-            if (index < specs.size - 1) card.addView(FocusUi.divider(activity, tokens))
-        }
-        return card
-    }
-
-    private fun buildCapabilityRow(spec: CapabilitySpec): View {
-        val enabled = CapabilityRegistry.isEnabled(activity, spec.id)
-        val blocker = permissionBlocker(spec)
-
-        val column = FocusUi.column(activity)
-
-        val frozen = SessionLock.isFrozen(activity)
-
-        val control = FocusUi.switchControl(activity, tokens, enabled) { value ->
-            if (!CapabilityRegistry.setEnabled(activity, spec.id, value)) {
-                FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                render()
-                return@switchControl
-            }
-            if (!value && spec.weakenNote != null) {
-                FocusDialog.weakenNotice(activity, spec)
-            }
-            if (value && permissionBlocker(spec) != null) {
-                promptForPermission(spec)
-            }
-            render()
-        }
-        control.isEnabled = !frozen
-
-        column.addView(
-            FocusUi.listRow(activity, tokens, spec.label, spec.blurb, trailing = control) {
-                if (frozen) {
-                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                } else {
-                    control.isChecked = !control.isChecked
-                }
-            }
-        )
-
-        if (frozen) {
-            column.addView(FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity)))
-        }
-
-        if (enabled && blocker != null) {
-            val warning = FocusUi.caption(activity, tokens, blocker)
-            warning.setTextColor(tokens.warning)
-            warning.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = FocusUi.dp(activity, 8) }
-            warning.isClickable = true
-            warning.setOnClickListener { promptForPermission(spec) }
-            column.addView(warning)
-        }
-
-        if (enabled && spec.detailScreen != null) {
-            val link = FocusUi.smallButton(activity, tokens, activity.getString(R.string.rules_set_it_up)) {
-                openDetail(spec.detailScreen)
-            }
-            link.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                FocusUi.dp(activity, tokens.density.quickButtonHeightDp)
-            ).apply { bottomMargin = FocusUi.dp(activity, 8) }
-            column.addView(link)
-        }
-
-        return column
-    }
-
-    /** The honest line when a switch is on but Android has not granted the thing it needs. */
-    private fun permissionBlocker(spec: CapabilitySpec): String? = when {
-        spec.needsUsageAccess && !SetupChecks.hasUsageAccess(activity) ->
-            activity.getString(R.string.rules_perm_usage_access)
-        spec.needsAccessibility && !SetupChecks.isContentGuardEnabled(activity) ->
-            activity.getString(R.string.rules_perm_accessibility)
-        spec.needsNotificationAccess && !SetupChecks.isNotificationAccessGranted(activity) ->
-            activity.getString(R.string.rules_perm_notification_access)
-        spec.needsDeviceOwner && !SetupChecks.isDeviceOwner(activity) ->
-            activity.getString(R.string.rules_perm_device_owner)
-        spec.needsLocation && !SetupChecks.hasLocationAccess(activity) ->
-            activity.getString(R.string.rules_perm_location)
-        else -> null
-    }
-
-    private fun promptForPermission(spec: CapabilitySpec) {
-        val intent = when {
-            spec.needsUsageAccess && !SetupChecks.hasUsageAccess(activity) ->
-                Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
-            spec.needsAccessibility && !SetupChecks.isContentGuardEnabled(activity) ->
-                Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            spec.needsNotificationAccess && !SetupChecks.isNotificationAccessGranted(activity) ->
-                Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-            spec.needsDeviceOwner && !SetupChecks.isDeviceOwner(activity) ->
-                Intent(activity, DeviceOwnerHelpActivity::class.java)
-            spec.needsLocation && !SetupChecks.hasLocationAccess(activity) -> {
-                activity.requestPermissions(
-                    arrayOf(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                    ),
-                    REQUEST_LOCATION
-                )
-                null
-            }
-            else -> null
-        } ?: return
-
-        LockManager.allowSettingsUntil(activity, System.currentTimeMillis() + 2 * 60 * 1000)
-        try {
-            activity.startActivity(intent)
-        } catch (_: Exception) {
-            FocusDialog.toast(activity, activity.getString(R.string.common_page_not_available))
-        }
-    }
-
-    private fun openDetail(screen: String) {
-        // Tasks is a tab, not a screen, so it switches rather than pushes.
-        if (screen == Screens.TASKS) {
-            activity.selectTab(MainActivity.TAB_TASKS)
-            return
-        }
-        val intent = when (screen) {
-            Screens.APP_RULES -> Intent(activity, AppRulesActivity::class.java)
-            Screens.WEB_RULES -> Intent(activity, WebAllowlistEditorActivity::class.java)
-            Screens.KEYWORDS -> Intent(activity, KeywordGuardActivity::class.java)
-            Screens.LIMITS -> Intent(activity, AppLimitsActivity::class.java)
-            Screens.SCHEDULES -> Intent(activity, ScheduleActivity::class.java)
-            Screens.BEDTIME -> Intent(activity, BedtimeActivity::class.java)
-            Screens.PLACES -> Intent(activity, PlaceRulesActivity::class.java)
-            Screens.RULES_LIST -> Intent(activity, RuleEditorActivity::class.java)
-            Screens.ALWAYS_ALLOWED -> Intent(activity, AlwaysAllowedActivity::class.java)
-            Screens.PROFILES -> Intent(activity, ProfilesActivity::class.java)
-            Screens.ANALYTICS -> Intent(activity, AnalyticsActivity::class.java)
-            else -> null
-        } ?: return
-        activity.startActivity(intent)
-    }
-
-    // ── Profiles ──────────────────────────────────────────────────
-
-    private fun buildProfileCard(): View {
-        val card = FocusUi.card(activity, tokens)
-        card.addView(
-            FocusUi.listRow(
-                activity,
-                tokens,
-                activity.getString(R.string.rules_profiles_title),
-                activity.getString(R.string.rules_profiles_subtitle),
-                trailing = FocusUi.chevron(activity, tokens)
-            ) { activity.startActivity(Intent(activity, ProfilesActivity::class.java)) }
-        )
-        card.addView(FocusUi.divider(activity, tokens))
-        card.addView(
-            FocusUi.listRow(
-                activity,
-                tokens,
-                activity.getString(R.string.rules_reset_title),
-                activity.getString(R.string.rules_reset_subtitle),
-                trailing = FocusUi.chevron(activity, tokens)
-            ) {
-                FocusDialog.alert(
-                    activity,
-                    title = activity.getString(R.string.rules_reset_confirm_title),
-                    message = activity.getString(R.string.rules_reset_confirm_message),
-                    confirmLabel = activity.getString(R.string.rules_reset_confirm_button),
-                    cancelLabel = activity.getString(R.string.common_cancel),
-                    onConfirm = {
-                        if (!CapabilityRegistry.resetToDefaults(activity)) {
-                            FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                        }
-                        render()
-                    }
-                )
-            }
-        )
-        return card
-    }
-
-    companion object {
-        private const val REQUEST_LOCATION = 4711
     }
 }

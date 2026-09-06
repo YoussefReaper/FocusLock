@@ -44,6 +44,11 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
 
         add(buildProgressCard())
 
+        if (UiPrefs.showStats(activity) && UsageAnalytics.isEnabled(activity)) {
+            add(FocusUi.sectionLabel(activity, tokens, "Today"))
+            add(buildTodayStats())
+        }
+
         add(FocusUi.sectionLabel(activity, tokens, "Make it yours"))
         add(buildAppearanceCard())
 
@@ -103,6 +108,42 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             card.addView(FocusUi.secondary(activity, tokens, Copy.relapseNote(activity)))
         }
         return card
+    }
+
+    /**
+     * Moved here from the Focus tab (design doc, "one shared line ... today's
+     * stats move to Your time - they are not a decision"). "So far" above is
+     * the lifetime total; this is just today, which is what most people
+     * actually glance at.
+     */
+    private fun buildTodayStats(): View {
+        val report = UsageAnalytics.today(activity)
+        val row = FocusUi.row(activity)
+        row.addView(
+            FocusUi.statTile(activity, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time")
+        )
+        row.addView(FocusUi.statTile(activity, tokens, report.opens.toString(), "App opens"))
+        row.addView(
+            FocusUi.statTile(
+                activity,
+                tokens,
+                AppRules.blockedPackages(activity).size.toString(),
+                "Apps blocked"
+            )
+        )
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = FocusUi.dp(activity, tokens.density.gapDp) }
+
+        val wrapper = FocusUi.column(activity)
+        wrapper.addView(row)
+        wrapper.addView(
+            FocusUi.ghostButton(activity, tokens, "See where the time went") {
+                activity.startActivity(Intent(activity, AnalyticsActivity::class.java))
+            }
+        )
+        return wrapper
     }
 
     // ── Appearance ────────────────────────────────────────────────

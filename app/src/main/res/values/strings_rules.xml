@@ -15,6 +15,7 @@
     <!-- ── Common, reused across two or more of these screens ───────── -->
 
     <string name="common_cancel">Cancel</string>
+    <string name="common_close">Close</string>
     <string name="common_save">Save</string>
     <string name="common_add">Add</string>
     <string name="common_remove">Remove</string>
@@ -65,33 +66,21 @@
 
     <string name="rules_title">Rules</string>
     <string name="rules_subtitle">Every one of these is yours to set. Nothing here is decided for you.</string>
-    <string name="rules_section_what_to_manage">What to manage</string>
-    <string name="rules_section_capabilities">Capabilities</string>
-    <string name="rules_section_move_setup">Move your setup</string>
-    <string name="rules_stat_apps_blocked">Apps blocked</string>
-    <string name="rules_stat_words_watched">Words watched</string>
-    <string name="rules_stat_rules_and_windows">Rules and windows</string>
+    <string name="rules_grid_blocked_count">%1$d blocked</string>
+    <string name="rules_capabilities_count">%1$d of %2$d</string>
 
     <string name="rules_editor_apps_title">Apps</string>
-    <string name="rules_editor_apps_subtitle">%1$d blocked, %2$d always allowed</string>
     <string name="rules_editor_always_allowed_title">Always-allowed apps</string>
-    <string name="rules_editor_always_allowed_subtitle">Essentials nothing can lock away</string>
     <string name="rules_editor_websites_title">Websites</string>
-    <string name="rules_editor_websites_subtitle">%1$d sites on the list</string>
     <string name="rules_editor_keyword_guard_title">Keyword guard</string>
-    <string name="rules_editor_keyword_guard_subtitle">%1$d of your own words</string>
     <string name="rules_editor_schedules_title">Schedules</string>
-    <string name="rules_editor_schedules_subtitle">%1$d quiet windows</string>
     <string name="rules_editor_daily_limits_title">Daily limits</string>
-    <string name="rules_editor_daily_limits_subtitle">%1$d budgets set</string>
     <string name="rules_editor_bedtime_title">Bedtime</string>
     <string name="rules_editor_places_title">Places and networks</string>
-    <string name="rules_editor_places_subtitle">%1$d saved</string>
     <string name="rules_editor_custom_rules_title">Custom rules</string>
-    <string name="rules_editor_custom_rules_subtitle">%1$d if-this-then-that rules</string>
-    <string name="rules_editor_tasks_title">Tasks and earning</string>
-    <string name="rules_editor_tasks_subtitle">%1$d open · %2$s</string>
-    <string name="rules_editor_tasks_off">Earn mode is off</string>
+
+    <string name="capabilities_title">What FocusLock may do</string>
+    <string name="capabilities_needs_access_chip">Needs access</string>
 
     <string name="rules_capability_intro">Every behaviour FocusLock has is one switch here. Turn any of them off and it stops immediately. If a switch needs a permission Android has not granted yet, it says so.</string>
 

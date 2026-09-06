@@ -12,6 +12,7 @@
     <!-- ── Common, reused across two or more of these screens ───────── -->
 
     <string name="common_cancel">إلغاء</string>
+    <string name="common_close">إغلاق</string>
     <string name="common_save">حفظ</string>
     <string name="common_add">إضافة</string>
     <string name="common_remove">إزالة</string>
@@ -62,33 +63,21 @@
 
     <string name="rules_title">القواعد</string>
     <string name="rules_subtitle">كل واحدة من هذه لك أنت لتحددها. لا شيء هنا يُقرَّر نيابةً عنك.</string>
-    <string name="rules_section_what_to_manage">ما الذي تديره</string>
-    <string name="rules_section_capabilities">القدرات</string>
-    <string name="rules_section_move_setup">انقل إعدادك</string>
-    <string name="rules_stat_apps_blocked">تطبيقات محظورة</string>
-    <string name="rules_stat_words_watched">كلمات تتم مراقبتها</string>
-    <string name="rules_stat_rules_and_windows">قواعد ونوافذ زمنية</string>
+    <string name="rules_grid_blocked_count">%1$d محظور</string>
+    <string name="rules_capabilities_count">%1$d من %2$d</string>
 
     <string name="rules_editor_apps_title">التطبيقات</string>
-    <string name="rules_editor_apps_subtitle">%1$d محظورة، %2$d مسموح بها دائمًا</string>
     <string name="rules_editor_always_allowed_title">التطبيقات المسموح بها دائمًا</string>
-    <string name="rules_editor_always_allowed_subtitle">أساسيات لا يمكن لأي شيء حبسها</string>
     <string name="rules_editor_websites_title">المواقع الإلكترونية</string>
-    <string name="rules_editor_websites_subtitle">%1$d موقعًا في القائمة</string>
     <string name="rules_editor_keyword_guard_title">حارس الكلمات المفتاحية</string>
-    <string name="rules_editor_keyword_guard_subtitle">%1$d من كلماتك الخاصة</string>
     <string name="rules_editor_schedules_title">الجداول الزمنية</string>
-    <string name="rules_editor_schedules_subtitle">%1$d نوافذ هادئة</string>
     <string name="rules_editor_daily_limits_title">الحدود اليومية</string>
-    <string name="rules_editor_daily_limits_subtitle">%1$d ميزانيات مضبوطة</string>
     <string name="rules_editor_bedtime_title">وقت النوم</string>
     <string name="rules_editor_places_title">الأماكن والشبكات</string>
-    <string name="rules_editor_places_subtitle">%1$d محفوظة</string>
     <string name="rules_editor_custom_rules_title">قواعد مخصصة</string>
-    <string name="rules_editor_custom_rules_subtitle">%1$d قواعد من نوع إن-حدث-فافعل</string>
-    <string name="rules_editor_tasks_title">المهام والكسب</string>
-    <string name="rules_editor_tasks_subtitle">%1$d مفتوحة · %2$s</string>
-    <string name="rules_editor_tasks_off">وضع الكسب مطفأ</string>
+
+    <string name="capabilities_title">ما الذي يمكن لـ FocusLock فعله</string>
+    <string name="capabilities_needs_access_chip">يحتاج إذنًا</string>
 
     <string name="rules_capability_intro">كل سلوك يملكه FocusLock هو مفتاح واحد هنا. أطفئ أيًا منها فيتوقف فورًا. إذا احتاج مفتاح إذنًا لم يمنحه أندرويد بعد، فسيقول ذلك.</string>
 
