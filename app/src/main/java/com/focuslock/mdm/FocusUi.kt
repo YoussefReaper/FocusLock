@@ -233,6 +233,35 @@ object FocusUi {
         return scroll
     }
 
+    /**
+     * A scroll view that shrinks to fit short content but never grows past
+     * [maxHeightPx] - the fix for a bottom sheet whose body can run longer
+     * than the screen. Giving a `NestedScrollView` a WRAP_CONTENT height (as
+     * a naive fix might) doesn't make it scroll at all - there's nothing to
+     * clip against, so it just measures as tall as its content and the sheet
+     * grows off the bottom of the screen, taking the Save button with it.
+     * This clamps the measure spec directly instead, so content under the
+     * cap sizes naturally and content over it actually scrolls.
+     */
+    fun boundedScroll(context: Context, content: View, maxHeightPx: Int): NestedScrollView {
+        val scroll = object : NestedScrollView(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxHeightPx, MeasureSpec.AT_MOST))
+            }
+        }
+        scroll.isFillViewport = false
+        scroll.clipToPadding = false
+        scroll.addView(
+            content,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+        return scroll
+    }
+
+    /** A dialog's own body should never eat the whole screen - this leaves room above it (title/subtitle) and below it (the action row) so both stay visible no matter how long the body is. */
+    fun dialogScrollMaxHeight(context: Context): Int =
+        (context.resources.displayMetrics.heightPixels * 0.52f).toInt()
+
     fun horizontalScroll(context: Context, content: View): android.widget.HorizontalScrollView {
         val scroll = android.widget.HorizontalScrollView(context)
         scroll.isHorizontalScrollBarEnabled = false
@@ -1207,5 +1236,70 @@ object FocusUi {
             container.addView(subtitleView)
         }
         return container
+    }
+
+    /**
+     * The edit-in-place shell's persistent top bar: a close glyph, the
+     * screen's title, and a Save pill that never scrolls away - the design
+     * doc's "input panels" fix, and the actual cause of a Save button that
+     * used to be unreachable once a dialog's body ran long. Kept outside the
+     * scroll entirely (see [FocusEditorActivity]), not just pinned within it.
+     */
+    fun editorHeader(
+        context: Context,
+        tokens: UiPrefs.Tokens,
+        titleText: String,
+        saveLabel: String,
+        saveEnabled: Boolean,
+        onClose: () -> Unit,
+        onSave: () -> Unit
+    ): LinearLayout {
+        val bar = row(context)
+        bar.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        val padH = dp(context, tokens.density.contentPaddingDp)
+        bar.setPadding(padH, dp(context, 14), padH, dp(context, 14))
+
+        val close = TextView(context)
+        close.text = "✕"
+        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(16f))
+        close.setTextColor(tokens.textSecondary)
+        applyFont(close, tokens, weight = 500)
+        close.isClickable = true
+        close.isFocusable = true
+        val closePad = dp(context, 8)
+        close.setPadding(closePad, closePad, closePad, closePad)
+        close.setOnClickListener { onClose() }
+        bar.addView(close)
+        bar.addView(spacerH(context, 10))
+
+        val titleView = text(context, tokens, titleText, 17f, tokens.textPrimary, 700)
+        titleView.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        bar.addView(titleView)
+        bar.addView(spacerH(context, 10))
+
+        val save = TextView(context)
+        save.text = saveLabel
+        save.gravity = Gravity.CENTER
+        save.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(14f))
+        save.setTextColor(if (saveEnabled) tokens.onAccent else tokens.textMuted)
+        applyFont(save, tokens, weight = 600)
+        val saveHorizontal = dp(context, 16)
+        save.setPadding(saveHorizontal, 0, saveHorizontal, 0)
+        save.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(context, 36))
+        save.background = if (saveEnabled) {
+            gradientShape(context, tokens.accent, gradientDeep(tokens.accent), 12)
+        } else {
+            roundedShape(context, tokens.surfaceAlt, 12)
+        }
+        save.isClickable = saveEnabled
+        save.isFocusable = saveEnabled
+        save.alpha = if (saveEnabled) 1f else 0.6f
+        if (saveEnabled) save.setOnClickListener { onSave() }
+        bar.addView(save)
+
+        return bar
     }
 }

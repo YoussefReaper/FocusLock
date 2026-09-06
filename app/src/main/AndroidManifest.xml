@@ -182,6 +182,13 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ScheduleEditorActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:lockTaskMode="if_whitelisted"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".EarnSessionActivity"
             android:exported="false"
             android:launchMode="singleTop"

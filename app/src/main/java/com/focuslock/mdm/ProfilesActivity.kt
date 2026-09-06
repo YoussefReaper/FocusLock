@@ -119,7 +119,7 @@ class ProfilesActivity : FocusScreenActivity() {
             subtitle = ProfileIo.describe(this, profile.payload),
             confirmLabel = null,
             cancelLabel = "Close"
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, _ ->
             body.addView(
                 FocusUi.primaryButton(this, dialogTokens, "Switch to this setup") {
                     confirmRestore(profile.name, profile.payload)
@@ -164,7 +164,7 @@ class ProfilesActivity : FocusScreenActivity() {
                 }
                 refresh()
             }
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, _ ->
             body.addView(
                 FocusUi.secondary(
                     this,

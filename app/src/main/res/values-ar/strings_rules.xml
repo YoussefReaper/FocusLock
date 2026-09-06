@@ -37,6 +37,7 @@
     <string name="common_ends_at">ينتهي الساعة</string>
     <string name="common_starts_label">يبدأ</string>
     <string name="common_ends_label">ينتهي</string>
+    <string name="common_when_label">الوقت</string>
     <string name="common_which_days_title">أي أيام؟</string>
     <string name="common_day_mon">إث</string>
     <string name="common_day_tue">ثل</string>
@@ -461,11 +462,13 @@
     <string name="schedule_new_window_title">نافذة جديدة</string>
     <string name="schedule_edit_window_title">تعديل النافذة</string>
     <string name="schedule_edit_subtitle">داخل نافذة، سيفتح فقط تطبيقاتك المسموح بها دائمًا والإضافات التي تختارها.</string>
+    <string name="schedule_shows_on_block_caption">يظهر في شاشة الحظر أثناء تشغيله.</string>
 
     <string name="schedule_starts_toast">يبدأ %1$s</string>
     <string name="schedule_ends_toast">ينتهي %1$s</string>
 
     <string name="schedule_caption_repeats">التكرار</string>
+    <string name="schedule_repeats_row_title">يتكرر</string>
     <string name="schedule_repeat_certain_days">أيام معينة</string>
     <string name="schedule_repeat_once_a_month">مرة كل شهر</string>
 

@@ -23,7 +23,7 @@ import java.util.Locale
  *
  * Everything saves as you go. There is no "unsaved changes" state to lose.
  */
-class TaskEditorActivity : FocusScreenActivity() {
+class TaskEditorActivity : FocusEditorActivity() {
 
     private var task: FocusTask = FocusTaskStore.newTask("")
     private var isNew = true
@@ -46,9 +46,15 @@ class TaskEditorActivity : FocusScreenActivity() {
         mutate { it.copy(attachments = it.attachments + Attachment(kind, uri.toString(), fileLabel(uri))) }
     }
 
-    override fun screenTitle(): String = if (isNew) getString(R.string.task_editor_title_new) else getString(R.string.task_editor_title_existing)
+    override fun editorTitle(): String = if (isNew) getString(R.string.task_editor_title_new) else getString(R.string.task_editor_title_existing)
 
-    override fun screenSubtitle(): String? = null
+    /** Grayed out until there's a title to save - the header Save button replaces the old buried one, so this is the only place that guard lives now. */
+    override fun canSave(): Boolean = task.title.isNotBlank()
+
+    override fun onSave() {
+        mutate { it }
+        FocusDialog.toast(this, getString(R.string.task_editor_toast_saved))
+    }
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         val id = intent.getStringExtra(EXTRA_TASK_ID)
@@ -131,17 +137,6 @@ class TaskEditorActivity : FocusScreenActivity() {
             }
         })
         card.addView(notesField)
-
-        card.addView(
-            FocusUi.secondaryButton(this, tokens, if (isNew) getString(R.string.task_editor_save_new) else getString(R.string.task_editor_save_existing)) {
-                if (task.title.isBlank()) {
-                    FocusDialog.toast(this, getString(R.string.task_editor_toast_needs_title))
-                } else {
-                    mutate { it }
-                    FocusDialog.toast(this, getString(R.string.task_editor_toast_saved))
-                }
-            }
-        )
     }
 
     // ── Subtasks ──────────────────────────────────────────────────
@@ -185,15 +180,31 @@ class TaskEditorActivity : FocusScreenActivity() {
         }
 
         card.addView(FocusUi.spacer(this, 8))
-        card.addView(
-            FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_step_button)) {
-                FocusDialog.textInput(this, getString(R.string.task_editor_add_step_title), null, getString(R.string.task_editor_add_step_hint)) { value ->
-                    if (value.isNotBlank()) {
-                        mutate { it.copy(subtasks = it.subtasks + FocusTaskStore.newSubtask(value)) }
-                    }
+        card.addView(buildAddStepField())
+    }
+
+    /**
+     * A step types itself in, rather than opening a dialog to add one - the
+     * doc's "edit in place" rule applied to the one thing on this screen that
+     * still handed off to a sheet. Enter (or the keyboard's own submit
+     * action) adds it and clears the field for the next one immediately.
+     */
+    private fun buildAddStepField(): View {
+        val field = FocusUi.input(this, tokens, getString(R.string.task_editor_add_step_hint))
+        field.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+        field.setSingleLine(true)
+        field.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                val value = field.text.toString()
+                if (value.isNotBlank()) {
+                    mutate { it.copy(subtasks = it.subtasks + FocusTaskStore.newSubtask(value)) }
                 }
+                true
+            } else {
+                false
             }
-        )
+        }
+        return field
     }
 
     private fun confirmRemoveSubtask(subtask: Subtask) {

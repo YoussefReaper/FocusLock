@@ -108,15 +108,10 @@
 
     <string name="task_editor_title_hint">ما هي المهمة؟</string>
     <string name="task_editor_notes_hint">ملاحظات</string>
-    <string name="task_editor_save_new">حفظ المهمة</string>
-    <string name="task_editor_save_existing">حفظ التغييرات</string>
-    <string name="task_editor_toast_needs_title">تحتاج عنوانًا أولًا.</string>
     <string name="task_editor_toast_saved">تم الحفظ.</string>
 
     <string name="task_editor_no_steps">لا خطوات. أضفها إن كانت المهمة كبيرة بما يكفي ليكون البدء هو الجزء الصعب.</string>
     <string name="task_editor_steps_meter">%1$d من %2$d</string>
-    <string name="task_editor_add_step_button">إضافة خطوة</string>
-    <string name="task_editor_add_step_title">إضافة خطوة</string>
     <string name="task_editor_add_step_hint">ما هي الخطوة؟</string>
     <string name="task_editor_remove_step_message">حذف هذه الخطوة؟</string>
     <string name="task_editor_remove_step_confirm">حذف</string>

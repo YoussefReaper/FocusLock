@@ -302,7 +302,7 @@ class AppRulesActivity : FocusScreenActivity() {
             subtitle = app.packageName,
             confirmLabel = null,
             cancelLabel = getString(R.string.app_rules_done)
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, refreshBody ->
             body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.app_rules_what_happens_caption)))
 
             val current = AppRules.effectivePolicy(this, app.packageName)
@@ -317,6 +317,7 @@ class AppRulesActivity : FocusScreenActivity() {
                     FocusUi.listRow(this, dialogTokens, policy.label, policy.blurb, trailing = marker) {
                         val applied = AppRules.setPolicy(this, app.packageName, policy)
                         refresh()
+                        refreshBody()
                         FocusDialog.toast(
                             this,
                             if (applied) {
@@ -347,7 +348,7 @@ class AppRulesActivity : FocusScreenActivity() {
                         getString(R.string.app_rules_no_budget)
                     },
                     trailing = FocusUi.chevron(this, dialogTokens)
-                ) { askMinuteLimit(app) }
+                ) { askMinuteLimit(app, refreshBody) }
             )
 
             val openLimit = AppLimits.allOpenLimits(this)[app.packageName] ?: 0
@@ -366,7 +367,7 @@ class AppRulesActivity : FocusScreenActivity() {
                         getString(R.string.app_rules_no_cap)
                     },
                     trailing = FocusUi.chevron(this, dialogTokens)
-                ) { askOpenLimit(app) }
+                ) { askOpenLimit(app, refreshBody) }
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
@@ -385,6 +386,7 @@ class AppRulesActivity : FocusScreenActivity() {
                         FocusDialog.toast(this, SessionLock.refusalMessage(this))
                     }
                     refresh()
+                    refreshBody()
                 }
             )
 
@@ -395,7 +397,7 @@ class AppRulesActivity : FocusScreenActivity() {
                     getString(R.string.app_rules_category_label),
                     getString(R.string.app_rules_category_tap_to_correct, app.category.label),
                     trailing = FocusUi.chevron(this, dialogTokens)
-                ) { pickCategory(app) }
+                ) { pickCategory(app, refreshBody) }
             )
 
             if (AppRules.explicitPolicy(this, app.packageName) != null) {
@@ -405,13 +407,14 @@ class AppRulesActivity : FocusScreenActivity() {
                             FocusDialog.toast(this, SessionLock.refusalMessage(this))
                         }
                         refresh()
+                        refreshBody()
                     }
                 )
             }
         }
     }
 
-    private fun askMinuteLimit(app: InstalledApp) {
+    private fun askMinuteLimit(app: InstalledApp, onSaved: (() -> Unit)? = null) {
         FocusDialog.textInput(
             this,
             title = getString(R.string.app_rules_minute_limit_title, app.label),
@@ -428,10 +431,11 @@ class AppRulesActivity : FocusScreenActivity() {
                 offerToEnable(Capabilities.PER_APP_LIMITS)
             }
             refresh()
+            onSaved?.invoke()
         }
     }
 
-    private fun askOpenLimit(app: InstalledApp) {
+    private fun askOpenLimit(app: InstalledApp, onSaved: (() -> Unit)? = null) {
         FocusDialog.textInput(
             this,
             title = getString(R.string.app_rules_open_limit_title, app.label),
@@ -448,6 +452,7 @@ class AppRulesActivity : FocusScreenActivity() {
                 offerToEnable(Capabilities.OPEN_COUNT_LIMITS)
             }
             refresh()
+            onSaved?.invoke()
         }
     }
 
@@ -472,7 +477,7 @@ class AppRulesActivity : FocusScreenActivity() {
         )
     }
 
-    private fun pickCategory(app: InstalledApp) {
+    private fun pickCategory(app: InstalledApp, onSaved: (() -> Unit)? = null) {
         FocusDialog.singleChoice(
             this,
             title = getString(R.string.app_rules_category_for_title, app.label),
@@ -486,6 +491,7 @@ class AppRulesActivity : FocusScreenActivity() {
                 FocusDialog.toast(this, SessionLock.refusalMessage(this))
             }
             refresh()
+            onSaved?.invoke()
         }
     }
 }

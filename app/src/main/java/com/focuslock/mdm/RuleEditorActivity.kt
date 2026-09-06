@@ -276,7 +276,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                 RuleStore.update(this, working)
                 refresh()
             }
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, refreshBody ->
 
             body.addView(
                 FocusUi.listRow(
@@ -295,7 +295,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                     ) { value ->
                         working = working.copy(label = value)
                         RuleStore.update(this, working)
-                        refresh()
+                        refreshBody()
                     }
                 }
             )
@@ -309,7 +309,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                     describeTarget(working),
                     getString(R.string.common_tap_to_change),
                     trailing = FocusUi.chevron(this, dialogTokens)
-                ) { pickTarget(working) { updated -> working = updated } }
+                ) { pickTarget(working) { updated -> working = updated; refreshBody() } }
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
@@ -321,7 +321,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                     working.conditionType.label,
                     describeCondition(working),
                     trailing = FocusUi.chevron(this, dialogTokens)
-                ) { pickCondition(working) { updated -> working = updated } }
+                ) { pickCondition(working) { updated -> working = updated; refreshBody() } }
             )
 
             body.addView(FocusUi.divider(this, dialogTokens, 8))
@@ -337,6 +337,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                     FocusUi.listRow(this, dialogTokens, action.label, action.blurb, trailing = marker) {
                         working = working.copy(action = action)
                         RuleStore.update(this, working)
+                        refreshBody()
                     }
                 )
             }

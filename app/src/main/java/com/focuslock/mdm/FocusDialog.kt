@@ -411,7 +411,7 @@ object FocusDialog {
             list.addView(FocusUi.spacer(context, 6))
         }
 
-        val scroll = FocusUi.scroll(context, list)
+        val scroll = FocusUi.boundedScroll(context, list, FocusUi.dialogScrollMaxHeight(context))
         scroll.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -633,6 +633,16 @@ object FocusDialog {
     }
 
     /** Free-form themed dialog for screens that need their own body. */
+    /**
+     * @param build Given the body to fill in, the tokens, and a `refresh`
+     * callback. A row whose displayed value comes from a nested picker
+     * (a time, a day set, a chosen app list) has to call `refresh()` after
+     * changing its backing variable, or the row just keeps showing what it
+     * was built with - the dialog is only built once, so mutating a local
+     * `var` never touches the TextView already on screen. `refresh()` tears
+     * the body down and rebuilds it from the current values, which is what
+     * makes an edit actually visible without closing and reopening the sheet.
+     */
     fun custom(
         context: Context,
         title: String,
@@ -640,7 +650,7 @@ object FocusDialog {
         confirmLabel: String? = "Save",
         cancelLabel: String? = "Cancel",
         onConfirm: (() -> Unit)? = null,
-        build: (LinearLayout, UiPrefs.Tokens) -> Unit
+        build: (LinearLayout, UiPrefs.Tokens, () -> Unit) -> Unit
     ): Dialog {
         val tokens = UiPrefs.resolve(context)
         val (dialog, card) = shell(context, tokens)
@@ -649,9 +659,17 @@ object FocusDialog {
 
         val body = LinearLayout(context)
         body.orientation = LinearLayout.VERTICAL
-        build(body, tokens)
+        fun rebuildBody() {
+            body.removeAllViews()
+            build(body, tokens, ::rebuildBody)
+        }
+        rebuildBody()
 
-        val scroll = FocusUi.scroll(context, body)
+        // Bounded, not WRAP_CONTENT: a schedule/task editor's body routinely
+        // runs longer than the screen, and a WRAP_CONTENT scroll view doesn't
+        // scroll at all - it just grows the whole sheet off the bottom,
+        // taking Save with it. See FocusUi.boundedScroll.
+        val scroll = FocusUi.boundedScroll(context, body, FocusUi.dialogScrollMaxHeight(context))
         scroll.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT

@@ -40,6 +40,7 @@
     <string name="common_ends_at">Ends at</string>
     <string name="common_starts_label">Starts</string>
     <string name="common_ends_label">Ends</string>
+    <string name="common_when_label">When</string>
     <string name="common_which_days_title">Which days?</string>
     <string name="common_day_mon">Mon</string>
     <string name="common_day_tue">Tue</string>
@@ -460,11 +461,13 @@
     <string name="schedule_new_window_title">New window</string>
     <string name="schedule_edit_window_title">Edit window</string>
     <string name="schedule_edit_subtitle">Inside a window, only your always-allowed apps and the extras you pick will open.</string>
+    <string name="schedule_shows_on_block_caption">Shows on the block screen while it runs.</string>
 
     <string name="schedule_starts_toast">Starts %1$s</string>
     <string name="schedule_ends_toast">Ends %1$s</string>
 
     <string name="schedule_caption_repeats">REPEATS</string>
+    <string name="schedule_repeats_row_title">Repeats</string>
     <string name="schedule_repeat_certain_days">Certain days</string>
     <string name="schedule_repeat_once_a_month">Once a month</string>
 

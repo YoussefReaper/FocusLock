@@ -300,7 +300,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             subtitle = activity.getString(R.string.tasks_deal_sheet_subtitle),
             confirmLabel = null,
             cancelLabel = activity.getString(R.string.tasks_deal_sheet_done)
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, _ ->
             body.addView(
                 FocusUi.sliderRow(
                     activity,
@@ -547,7 +547,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 EarnSession.start(activity, task, standalone)
                 openSession()
             }
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, _ ->
             body.addView(
                 FocusUi.secondary(
                     activity,

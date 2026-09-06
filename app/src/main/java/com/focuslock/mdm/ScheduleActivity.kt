@@ -134,207 +134,22 @@ class ScheduleActivity : FocusScreenActivity() {
 
     // ── Editing ───────────────────────────────────────────────────
 
+    /**
+     * Edited on its own screen now, not a dialog - see [ScheduleEditorActivity].
+     * [SessionLock] is still checked here rather than only in the editor, so
+     * the "Add a window" button itself gives the refusal message instead of
+     * opening a screen whose Save could never actually take effect.
+     */
     private fun editWindow(existing: ScheduleWindow?) {
         if (SessionLock.isFrozen(this)) {
             FocusDialog.toast(this, SessionLock.refusalMessage(this))
             return
         }
-        var start = existing?.startMinutes ?: (9 * 60)
-        var end = existing?.endMinutes ?: (11 * 60)
-        var repeat = existing?.repeat ?: RepeatType.DAILY
-        var days = existing?.daysOfWeek?.toSet() ?: emptySet()
-        var dayOfMonth = existing?.dayOfMonth ?: 1
-        var message = existing?.message.orEmpty()
-        var allowedApps = existing?.allowedApps ?: emptySet()
-        var overlay = existing?.overlay ?: false
-
-        FocusDialog.custom(
-            this,
-            title = if (existing == null) getString(R.string.schedule_new_window_title) else getString(R.string.schedule_edit_window_title),
-            subtitle = getString(R.string.schedule_edit_subtitle),
-            confirmLabel = getString(R.string.common_save),
-            cancelLabel = getString(R.string.common_cancel),
-            onConfirm = {
-                if (repeat == RepeatType.WEEKLY && days.isEmpty()) {
-                    FocusDialog.toast(this, getString(R.string.schedule_pick_day_toast))
-                } else {
-                    val window = existing?.copy(
-                        startMinutes = start,
-                        endMinutes = end,
-                        repeat = repeat,
-                        daysOfWeek = days.toList(),
-                        dayOfMonth = dayOfMonth,
-                        message = message,
-                        allowedApps = allowedApps,
-                        overlay = overlay
-                    ) ?: ScheduleManager.newSchedule(
-                        startMinutes = start,
-                        endMinutes = end,
-                        repeat = repeat,
-                        daysOfWeek = days.toList(),
-                        dayOfMonth = dayOfMonth,
-                        message = message,
-                        allowedApps = allowedApps,
-                        overlay = overlay
-                    )
-                    if (existing == null) {
-                        ScheduleManager.addSchedule(this, window)
-                    } else {
-                        ScheduleManager.updateSchedule(this, window)
-                    }
-                    refresh()
-                }
+        startActivity(
+            android.content.Intent(this, ScheduleEditorActivity::class.java).apply {
+                if (existing != null) putExtra(ScheduleEditorActivity.EXTRA_SCHEDULE_ID, existing.id)
             }
-        ) { body, dialogTokens ->
-
-            val startRow = FocusUi.listRow(
-                this,
-                dialogTokens,
-                getString(R.string.common_starts_label),
-                ScheduleManager.formatTime(start),
-                trailing = FocusUi.chevron(this, dialogTokens)
-            ) {
-                FocusDialog.timePicker(this, getString(R.string.common_starts_at), start) { value ->
-                    start = value
-                    FocusDialog.toast(this, getString(R.string.schedule_starts_toast, ScheduleManager.formatTime(value)))
-                }
-            }
-            body.addView(startRow)
-
-            body.addView(
-                FocusUi.listRow(
-                    this,
-                    dialogTokens,
-                    getString(R.string.common_ends_label),
-                    ScheduleManager.formatTime(end),
-                    trailing = FocusUi.chevron(this, dialogTokens)
-                ) {
-                    FocusDialog.timePicker(this, getString(R.string.common_ends_at), end) { value ->
-                        end = value
-                        FocusDialog.toast(this, getString(R.string.schedule_ends_toast, ScheduleManager.formatTime(value)))
-                    }
-                }
-            )
-
-            body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.schedule_caption_repeats)))
-            RepeatType.values().forEach { type ->
-                val marker = FocusUi.pill(
-                    this,
-                    dialogTokens,
-                    if (type == repeat) getString(R.string.common_now) else getString(R.string.common_set),
-                    if (type == repeat) dialogTokens.accent else dialogTokens.textMuted
-                )
-                body.addView(
-                    FocusUi.listRow(this, dialogTokens, repeatLabel(type), null, trailing = marker) {
-                        repeat = type
-                        if (type == RepeatType.WEEKLY) pickDays(days) { days = it }
-                        if (type == RepeatType.MONTHLY) pickDayOfMonth(dayOfMonth) { dayOfMonth = it }
-                    }
-                )
-            }
-
-            body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(
-                FocusUi.listRow(
-                    this,
-                    dialogTokens,
-                    getString(R.string.schedule_extra_apps_allowed_title),
-                    getString(R.string.common_chosen_count, allowedApps.size),
-                    trailing = FocusUi.chevron(this, dialogTokens)
-                ) {
-                    pickApps(
-                        title = getString(R.string.schedule_pick_allowed_title),
-                        subtitle = getString(R.string.schedule_pick_allowed_subtitle),
-                        selected = allowedApps
-                    ) { selected -> allowedApps = selected }
-                }
-            )
-
-            body.addView(
-                FocusUi.listRow(
-                    this,
-                    dialogTokens,
-                    getString(R.string.schedule_what_it_says_title),
-                    message.ifBlank { getString(R.string.schedule_nothing_yet) },
-                    trailing = FocusUi.chevron(this, dialogTokens)
-                ) {
-                    FocusDialog.textInput(
-                        this,
-                        getString(R.string.schedule_what_says_title),
-                        getString(R.string.schedule_what_says_subtitle),
-                        getString(R.string.schedule_what_says_hint),
-                        message
-                    ) { value -> message = value }
-                }
-            )
-
-            body.addView(FocusUi.divider(this, dialogTokens, 8))
-            body.addView(
-                FocusUi.toggleRow(
-                    this,
-                    dialogTokens,
-                    getString(R.string.schedule_overlay_toggle_title),
-                    getString(R.string.schedule_overlay_toggle_subtitle),
-                    overlay
-                ) { value -> overlay = value }
-            )
-
-            if (existing != null) {
-                body.addView(FocusUi.divider(this, dialogTokens, 8))
-                body.addView(
-                    FocusUi.dangerButton(this, dialogTokens, getString(R.string.schedule_delete_window)) {
-                        ScheduleManager.removeSchedule(this, existing.id)
-                        refresh()
-                    }
-                )
-            }
-        }
-    }
-
-    private fun repeatLabel(type: RepeatType): String = when (type) {
-        RepeatType.DAILY -> getString(R.string.common_every_day)
-        RepeatType.WEEKLY -> getString(R.string.schedule_repeat_certain_days)
-        RepeatType.MONTHLY -> getString(R.string.schedule_repeat_once_a_month)
-    }
-
-    private fun pickDays(current: Set<Int>, onSave: (Set<Int>) -> Unit) {
-        val days = listOf(
-            Calendar.MONDAY to getString(R.string.common_day_monday),
-            Calendar.TUESDAY to getString(R.string.common_day_tuesday),
-            Calendar.WEDNESDAY to getString(R.string.common_day_wednesday),
-            Calendar.THURSDAY to getString(R.string.common_day_thursday),
-            Calendar.FRIDAY to getString(R.string.common_day_friday),
-            Calendar.SATURDAY to getString(R.string.common_day_saturday),
-            Calendar.SUNDAY to getString(R.string.common_day_sunday)
         )
-        FocusDialog.multiChoice(
-            this,
-            getString(R.string.common_which_days_title),
-            null,
-            days.map { FocusDialog.Choice(it.first.toString(), it.second) },
-            current.map { it.toString() }.toSet()
-        ) { selected ->
-            onSave(selected.mapNotNull { it.toIntOrNull() }.toSet())
-        }
-    }
-
-    private fun pickDayOfMonth(current: Int, onSave: (Int) -> Unit) {
-        FocusDialog.textInput(
-            this,
-            getString(R.string.schedule_which_day_of_month_title),
-            getString(R.string.schedule_day_of_month_subtitle),
-            getString(R.string.schedule_day_hint),
-            current.toString(),
-            numeric = true
-        ) { value ->
-            val parsed = value.toIntOrNull()
-            if (parsed == null || parsed !in 1..31) {
-                FocusDialog.toast(this, getString(R.string.schedule_day_range_toast))
-            } else {
-                onSave(parsed)
-            }
-        }
     }
 
     // ── Plan ──────────────────────────────────────────────────────

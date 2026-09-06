@@ -217,7 +217,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                 KeywordRules.update(this, working)
                 refresh()
             }
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, refreshBody ->
             body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.keyword_guard_caption_where)))
             body.addView(
                 FocusUi.listRow(
@@ -234,6 +234,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     ) { selected ->
                         working = working.copy(packages = selected)
                         KeywordRules.update(this, working)
+                        refreshBody()
                     }
                 }
             )
@@ -251,7 +252,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
                     FocusUi.listRow(this, dialogTokens, action.label, action.blurb, trailing = marker) {
                         working = working.copy(action = action)
                         KeywordRules.update(this, working)
-                        FocusDialog.toast(this, action.label)
+                        refreshBody()
                     }
                 )
             }

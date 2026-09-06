@@ -228,7 +228,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
                 PlaceRules.update(this, working)
                 refresh()
             }
-        ) { body, dialogTokens ->
+        ) { body, dialogTokens, refreshBody ->
             body.addView(FocusUi.caption(this, dialogTokens, getString(R.string.place_rules_caption_when)))
             PlaceTrigger.values().forEach { trigger ->
                 val marker = FocusUi.pill(
@@ -241,6 +241,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
                     FocusUi.listRow(this, dialogTokens, trigger.label, null, trailing = marker) {
                         working = working.copy(trigger = trigger)
                         PlaceRules.update(this, working)
+                        refreshBody()
                     }
                 )
             }
@@ -282,6 +283,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
                     ) { selected ->
                         working = working.copy(blockedPackages = selected)
                         PlaceRules.update(this, working)
+                        refreshBody()
                     }
                 }
             )
