@@ -3,8 +3,10 @@ package com.focuslock.mdm
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.text.InputType
 import android.util.TypedValue
@@ -896,9 +898,9 @@ object FocusUi {
         val seek = SeekBar(context)
         seek.max = max - min
         seek.progress = (value - min).coerceIn(0, max - min)
-        seek.progressTintList = ColorStateList.valueOf(tokens.accent)
-        seek.thumbTintList = ColorStateList.valueOf(tokens.accent)
-        seek.progressBackgroundTintList = ColorStateList.valueOf(tokens.track)
+        seek.progressDrawable = sliderTrack(context, tokens)
+        seek.thumb = sliderThumb(context, tokens)
+        seek.splitTrack = false
         seek.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -915,6 +917,39 @@ object FocusUi {
         })
         container.addView(seek)
         return container
+    }
+
+    /**
+     * The Components doc's exact slider spec (4dp track, 20dp knob) instead
+     * of the platform SeekBar's own drawable, which no amount of tint list
+     * ever actually resized - the track stayed platform-thick and the thumb
+     * stayed platform-sized no matter what colour it was given.
+     */
+    private fun sliderTrack(context: Context, tokens: UiPrefs.Tokens): LayerDrawable {
+        val backgroundTrack = roundedShape(context, tokens.track, 2)
+        val progressTrack = ClipDrawable(
+            roundedShape(context, tokens.accent, 2),
+            Gravity.START,
+            ClipDrawable.HORIZONTAL
+        )
+        val layer = LayerDrawable(arrayOf<Drawable>(backgroundTrack, progressTrack))
+        layer.setId(0, android.R.id.background)
+        layer.setId(1, android.R.id.progress)
+        val trackHeightPx = dp(context, 4)
+        layer.setLayerHeight(0, trackHeightPx)
+        layer.setLayerHeight(1, trackHeightPx)
+        layer.setLayerGravity(0, Gravity.CENTER_VERTICAL)
+        layer.setLayerGravity(1, Gravity.CENTER_VERTICAL)
+        return layer
+    }
+
+    private fun sliderThumb(context: Context, tokens: UiPrefs.Tokens): GradientDrawable {
+        val size = dp(context, 20)
+        return GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(tokens.accent)
+            setSize(size, size)
+        }
     }
 
     // ── Chips ─────────────────────────────────────────────────────

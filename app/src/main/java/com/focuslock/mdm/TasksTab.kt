@@ -1,9 +1,13 @@
 package com.focuslock.mdm
 
 import android.content.Intent
+import android.graphics.Paint
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -20,6 +24,11 @@ import java.util.Locale
  * levels — the reward is minutes of your own phone, stated in minutes.
  */
 class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity, tokens) {
+
+    companion object {
+        /** The design doc's fixed "Spend 15m" default - a quick action, not the whole balance. */
+        private const val QUICK_SPEND_MINUTES = 15
+    }
 
     private lateinit var container: LinearLayout
     private var filter = 0
@@ -75,6 +84,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             add(buildBudgetCard())
         }
 
+        add(buildTasksSectionHeader())
         add(FocusUi.chipStrip(activity, tokens, filters, filter) { index ->
             filter = index
             render()
@@ -182,9 +192,8 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
     // ── Budget ────────────────────────────────────────────────────
 
     private fun buildBudgetCard(): View {
-        val card = FocusUi.card(activity, tokens)
-
         if (EarnBudget.isSpending(activity)) {
+            val card = FocusUi.card(activity, tokens)
             val remaining = EarnBudget.remainingSpendMs(activity)
             card.addView(FocusUi.heading(activity, tokens, activity.getString(R.string.tasks_budget_running_heading)))
             card.addView(FocusUi.spacer(activity, 6))
@@ -209,25 +218,36 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             return card
         }
 
-        val balance = EarnBudget.balanceMinutes(activity)
-
-        val header = FocusUi.row(activity)
-        val title = FocusUi.heading(activity, tokens, EarnBudget.formatBalance(activity))
-        title.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        header.addView(title)
-        if (EarnBudget.earnedToday(activity) > 0) {
-            header.addView(
-                FocusUi.pill(
-                    activity,
-                    tokens,
-                    activity.getString(R.string.tasks_budget_earned_today_pill, EarnBudget.earnedToday(activity)),
-                    tokens.accent
-                )
-            )
+        // The "banked" hero card (design doc: gradient wash, a big mono
+        // number, one spend action). It replaces a plain heading plus two
+        // stacked buttons ("Use N minutes" / "Use 10 minutes") with a single
+        // quick amount and a "+" for anything else - the same range of
+        // amounts, in a fifth of the vertical space.
+        val card = FocusUi.card(activity, tokens, elevated = true)
+        card.background = FocusUi.gradientShape(
+            activity,
+            UiPrefs.blend(tokens.surfaceAlt, tokens.accent, 0.16f),
+            tokens.surface,
+            tokens.cardRadiusDp
+        ).apply {
+            setStroke(FocusUi.dp(activity, 1), UiPrefs.blend(tokens.divider, tokens.accent, 0.35f))
         }
-        card.addView(header)
 
-        card.addView(FocusUi.spacer(activity, 6))
+        val overline = FocusUi.caption(activity, tokens, activity.getString(R.string.tasks_budget_banked_label).uppercase())
+        overline.setTextColor(tokens.accent)
+        FocusUi.applyFont(overline, tokens, mono = true, weight = 600)
+        card.addView(overline)
+        card.addView(FocusUi.spacer(activity, 8))
+
+        val balance = EarnBudget.balanceMinutes(activity)
+        val numberRow = FocusUi.row(activity)
+        numberRow.gravity = Gravity.CENTER_VERTICAL
+        numberRow.addView(FocusUi.display(activity, tokens, balance.toString()))
+        numberRow.addView(FocusUi.spacerH(activity, 8))
+        numberRow.addView(FocusUi.secondary(activity, tokens, activity.getString(R.string.tasks_budget_minutes_unit)))
+        card.addView(numberRow)
+
+        card.addView(FocusUi.spacer(activity, 8))
         card.addView(
             FocusUi.secondary(
                 activity,
@@ -242,6 +262,18 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             )
         )
 
+        if (EarnBudget.earnedToday(activity) > 0) {
+            card.addView(FocusUi.spacer(activity, 8))
+            card.addView(
+                FocusUi.pill(
+                    activity,
+                    tokens,
+                    activity.getString(R.string.tasks_budget_earned_today_pill, EarnBudget.earnedToday(activity)),
+                    tokens.accent
+                )
+            )
+        }
+
         if (balance > 0) {
             card.addView(FocusUi.spacer(activity, 14))
             if (SessionManager.shouldLockTask(activity)) {
@@ -249,17 +281,28 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     FocusUi.caption(activity, tokens, Copy.earnSpendBlockedInKiosk(activity))
                 )
             } else {
-                card.addView(
-                    FocusUi.primaryButton(activity, tokens, activity.getString(R.string.tasks_budget_use_balance_button, balance)) {
-                        confirmSpend(balance)
-                    }
+                val quickAmount = balance.coerceAtMost(QUICK_SPEND_MINUTES)
+                val actionRow = FocusUi.row(activity)
+                val spendButton = FocusUi.primaryButton(
+                    activity,
+                    tokens,
+                    activity.getString(R.string.tasks_budget_quick_spend_button, quickAmount)
+                ) { confirmSpend(quickAmount) }
+                spendButton.layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    FocusUi.dp(activity, tokens.density.buttonHeightDp),
+                    1f
                 )
-                if (balance > 10) {
-                    card.addView(FocusUi.spacer(activity, 8))
-                    card.addView(
-                        FocusUi.secondaryButton(activity, tokens, activity.getString(R.string.tasks_budget_use_ten_button)) { confirmSpend(10) }
-                    )
+                actionRow.addView(spendButton)
+
+                if (balance > quickAmount) {
+                    actionRow.addView(FocusUi.spacerH(activity, 8))
+                    val customButton = FocusUi.secondaryButton(activity, tokens, "+") { askCustomSpend(balance) }
+                    val side = FocusUi.dp(activity, tokens.density.buttonHeightDp)
+                    customButton.layoutParams = LinearLayout.LayoutParams(side, side)
+                    actionRow.addView(customButton)
                 }
+                card.addView(actionRow)
             }
         }
 
@@ -274,6 +317,24 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             ) { openDealSheet() }
         )
         return card
+    }
+
+    private fun askCustomSpend(balance: Int) {
+        FocusDialog.textInput(
+            activity,
+            title = activity.getString(R.string.tasks_budget_custom_spend_title),
+            subtitle = activity.getString(R.string.tasks_budget_custom_spend_subtitle, balance),
+            hint = activity.getString(R.string.tasks_budget_custom_spend_hint),
+            numeric = true,
+            confirmLabel = activity.getString(R.string.tasks_confirm_spend_confirm)
+        ) { value ->
+            val minutes = value.toIntOrNull() ?: 0
+            if (minutes <= 0 || minutes > balance) {
+                FocusDialog.toast(activity, activity.getString(R.string.tasks_budget_custom_spend_invalid, balance))
+                return@textInput
+            }
+            confirmSpend(minutes)
+        }
     }
 
     private fun confirmSpend(minutes: Int) {
@@ -398,7 +459,47 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
     // ── The list ──────────────────────────────────────────────────
 
+    /**
+     * The "Tasks" overline plus how many are done - design doc's Earn Mode
+     * screen shows this right above the filters, not buried in a card.
+     */
+    private fun buildTasksSectionHeader(): View {
+        val row = FocusUi.row(activity)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = FocusUi.dp(activity, 4)
+            bottomMargin = FocusUi.dp(activity, 8)
+        }
+
+        val label = FocusUi.caption(activity, tokens, activity.getString(R.string.tasks_section_label).uppercase())
+        FocusUi.applyFont(label, tokens, mono = true, weight = 600)
+        label.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(label)
+
+        val all = FocusTaskStore.all(activity)
+        if (all.isNotEmpty()) {
+            row.addView(
+                FocusUi.caption(
+                    activity,
+                    tokens,
+                    activity.getString(R.string.tasks_section_done_count, all.count { it.completed }, all.size)
+                )
+            )
+        }
+        return row
+    }
+
+    /**
+     * A currently-running task already gets its own prominent card above
+     * (buildActiveSessionCard) - showing it again here, unchanged, in the
+     * ordinary list was the exact kind of duplication that makes a screen
+     * feel twice as long as it needs to be.
+     */
     private fun buildTaskList(): View {
+        val activeId = EarnSession.activeTask(activity)?.id
         val tasks = when (filter) {
             1 -> FocusTaskStore.overdue(activity)
             2 -> FocusTaskStore.open(activity).sortedWith(
@@ -407,19 +508,17 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             3 -> FocusTaskStore.all(activity).filter { it.completed }
                 .sortedByDescending { it.completedAt ?: 0L }
             else -> FocusTaskStore.dueToday(activity)
-        }
+        }.filter { it.id != activeId }
 
-        val card = FocusUi.card(activity, tokens)
         if (tasks.isEmpty()) {
+            val card = FocusUi.card(activity, tokens)
             card.addView(FocusUi.emptyState(activity, tokens, emptyMessage()))
             return card
         }
 
-        tasks.forEachIndexed { index, task ->
-            card.addView(buildTaskRow(task))
-            if (index < tasks.size - 1) card.addView(FocusUi.divider(activity, tokens))
-        }
-        return card
+        val column = FocusUi.column(activity)
+        tasks.forEach { task -> column.addView(buildTaskCard(task)) }
+        return column
     }
 
     private fun emptyMessage(): String = when (filter) {
@@ -428,28 +527,64 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         else -> activity.getString(R.string.tasks_empty_default)
     }
 
-    private fun buildTaskRow(task: FocusTask): View {
-        val column = FocusUi.column(activity)
+    /**
+     * Its own card, per the design doc's task rows - a checkbox, a title and
+     * status line, and a trailing action, instead of one long card with every
+     * task crammed into it behind dividers.
+     */
+    private fun buildTaskCard(task: FocusTask): View {
+        val card = FocusUi.card(activity, tokens)
+
+        val row = FocusUi.row(activity)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.addView(buildTaskCheckbox(task))
+        row.addView(FocusUi.spacerH(activity, 13))
+
+        val textColumn = FocusUi.column(activity)
+        textColumn.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        val titleView = FocusUi.rowTitle(activity, tokens, task.title)
+        if (task.completed) {
+            titleView.paintFlags = titleView.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            titleView.setTextColor(tokens.textMuted)
+        }
+        textColumn.addView(titleView)
+
+        val subtitle = describe(task)
+        if (subtitle.isNotBlank()) {
+            val subtitleView = FocusUi.caption(activity, tokens, subtitle)
+            subtitleView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FocusUi.dp(activity, 2) }
+            textColumn.addView(subtitleView)
+        }
+        row.addView(textColumn)
 
         val trailing = if (EarnMode.isEnabled(activity) && !task.completed) {
             FocusUi.smallButton(activity, tokens, activity.getString(R.string.tasks_row_start_button)) { startTask(task) }
-        } else {
+        } else if (!task.completed) {
             FocusUi.chevron(activity, tokens)
+        } else {
+            null
+        }
+        if (trailing != null) {
+            row.addView(FocusUi.spacerH(activity, 13))
+            row.addView(trailing)
         }
 
-        column.addView(
-            FocusUi.listRow(
-                activity,
-                tokens,
-                task.title,
-                describe(task),
-                trailing = trailing,
-                leading = priorityDot(task.priority)
-            ) { openEditor(task) }
+        row.isClickable = true
+        row.isFocusable = true
+        row.background = FocusUi.withRipple(
+            activity,
+            FocusUi.roundedShape(activity, UiPrefs.withAlpha(tokens.surface, 0), tokens.rowRadiusDp),
+            tokens
         )
+        row.setOnClickListener { openEditor(task) }
+        card.addView(row)
 
         if (task.subtasks.isNotEmpty() && !task.completed) {
-            column.addView(
+            card.addView(FocusUi.spacer(activity, 8))
+            card.addView(
                 FocusUi.meter(
                     activity,
                     tokens,
@@ -460,7 +595,53 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                 )
             )
         }
-        return column
+        return card
+    }
+
+    /**
+     * A literal checkbox, not a settings-style chevron row - tapping it
+     * finishes a manually-verified task on the spot. Anything that needs a
+     * timer, a photo or its steps ticked cannot be self-certified by a tap
+     * (this app's whole point is verification over an honour system), so
+     * those stay outline-only and the row itself still opens the editor.
+     * The border borrows the old priority dot's colour instead of drawing a
+     * second dot next to it.
+     */
+    private fun buildTaskCheckbox(task: FocusTask): View {
+        val size = FocusUi.dp(activity, 26)
+        val box: View
+
+        if (task.completed) {
+            val check = TextView(activity)
+            check.text = "✓"
+            check.gravity = Gravity.CENTER
+            check.setTextColor(
+                if (FocusUi.isLightColor(tokens.success)) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+            )
+            FocusUi.applyFont(check, tokens, weight = 700)
+            check.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(14f))
+            check.background = FocusUi.roundedShape(activity, tokens.success, 9)
+            box = check
+        } else {
+            box = View(activity)
+            box.background = FocusUi.roundedShape(
+                activity,
+                UiPrefs.withAlpha(tokens.surface, 0),
+                9,
+                priorityColor(task.priority)
+            )
+        }
+        box.layoutParams = LinearLayout.LayoutParams(size, size)
+
+        if (!task.completed && task.verification == Verification.MANUAL) {
+            box.isClickable = true
+            box.isFocusable = true
+            box.setOnClickListener {
+                FocusTaskStore.complete(activity, task)
+                render()
+            }
+        }
+        return box
     }
 
     private fun describe(task: FocusTask): String {
@@ -501,18 +682,11 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         return parts.joinToString(" · ")
     }
 
-    private fun priorityDot(priority: Priority): View {
-        val dot = View(activity)
-        val size = FocusUi.dp(activity, 10)
-        val color = when (priority) {
-            Priority.HIGH -> tokens.danger
-            Priority.MED -> tokens.warning
-            Priority.LOW -> tokens.accent
-            Priority.NONE -> tokens.track
-        }
-        dot.background = FocusUi.roundedShape(activity, color, 5)
-        dot.layoutParams = LinearLayout.LayoutParams(size, size)
-        return dot
+    private fun priorityColor(priority: Priority): Int = when (priority) {
+        Priority.HIGH -> tokens.danger
+        Priority.MED -> tokens.warning
+        Priority.LOW -> tokens.accent
+        Priority.NONE -> tokens.divider
     }
 
     // ── Actions ───────────────────────────────────────────────────

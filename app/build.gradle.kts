@@ -27,8 +27,8 @@ android {
         // Bump both on every build that reaches a real phone. People are running
         // 1.0 already; without this, two different APKs both report "1.0" and the
         // only way to tell them apart is a checksum.
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 11
+        versionName = "1.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -312,24 +312,65 @@ class OnboardingActivity : AppCompatActivity() {
         column.addView(FocusUi.secondary(this, tokens, subtitle))
         column.addView(FocusUi.spacer(this, 18))
 
-        val card = FocusUi.card(this, tokens)
         options.forEach { option ->
-            card.addView(
-                FocusUi.toggleRow(
-                    this,
-                    tokens,
-                    option.second,
-                    null,
-                    option.first in selection
-                ) { checked ->
-                    if (checked) selection.add(option.first) else selection.remove(option.first)
+            column.addView(
+                buildOptionRow(option.second, option.first in selection) {
+                    if (option.first in selection) selection.remove(option.first) else selection.add(option.first)
+                    render()
                 }
             )
+            column.addView(FocusUi.spacer(this, 10))
         }
-        column.addView(card)
 
-        column.addView(FocusUi.spacer(this, 12))
+        column.addView(FocusUi.spacer(this, 4))
         column.addView(FocusUi.primaryButton(this, tokens, "Continue") { next() })
+    }
+
+    /**
+     * The design doc's own quiz row (1g: "one question a screen") - a
+     * selectable card with a checkmark when chosen, not a switch. An answer
+     * is picked, not left on, and re-rendering the whole step on every tap
+     * (rather than flipping a switch in place) is what lets the row's own
+     * fill and border actually change, not just its trailing control.
+     */
+    private fun buildOptionRow(label: String, selected: Boolean, onToggle: () -> Unit): View {
+        val row = FocusUi.row(this)
+        row.gravity = Gravity.CENTER_VERTICAL
+        val padH = FocusUi.dp(this, 18)
+        val padV = FocusUi.dp(this, 16)
+        row.setPadding(padH, padV, padH, padV)
+        row.background = FocusUi.withRipple(
+            this,
+            FocusUi.roundedShape(
+                this,
+                if (selected) tokens.accentSoft else tokens.surface,
+                tokens.cardRadiusDp,
+                if (selected) tokens.accent else tokens.divider,
+                if (selected) 2 else 1
+            ),
+            tokens
+        )
+        row.isClickable = true
+        row.isFocusable = true
+        row.setOnClickListener { onToggle() }
+
+        val text = FocusUi.rowTitle(this, tokens, label)
+        if (!selected) text.setTextColor(tokens.textSecondary)
+        text.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(text)
+
+        if (selected) {
+            row.addView(FocusUi.spacerH(this, 10))
+            val check = FocusUi.rowTitle(this, tokens, "✓")
+            check.setTextColor(tokens.accent)
+            row.addView(check)
+        }
+
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        return row
     }
 
     // ── Review ────────────────────────────────────────────────────

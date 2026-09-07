@@ -40,9 +40,14 @@
     <string name="tasks_budget_empty_hint">أنهِ مهمة عليها دقائق وستصل إلى هنا.</string>
     <string name="tasks_budget_spend_hint">اصرفها متى شئت. لا تنتهي صلاحيتها.</string>
     <string name="tasks_budget_spend_hint_decay">اصرفها متى شئت. لا تنتهي صلاحيتها، رغم أنك طلبت أن تتلاشى ليلًا.</string>
-    <string name="tasks_budget_use_balance_button">استخدم %1$d دقيقة الآن</string>
-    <string name="tasks_budget_use_ten_button">استخدم ١٠ دقائق</string>
     <string name="tasks_budget_deal_row_title">اتفاقك</string>
+    <string name="tasks_budget_banked_label">مصرفي</string>
+    <string name="tasks_budget_minutes_unit">دقيقة</string>
+    <string name="tasks_budget_quick_spend_button">استخدم %1$d د</string>
+    <string name="tasks_budget_custom_spend_title">كم دقيقة تريد استخدامها؟</string>
+    <string name="tasks_budget_custom_spend_subtitle">حتى %1$d المتوفرة.</string>
+    <string name="tasks_budget_custom_spend_hint">دقائق</string>
+    <string name="tasks_budget_custom_spend_invalid">أدخل رقمًا حتى %1$d.</string>
 
     <string name="tasks_confirm_spend_title">استخدام %1$d دقيقة؟</string>
     <string name="tasks_confirm_spend_message">التطبيقات المحظورة تُفتح لتلك المدة، ثم تُغلق من جديد. التوقف مبكرًا يحفظ ما تبقى.</string>
@@ -71,6 +76,9 @@
     <string name="tasks_empty_overdue">لا شيء متأخر. هذا يستحق الملاحظة.</string>
     <string name="tasks_empty_done">لم يُنجَز شيء بعد اليوم.</string>
     <string name="tasks_empty_default">لا مهام بعد. سطر صادق واحد يكفي للبدء.</string>
+
+    <string name="tasks_section_label">المهام</string>
+    <string name="tasks_section_done_count">%1$d من %2$d منجزة</string>
 
     <string name="tasks_row_start_button">ابدأ</string>
     <string name="tasks_row_steps_meter">%1$d من %2$d خطوة</string>

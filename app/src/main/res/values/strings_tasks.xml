@@ -41,9 +41,14 @@
     <string name="tasks_budget_empty_hint">Finish a task with minutes on it and they land here.</string>
     <string name="tasks_budget_spend_hint">Spend them when you want. They do not expire.</string>
     <string name="tasks_budget_spend_hint_decay">Spend them when you want. They do not expire, though you asked them to fade overnight.</string>
-    <string name="tasks_budget_use_balance_button">Use %1$d minutes now</string>
-    <string name="tasks_budget_use_ten_button">Use 10 minutes</string>
     <string name="tasks_budget_deal_row_title">Your deal</string>
+    <string name="tasks_budget_banked_label">Banked</string>
+    <string name="tasks_budget_minutes_unit">minutes</string>
+    <string name="tasks_budget_quick_spend_button">Spend %1$d min</string>
+    <string name="tasks_budget_custom_spend_title">Spend how many minutes?</string>
+    <string name="tasks_budget_custom_spend_subtitle">Up to %1$d banked.</string>
+    <string name="tasks_budget_custom_spend_hint">Minutes</string>
+    <string name="tasks_budget_custom_spend_invalid">Enter a number up to %1$d.</string>
 
     <string name="tasks_confirm_spend_title">Use %1$d minutes?</string>
     <string name="tasks_confirm_spend_message">Blocked apps open for that long, then close again. Stopping early banks whatever is left.</string>
@@ -72,6 +77,9 @@
     <string name="tasks_empty_overdue">Nothing overdue. That is worth noticing.</string>
     <string name="tasks_empty_done">Nothing finished yet today.</string>
     <string name="tasks_empty_default">No tasks yet. One honest line is enough to start.</string>
+
+    <string name="tasks_section_label">Tasks</string>
+    <string name="tasks_section_done_count">%1$d of %2$d done</string>
 
     <string name="tasks_row_start_button">Start</string>
     <string name="tasks_row_steps_meter">%1$d of %2$d steps</string>

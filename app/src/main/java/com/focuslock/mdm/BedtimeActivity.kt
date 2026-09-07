@@ -124,25 +124,69 @@ class BedtimeActivity : FocusScreenActivity() {
         if (everything) return@card
 
         card.addView(FocusUi.divider(this, tokens))
-        card.addView(FocusUi.sectionLabel(this, tokens, getString(R.string.bedtime_section_pick_categories)))
+
+        // Title + switch per category, not title + a full blurb repeated for
+        // every one of them - the same density fix Rules and the capability
+        // switchboard already got. The one ⓘ next to the group label opens
+        // every blurb at once, readable in a sheet instead of taking a line
+        // under each row whether you needed it or not.
+        val header = FocusUi.row(this)
+        val label = FocusUi.sectionLabel(this, tokens, getString(R.string.bedtime_section_pick_categories))
+        (label.layoutParams as? LinearLayout.LayoutParams)?.apply { topMargin = 0; bottomMargin = 0 }
+        label.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        header.addView(label)
+        header.addView(
+            buildInfoGlyph {
+                FocusDialog.custom(
+                    this,
+                    title = getString(R.string.bedtime_section_pick_categories),
+                    subtitle = null,
+                    confirmLabel = null,
+                    cancelLabel = getString(R.string.common_close)
+                ) { body, dialogTokens, _ ->
+                    AppCategory.ruleTargets.forEachIndexed { index, category ->
+                        body.addView(FocusUi.heading(this, dialogTokens, category.label))
+                        val blurb = FocusUi.secondary(this, dialogTokens, category.blurb)
+                        blurb.layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = FocusUi.dp(this@BedtimeActivity, 3) }
+                        body.addView(blurb)
+                        if (index < AppCategory.ruleTargets.size - 1) body.addView(FocusUi.spacer(this, 15))
+                    }
+                }
+            }
+        )
+        card.addView(header)
+        card.addView(FocusUi.spacer(this, 4))
 
         AppCategory.ruleTargets.forEach { category ->
+            val control = FocusUi.switchControl(this, tokens, category in blocked) { value ->
+                val next = if (value) blocked + category else blocked - category
+                if (!Bedtime.setBlockedCategories(this, next)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
+                refresh()
+            }
             card.addView(
-                FocusUi.toggleRow(
-                    this,
-                    tokens,
-                    category.label,
-                    category.blurb,
-                    category in blocked
-                ) { checked ->
-                    val next = if (checked) blocked + category else blocked - category
-                    if (!Bedtime.setBlockedCategories(this, next)) {
-                        FocusDialog.toast(this, SessionLock.refusalMessage(this))
-                    }
-                    refresh()
+                FocusUi.listRow(this, tokens, category.label, null, trailing = control) {
+                    control.isChecked = !control.isChecked
                 }
             )
         }
+    }
+
+    private fun buildInfoGlyph(onClick: () -> Unit): View {
+        val view = android.widget.TextView(this)
+        view.text = "ⓘ"
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
+        view.setTextColor(tokens.textMuted)
+        view.isClickable = true
+        view.isFocusable = true
+        val pad = FocusUi.dp(this, 6)
+        view.setPadding(pad, pad, pad, pad)
+        view.setOnClickListener { onClick() }
+        return view
     }
 
     private fun buildAppearanceCard(): View = card { card ->

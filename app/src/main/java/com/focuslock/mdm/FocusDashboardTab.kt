@@ -140,15 +140,17 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
     private fun buildActiveSession(): View {
         val card = FocusUi.card(activity, tokens)
         val mode = SessionManager.mode(activity)
+        val kiosk = mode == FocusMode.KIOSK
 
-        val header = FocusUi.row(activity)
-        val modeName = FocusUi.heading(activity, tokens, mode.label + " mode")
-        modeName.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        header.addView(modeName)
-        header.addView(FocusUi.pill(activity, tokens, "Running", tokens.success))
-        card.addView(header)
-
-        card.addView(FocusUi.spacer(activity, 18))
+        if (!kiosk) {
+            val header = FocusUi.row(activity)
+            val modeName = FocusUi.heading(activity, tokens, mode.label + " mode")
+            modeName.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            header.addView(modeName)
+            header.addView(FocusUi.pill(activity, tokens, "Running", tokens.success))
+            card.addView(header)
+            card.addView(FocusUi.spacer(activity, 18))
+        }
 
         val ringHolder = android.widget.FrameLayout(activity)
         ringHolder.layoutParams = LinearLayout.LayoutParams(
@@ -171,23 +173,49 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply { gravity = Gravity.CENTER }
 
-        val percentView = FocusUi.display(activity, tokens, SessionManager.progressPercent(activity).toString() + "%")
-        percentView.gravity = Gravity.CENTER
-        percentView.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        progressView = percentView
+        // Kiosk's ring centre is the design doc's "1:42 / HOURS LEFT" - the
+        // countdown itself, since there is nothing to end early and a percent
+        // answers a question ("how far along") nobody pinned to the phone is
+        // asking. Every other mode keeps the percent, which still doubles as
+        // the tick source for onTick() below either way.
+        if (kiosk) {
+            val timeLeft = FocusUi.display(activity, tokens, SessionManager.formatCountdown(SessionManager.remainingMs(activity)))
+            timeLeft.gravity = Gravity.CENTER
+            timeLeft.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            countdownView = timeLeft
 
-        val remainingView = FocusUi.caption(activity, tokens, "of the way through")
-        remainingView.gravity = Gravity.CENTER
-        remainingView.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+            val label = FocusUi.caption(activity, tokens, "TIME LEFT")
+            FocusUi.applyFont(label, tokens, mono = true, weight = 600)
+            label.gravity = Gravity.CENTER
+            label.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FocusUi.dp(activity, 6) }
 
-        centre.addView(percentView)
-        centre.addView(remainingView)
+            centre.addView(timeLeft)
+            centre.addView(label)
+        } else {
+            val percentView = FocusUi.display(activity, tokens, SessionManager.progressPercent(activity).toString() + "%")
+            percentView.gravity = Gravity.CENTER
+            percentView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            progressView = percentView
+
+            val remainingView = FocusUi.caption(activity, tokens, "of the way through")
+            remainingView.gravity = Gravity.CENTER
+            remainingView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+            centre.addView(percentView)
+            centre.addView(remainingView)
+        }
         ringHolder.addView(centre)
         card.addView(ringHolder)
 
@@ -195,27 +223,69 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
 
         card.addView(FocusUi.spacer(activity, 18))
 
-        val countdown = FocusUi.heading(
-            activity,
-            tokens,
-            SessionManager.formatCountdown(SessionManager.remainingMs(activity))
-        )
-        countdown.gravity = Gravity.CENTER
-        countdownView = countdown
-        card.addView(countdown)
+        if (kiosk) {
+            // Design doc: "Kiosk is holding" - a fact, not a settings-style
+            // label, and the one line under it that matters most in the
+            // moment: you did not lose your grip, nothing here needed it.
+            val headline = FocusUi.heading(activity, tokens, "Kiosk is holding")
+            headline.gravity = Gravity.CENTER
+            card.addView(headline)
+            card.addView(FocusUi.spacer(activity, 6))
+            val body = FocusUi.secondary(
+                activity,
+                tokens,
+                "The phone comes back on its own. Nothing here needs you to be strong right now."
+            )
+            body.gravity = Gravity.CENTER
+            card.addView(body)
 
-        val ends = FocusUi.caption(
-            activity,
-            tokens,
-            "Ends " + SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
-                .format(Date(SessionManager.endsAt(activity)))
-        )
-        ends.gravity = Gravity.CENTER
-        ends.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = FocusUi.dp(activity, 6) }
-        card.addView(ends)
+            card.addView(FocusUi.spacer(activity, 18))
+            val stats = FocusUi.row(activity)
+            stats.addView(
+                FocusUi.statTile(activity, tokens, AppRules.kioskAllowlist(activity).size.toString(), "apps still allowed")
+            )
+            stats.addView(
+                FocusUi.statTile(activity, tokens, SessionManager.formatDuration(SessionManager.elapsedMs(activity)), "focus so far")
+            )
+            card.addView(stats)
+
+            card.addView(FocusUi.spacer(activity, 12))
+            val quickNav = FocusUi.row(activity)
+            val libraryButton = FocusUi.secondaryButton(activity, tokens, "Library") {
+                activity.selectTab(MainActivity.TAB_LIBRARY)
+            }
+            libraryButton.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                .apply { marginEnd = FocusUi.dp(activity, 8) }
+            quickNav.addView(libraryButton)
+            val tasksButton = FocusUi.secondaryButton(activity, tokens, "Tasks") {
+                activity.selectTab(MainActivity.TAB_TASKS)
+            }
+            tasksButton.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            quickNav.addView(tasksButton)
+            card.addView(quickNav)
+        } else {
+            val countdown = FocusUi.heading(
+                activity,
+                tokens,
+                SessionManager.formatCountdown(SessionManager.remainingMs(activity))
+            )
+            countdown.gravity = Gravity.CENTER
+            countdownView = countdown
+            card.addView(countdown)
+
+            val ends = FocusUi.caption(
+                activity,
+                tokens,
+                "Ends " + SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
+                    .format(Date(SessionManager.endsAt(activity)))
+            )
+            ends.gravity = Gravity.CENTER
+            ends.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FocusUi.dp(activity, 6) }
+            card.addView(ends)
+        }
 
         card.addView(FocusUi.spacer(activity, 20))
 
@@ -292,8 +362,6 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
     private fun buildStarter(): View {
         val column = FocusUi.column(activity)
 
-        column.addView(FocusUi.sectionLabel(activity, tokens, "Start a session"))
-
         val available = FocusMode.available(activity)
         if (available.isEmpty()) {
             val card = FocusUi.card(activity, tokens)
@@ -319,11 +387,10 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         column.addView(buildModeGrid(available))
         column.addView(FocusUi.spacer(activity, 10))
         column.addView(buildModeSummaryLine())
-
-        column.addView(FocusUi.sectionLabel(activity, tokens, "For how long"))
+        column.addView(FocusUi.spacer(activity, 6))
         column.addView(buildDurationPicker())
 
-        column.addView(FocusUi.spacer(activity, 6))
+        column.addView(FocusUi.spacer(activity, 10))
         column.addView(
             FocusUi.primaryButton(
                 activity,
@@ -332,102 +399,16 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             ) { confirmStart() }
         )
 
+        // A link, not a card: the two toggles it opens are for the one
+        // in a hundred sessions where the default isn't right, and a
+        // full settings card for that used to out-weigh the Start button
+        // itself whenever Kiosk was picked.
         if (selectedMode == FocusMode.KIOSK) {
-            column.addView(FocusUi.spacer(activity, 12))
-            column.addView(buildKioskOptions())
+            column.addView(FocusUi.spacer(activity, 8))
+            column.addView(buildKioskOptionsLink())
         }
-
-        // Below the Start button on purpose. The start flow is what people came
-        // for; this is for the first few visits, when "what is this even for"
-        // is a better question than "which mode".
-        column.addView(FocusUi.spacer(activity, 24))
-        column.addView(FocusUi.sectionLabel(activity, tokens, "What can you do with it?"))
-        column.addView(buildScenarioStrip())
 
         return column
-    }
-
-    private data class Scenario(
-        val title: String,
-        val outcome: String,
-        val action: () -> Unit
-    )
-
-    /**
-     * Six things people actually use this for, each one tap from doing it.
-     *
-     * A settings screen tells you what the switches are. This tells you what
-     * they are for, which is the thing a new person is missing.
-     */
-    private fun buildScenarioStrip(): View {
-        val scenarios = listOf(
-            Scenario(
-                "Lock apps for an exam",
-                "Pick the apps, start Block, revise."
-            ) {
-                selectedMode = FocusMode.BLOCK
-                activity.startActivity(Intent(activity, AppRulesActivity::class.java))
-            },
-            Scenario(
-                "Study with no distractions",
-                "Sanctuary takes them off your home screen."
-            ) {
-                selectedMode = FocusMode.SANCTUARY
-                render()
-            },
-            Scenario(
-                "Go all-in for a sprint",
-                "Kiosk makes the phone only this. Needs Device Owner."
-            ) {
-                selectedMode = FocusMode.KIOSK
-                if (SetupChecks.isDeviceOwner(activity)) {
-                    render()
-                } else {
-                    activity.startActivity(Intent(activity, DeviceOwnerHelpActivity::class.java))
-                }
-            },
-            Scenario(
-                "Earn my scroll time",
-                "Finish real tasks, unlock minutes."
-            ) {
-                activity.selectTab(MainActivity.TAB_TASKS)
-            },
-            Scenario(
-                "Let me take a 5-minute break",
-                "A bounded exception, instead of quitting."
-            ) {
-                activity.startActivity(Intent(activity, AppLimitsActivity::class.java))
-            },
-            Scenario(
-                "Wind down at night",
-                "One window, every night, no thinking."
-            ) {
-                activity.startActivity(Intent(activity, BedtimeActivity::class.java))
-            }
-        )
-
-        val strip = FocusUi.row(activity)
-        scenarios.forEach { scenario ->
-            val card = FocusUi.card(activity, tokens) { scenario.action() }
-            card.layoutParams = LinearLayout.LayoutParams(
-                FocusUi.dp(activity, 210),
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = FocusUi.dp(activity, 10) }
-
-            val title = FocusUi.body(activity, tokens, scenario.title)
-            title.setTextColor(tokens.textPrimary)
-            card.addView(title)
-            card.addView(FocusUi.spacer(activity, 4))
-            card.addView(FocusUi.caption(activity, tokens, scenario.outcome))
-            strip.addView(card)
-        }
-
-        val scroll = FocusUi.horizontalScroll(activity, strip)
-        scroll.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = FocusUi.dp(activity, 4) }
-        return scroll
     }
 
     /**
@@ -477,12 +458,12 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         card.addView(FocusUi.spacer(activity, 8))
         card.addView(FocusUi.rowTitle(activity, tokens, mode.label))
 
-        if (mode.isHard && !SetupChecks.isDeviceOwner(activity)) {
-            card.addView(FocusUi.spacer(activity, 8))
-            val warn = FocusUi.caption(activity, tokens, "Needs Device Owner")
-            warn.setTextColor(tokens.warning)
-            card.addView(warn)
-        }
+        // Deliberately nothing else here - not even the device-owner warning.
+        // Design doc: "a row is a title and a state." A card that grows an
+        // extra line only for Kiosk used to make that tile taller than its
+        // row partner, so the 2x2 grid was never actually a grid. The warning
+        // still reaches the person, just from the one shared summary line's
+        // ⓘ (showModeDetail), so every tile stays the same fixed height.
         return card
     }
 
@@ -578,27 +559,90 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         return row
     }
 
-    private fun buildDurationPicker(): View {
-        val options = listOf(
-            "25m" to 25L * 60 * 1000,
-            "1h" to 60L * 60 * 1000,
-            "2h" to 2L * 60 * 60 * 1000,
-            "4h" to 4L * 60 * 60 * 1000,
-            "Today" to 8L * 60 * 60 * 1000,
-            "1 day" to 24L * 60 * 60 * 1000,
-            "1 week" to 7L * 24 * 60 * 60 * 1000,
-            "30 days" to 30L * 24 * 60 * 60 * 1000,
-            "90 days" to 90L * 24 * 60 * 60 * 1000
-        )
-        val labels = options.map { it.first } + "Custom"
-        val selectedIndex = options.indexOfFirst { it.second == selectedDurationMs }
+    private val quickDurations = listOf(
+        "25m" to 25L * 60 * 1000,
+        "1h" to 60L * 60 * 1000,
+        "2h" to 2L * 60 * 60 * 1000,
+        "4h" to 4L * 60 * 60 * 1000
+    )
 
-        return FocusUi.chipStrip(activity, tokens, labels, selectedIndex) { index ->
-            if (index >= options.size) {
+    private val longerDurations = listOf(
+        Triple("today", "Today", 8L * 60 * 60 * 1000L),
+        Triple("1day", "1 day", 24L * 60 * 60 * 1000L),
+        Triple("1week", "1 week", 7L * 24 * 60 * 60 * 1000L),
+        Triple("30days", "30 days", 30L * 24 * 60 * 60 * 1000L),
+        Triple("90days", "90 days", 90L * 24 * 60 * 60 * 1000L)
+    )
+
+    /**
+     * Five equal segments, per the design doc (25m/1h/2h/4h/Set) - not the
+     * old nine-item strip that scrolled sideways off the first screenful.
+     * "Set" covers everything the strip used to: it opens a chooser with the
+     * same longer presets plus any number of hours, and shows whichever of
+     * those is picked in its own place instead of a fixed label.
+     */
+    private fun buildDurationPicker(): View {
+        val row = FocusUi.row(activity)
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        quickDurations.forEachIndexed { index, (label, ms) ->
+            val segment = buildDurationSegment(label, selectedDurationMs == ms) {
+                selectedDurationMs = ms
+                render()
+            }
+            segment.layoutParams = LinearLayout.LayoutParams(0, FocusUi.dp(activity, 44), 1f).apply {
+                if (index > 0) marginStart = FocusUi.dp(activity, 8)
+            }
+            row.addView(segment)
+        }
+
+        val isCustom = quickDurations.none { it.second == selectedDurationMs }
+        val setLabel = if (isCustom) SessionManager.formatDuration(selectedDurationMs) else "Set"
+        val setSegment = buildDurationSegment(setLabel, isCustom) { openDurationChooser() }
+        setSegment.layoutParams = LinearLayout.LayoutParams(0, FocusUi.dp(activity, 44), 1f).apply {
+            marginStart = FocusUi.dp(activity, 8)
+        }
+        row.addView(setSegment)
+
+        return row
+    }
+
+    private fun buildDurationSegment(label: String, selected: Boolean, onClick: () -> Unit): View {
+        val view = TextView(activity)
+        view.text = label
+        view.gravity = Gravity.CENTER
+        view.isSingleLine = true
+        view.setTextColor(if (selected) tokens.textPrimary else tokens.textSecondary)
+        FocusUi.applyFont(view, tokens, mono = true, weight = if (selected) 600 else 500)
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
+        val fill = if (selected) tokens.surfaceAlt else UiPrefs.withAlpha(tokens.surface, 0)
+        val stroke = if (selected) null else tokens.divider
+        view.background = FocusUi.withRipple(
+            activity,
+            FocusUi.roundedShape(activity, fill, tokens.chipRadiusDp, stroke),
+            tokens
+        )
+        view.isClickable = true
+        view.isFocusable = true
+        view.setOnClickListener { onClick() }
+        return view
+    }
+
+    private fun openDurationChooser() {
+        val choices = longerDurations.map { (key, label, _) -> FocusDialog.Choice(key, label) } +
+            FocusDialog.Choice("custom", "Custom", "Type any number of hours")
+        val currentKey = longerDurations.firstOrNull { it.third == selectedDurationMs }?.first
+        FocusDialog.singleChoice(activity, "For how long?", null, choices, currentKey) { key ->
+            if (key == "custom") {
                 askCustomDuration()
             } else {
-                selectedDurationMs = options[index].second
-                render()
+                longerDurations.firstOrNull { it.first == key }?.let { (_, _, ms) ->
+                    selectedDurationMs = ms
+                    render()
+                }
             }
         }
     }
@@ -622,37 +666,54 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         }
     }
 
-    private fun buildKioskOptions(): View {
+    private fun buildKioskOptionsLink(): View {
         val card = FocusUi.card(activity, tokens)
-        card.addView(FocusUi.heading(activity, tokens, "Kiosk options"))
-        card.addView(FocusUi.spacer(activity, 6))
-
         card.addView(
-            FocusUi.toggleRow(
+            FocusUi.listRow(
                 activity,
                 tokens,
-                "Full-screen session surface",
-                "Hides the tab bar. Your library and rules become unreachable until the session ends.",
-                CapabilityRegistry.getBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", false)
-            ) { value ->
-                if (!CapabilityRegistry.setBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", value)) {
-                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                }
-            }
-        )
-
-        card.addView(
-            FocusUi.toggleRow(
-                activity,
-                tokens,
-                "Hand the phone back at the end",
-                "Removes FocusLock's Device Owner powers when the timer runs out. You would need a computer to set it up again.",
-                SessionManager.releasesOwnerOnEnd(activity)
-            ) { value ->
-                SessionManager.setReleasesOwnerOnEnd(activity, value)
-            }
+                "Kiosk options",
+                "Full-screen surface, handing the phone back at the end",
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { openKioskOptionsSheet() }
         )
         return card
+    }
+
+    private fun openKioskOptionsSheet() {
+        FocusDialog.custom(
+            activity,
+            title = "Kiosk options",
+            subtitle = null,
+            confirmLabel = null,
+            cancelLabel = "Done"
+        ) { body, dialogTokens, _ ->
+            body.addView(
+                FocusUi.toggleRow(
+                    activity,
+                    dialogTokens,
+                    "Full-screen session surface",
+                    "Hides the tab bar. Your library and rules become unreachable until the session ends.",
+                    CapabilityRegistry.getBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", false)
+                ) { value ->
+                    if (!CapabilityRegistry.setBoolParam(activity, Capabilities.KIOSK_MODE, "fullScreenSurface", value)) {
+                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
+                    }
+                }
+            )
+
+            body.addView(
+                FocusUi.toggleRow(
+                    activity,
+                    dialogTokens,
+                    "Hand the phone back at the end",
+                    "Removes FocusLock's Device Owner powers when the timer runs out. You would need a computer to set it up again.",
+                    SessionManager.releasesOwnerOnEnd(activity)
+                ) { value ->
+                    SessionManager.setReleasesOwnerOnEnd(activity, value)
+                }
+            )
+        }
     }
 
     private fun confirmStart() {
