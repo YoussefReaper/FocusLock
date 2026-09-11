@@ -119,8 +119,8 @@ class RuleEditorActivity : FocusScreenActivity() {
         RuleConditionType.TIME ->
             getString(
                 R.string.rule_editor_condition_time,
-                ScheduleManager.formatTime(rule.conditionStart),
-                ScheduleManager.formatTime(rule.conditionEnd)
+                ScheduleManager.formatTime(this, rule.conditionStart),
+                ScheduleManager.formatTime(this, rule.conditionEnd)
             )
         RuleConditionType.DAYS ->
             if (rule.conditionDays.isEmpty()) {

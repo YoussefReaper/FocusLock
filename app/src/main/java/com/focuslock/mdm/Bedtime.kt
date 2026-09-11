@@ -6,9 +6,12 @@ import java.util.Calendar
 /**
  * The night shift.
  *
- * Bedtime is not a session: it runs on the clock whether or not a session is
- * active, dims the screen, forces the quiet theme, and holds back the categories
- * the user named. Everything about it is a setting, including which categories.
+ * Bedtime runs on the clock - it dims the screen, forces the quiet theme and
+ * holds back the categories the user named once the cut-off passes - but only
+ * while a session is running. It used to fire regardless, which meant the app
+ * could take the phone away on a night nobody had asked it to; see
+ * [SessionManager.isEnforcing]. Everything about it is a setting, including
+ * which categories.
  */
 object Bedtime {
 
@@ -16,6 +19,7 @@ object Bedtime {
     private const val KEY_END = "bedtime_end_minutes"
     private const val KEY_CATEGORIES = "bedtime_categories"
     const val PARAM_BLOCK_ALL = "blockEverything"
+    const val PARAM_OVERLAY = "overlay"
     private const val KEY_DIM = "bedtime_dim_percent"
     private const val KEY_DARK_THEME = "bedtime_dark_theme"
     private const val KEY_GRAYSCALE_HINT = "bedtime_grayscale_hint"
@@ -135,6 +139,43 @@ object Bedtime {
             direction = if (value) EditDirection.TIGHTEN else EditDirection.LOOSEN
         )
 
+    /**
+     * Bedtime as a real lock rather than an escapable block.
+     *
+     * Same primitive a schedule window's "overlay" uses: Device-Owner lock-task
+     * pinning, so nothing outside always-allowed comes forward at all. Off by
+     * default - bedtime is the gentlest thing in the app and turning it into a
+     * pin for existing users overnight would be a nasty surprise.
+     */
+    fun isOverlay(context: Context): Boolean =
+        CapabilityRegistry.getBoolParam(context, Capabilities.BEDTIME_MODE, PARAM_OVERLAY, false)
+
+    fun setOverlay(context: Context, value: Boolean): Boolean =
+        CapabilityRegistry.setBoolParam(
+            context,
+            Capabilities.BEDTIME_MODE,
+            PARAM_OVERLAY,
+            value,
+            direction = if (value) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        )
+
+    /** Closes FocusLock's own tabs for the night too. Only meaningful with [isOverlay]. See [Lockdown]. */
+    fun bricksApp(context: Context): Boolean =
+        isOverlay(context) &&
+            CapabilityRegistry.getBoolParam(context, Capabilities.BEDTIME_MODE, Lockdown.PARAM_BRICK, false)
+
+    fun setBricksApp(context: Context, value: Boolean): Boolean =
+        CapabilityRegistry.setBoolParam(
+            context,
+            Capabilities.BEDTIME_MODE,
+            Lockdown.PARAM_BRICK,
+            value,
+            direction = if (value) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        )
+
+    /** Whether tonight's window is currently demanding the hard lock. */
+    fun requiresLockTask(context: Context): Boolean = isActive(context) && isOverlay(context)
+
     /** Minutes until bedtime lifts, for the "back at 6:00" line on the block screen. */
     fun minutesUntilEnd(context: Context, now: Calendar = Calendar.getInstance()): Int {
         val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -143,11 +184,7 @@ object Bedtime {
     }
 
     fun formatWindow(context: Context): String =
-        formatTime(startMinutes(context)) + " to " + formatTime(endMinutes(context))
+        formatTime(context, startMinutes(context)) + " to " + formatTime(context, endMinutes(context))
 
-    fun formatTime(minutes: Int): String {
-        val hour = minutes / 60
-        val minute = minutes % 60
-        return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
-    }
+    fun formatTime(context: Context, minutes: Int): String = TimeText.ofDay(context, minutes)
 }

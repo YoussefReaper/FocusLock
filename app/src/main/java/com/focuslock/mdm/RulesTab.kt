@@ -20,15 +20,14 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
-        return FocusUi.scroll(activity, container)
+        return hostScroll(FocusUi.scroll(activity, container), container)
     }
 
     override fun onShow() {
         render()
     }
 
-    private fun render() {
-        container.removeAllViews()
+    private fun render(): Unit = redraw {
         val added = ArrayList<View>()
 
         fun add(view: View) {
@@ -132,22 +131,29 @@ class RulesTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
         val column = FocusUi.column(activity)
         tiles.chunked(2).forEach { pair ->
-            val row = FocusUi.row(activity)
+            // tileRow, not a hand-built row: an odd-length last pair still
+            // needs its single tile to stay half-width rather than stretching
+            // across, and every pair needs both tiles the same height even when
+            // one of the two titles wraps at a large text scale. Two cards of
+            // visibly different heights side by side was the most obvious
+            // "the wrappers aren't equal" case on this screen.
+            val views = pair.map { buildGridTile(it) }
+            val row = FocusUi.tileRow(
+                activity,
+                if (views.size == 1) views + spacerTile() else views,
+                gapDp = 9
+            )
             row.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = FocusUi.dp(activity, 9) }
-            pair.forEachIndexed { index, tile ->
-                val tileView = buildGridTile(tile)
-                tileView.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    if (index == 0) marginEnd = FocusUi.dp(activity, 9)
-                }
-                row.addView(tileView)
-            }
             column.addView(row)
         }
         return column
     }
+
+    /** An invisible half-width placeholder, so a lone last tile keeps the grid's column width. */
+    private fun spacerTile(): View = View(activity)
 
     private fun buildGridTile(tile: GridTile): View {
         val card = FocusUi.card(activity, tokens) { activity.startActivity(tile.intent) }

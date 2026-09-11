@@ -34,7 +34,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
         val scroll = FocusUi.scroll(activity, container)
         scroll.setPadding(0, 0, 0, FocusUi.dp(activity, 12))
-        return scroll
+        return hostScroll(scroll, container)
     }
 
     override fun onShow() {
@@ -51,8 +51,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
 
     // ── Render ────────────────────────────────────────────────────
 
-    private fun render() {
-        container.removeAllViews()
+    private fun render(): Unit = redraw {
         val added = ArrayList<View>()
 
         fun add(view: View) {
@@ -240,29 +239,30 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             card.addView(body)
 
             card.addView(FocusUi.spacer(activity, 18))
-            val stats = FocusUi.row(activity)
-            stats.addView(
-                FocusUi.statTile(activity, tokens, AppRules.kioskAllowlist(activity).size.toString(), "apps still allowed")
+            card.addView(
+                FocusUi.tileRow(
+                    activity,
+                    listOf(
+                        FocusUi.statTile(activity, tokens, AppRules.kioskAllowlist(activity).size.toString(), "apps still allowed"),
+                        FocusUi.statTile(activity, tokens, SessionManager.formatDuration(SessionManager.elapsedMs(activity)), "focus so far")
+                    )
+                )
             )
-            stats.addView(
-                FocusUi.statTile(activity, tokens, SessionManager.formatDuration(SessionManager.elapsedMs(activity)), "focus so far")
-            )
-            card.addView(stats)
 
             card.addView(FocusUi.spacer(activity, 12))
-            val quickNav = FocusUi.row(activity)
-            val libraryButton = FocusUi.secondaryButton(activity, tokens, "Library") {
-                activity.selectTab(MainActivity.TAB_LIBRARY)
-            }
-            libraryButton.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                .apply { marginEnd = FocusUi.dp(activity, 8) }
-            quickNav.addView(libraryButton)
-            val tasksButton = FocusUi.secondaryButton(activity, tokens, "Tasks") {
-                activity.selectTab(MainActivity.TAB_TASKS)
-            }
-            tasksButton.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            quickNav.addView(tasksButton)
-            card.addView(quickNav)
+            card.addView(
+                FocusUi.tileRow(
+                    activity,
+                    listOf(
+                        FocusUi.secondaryButton(activity, tokens, "Library") {
+                            activity.selectTab(MainActivity.TAB_LIBRARY)
+                        },
+                        FocusUi.secondaryButton(activity, tokens, "Tasks") {
+                            activity.selectTab(MainActivity.TAB_TASKS)
+                        }
+                    )
+                )
+            )
         } else {
             val countdown = FocusUi.heading(
                 activity,
@@ -276,8 +276,7 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
             val ends = FocusUi.caption(
                 activity,
                 tokens,
-                "Ends " + SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
-                    .format(Date(SessionManager.endsAt(activity)))
+                "Ends " + TimeText.dateTime(activity, (SessionManager.endsAt(activity)))
             )
             ends.gravity = Gravity.CENTER
             ends.layoutParams = LinearLayout.LayoutParams(
@@ -421,18 +420,19 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
     private fun buildModeGrid(available: List<FocusMode>): View {
         val column = FocusUi.column(activity)
         available.chunked(2).forEach { pair ->
-            val row = FocusUi.row(activity)
+            val cards = pair.map { buildModeCard(it) }
+            // Equal heights enforced by the row rather than by hoping every
+            // mode name happens to fit on one line - at a large text scale, or
+            // in Arabic, "Sanctuary" wraps and its partner did not follow.
+            val row = FocusUi.tileRow(
+                activity,
+                if (cards.size == 1) cards + View(activity) else cards,
+                gapDp = 9
+            )
             row.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = FocusUi.dp(activity, 9) }
-            pair.forEachIndexed { index, mode ->
-                val card = buildModeCard(mode)
-                card.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    if (index == 0) marginEnd = FocusUi.dp(activity, 9)
-                }
-                row.addView(card)
-            }
             column.addView(row)
         }
         return column
@@ -918,15 +918,15 @@ class FocusDashboardTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusT
                 TimerLine(
                     R.drawable.ic_glyph_schedules,
                     window.message.ifBlank { "Schedule running" },
-                    "until " + ScheduleManager.formatTime(window.endMinutes)
+                    "until " + ScheduleManager.formatTime(activity, window.endMinutes)
                 )
             )
         }
         ScheduleManager.nextWindow(activity)?.let { window ->
-            lines.add(TimerLine(R.drawable.ic_glyph_schedules, "Next window", ScheduleManager.formatTime(window.startMinutes)))
+            lines.add(TimerLine(R.drawable.ic_glyph_schedules, "Next window", ScheduleManager.formatTime(activity, window.startMinutes)))
         }
         if (Bedtime.isActive(activity)) {
-            lines.add(TimerLine(R.drawable.ic_glyph_bedtime, "Bedtime", "now → " + Bedtime.formatTime(Bedtime.endMinutes(activity))))
+            lines.add(TimerLine(R.drawable.ic_glyph_bedtime, "Bedtime", "now → " + Bedtime.formatTime(activity, Bedtime.endMinutes(activity))))
         }
         PlaceRules.activePlaces(activity).forEach { place ->
             lines.add(TimerLine(R.drawable.ic_glyph_places, "Place rule", place.label))

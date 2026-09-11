@@ -82,7 +82,7 @@ object SessionLock {
     fun refusalMessage(context: Context): String {
         if (!SessionManager.isActive(context)) {
             ScheduleManager.activeWindowIfEnabled(context)?.takeIf { it.overlay }?.let { window ->
-                return Copy.rulesFrozenBySchedule(context, ScheduleManager.formatTime(window.endMinutes))
+                return Copy.rulesFrozenBySchedule(context, ScheduleManager.formatTime(context, window.endMinutes))
             }
         }
         return Copy.rulesFrozen(context, SessionManager.formatRemaining(context))

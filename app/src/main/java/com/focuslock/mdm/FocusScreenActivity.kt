@@ -19,6 +19,9 @@ abstract class FocusScreenActivity : AppCompatActivity() {
     protected lateinit var tokens: UiPrefs.Tokens
     protected lateinit var content: LinearLayout
 
+    /** Held so [refresh] can refill the column in place and keep the reader's place in it. */
+    private var scroll: androidx.core.widget.NestedScrollView? = null
+
     /** Shown in the page header. */
     protected abstract fun screenTitle(): String
 
@@ -41,10 +44,23 @@ abstract class FocusScreenActivity : AppCompatActivity() {
         KioskPolicy.syncLockTaskState(this)
         if (freshlyCreated) {
             freshlyCreated = false
+            themeSignature = UiPrefs.signature(this)
             return
         }
-        renderScreen()
+        // Coming back from a sub-screen is a refresh, not a rebuild: the values
+        // may have changed but the layout has not, and rebuilding would lose
+        // the reader's place for no reason. Only an actual theme change (which
+        // reaches every colour, font and padding here) needs the full pass.
+        val signature = UiPrefs.signature(this)
+        if (signature != themeSignature) {
+            themeSignature = signature
+            renderScreen()
+        } else {
+            refresh()
+        }
     }
+
+    private var themeSignature: String = ""
 
     protected fun renderScreen() {
         tokens = UiPrefs.resolve(this)
@@ -53,27 +69,45 @@ abstract class FocusScreenActivity : AppCompatActivity() {
         val root = FocusUi.screenRoot(this, tokens)
 
         content = FocusUi.column(this, tokens.density.contentPaddingDp)
-        content.addView(
-            FocusUi.pageHeader(this, tokens, screenTitle(), screenSubtitle()) { finish() }
-        )
-        buildContent(content)
-        content.addView(FocusUi.spacer(this, 28))
+        fillContent()
 
-        val scroll = FocusUi.scroll(this, content)
-        scroll.layoutParams = FrameLayout.LayoutParams(
+        val scroller = FocusUi.scroll(this, content)
+        scroller.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        root.addView(scroll)
-        FocusUi.dimOverlay(this, tokens)?.let { root.addView(it) }
+        scroll = scroller
+        root.addView(scroller)
         setContentView(root)
 
         Motion.fadeIn(content, tokens)
     }
 
-    /** Redraw after a change, keeping the scroll position honest enough. */
+    private fun fillContent() {
+        content.addView(
+            FocusUi.pageHeader(this, tokens, screenTitle(), screenSubtitle()) { finish() }
+        )
+        buildContent(content)
+        content.addView(FocusUi.spacer(this, 28))
+    }
+
+    /**
+     * Redraw after a change, without losing the reader's place.
+     *
+     * This used to call [renderScreen], which builds a whole new view tree and
+     * calls setContentView - so every tap that changed anything (an app's
+     * policy, a toggle, a filter chip) silently sent the person back to the top
+     * of the screen. On a 200-app list that is the difference between a usable
+     * screen and an unusable one. Only the column is refilled now, and its
+     * offset is carried across the rebuild.
+     */
     protected fun refresh() {
-        renderScreen()
+        if (!this::content.isInitialized) {
+            renderScreen()
+            return
+        }
+        tokens = UiPrefs.resolve(this)
+        FocusUi.rebuildPreservingScroll(scroll, content) { fillContent() }
     }
 
     protected fun card(build: (LinearLayout) -> Unit): View {

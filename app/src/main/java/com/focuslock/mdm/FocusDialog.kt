@@ -462,6 +462,11 @@ object FocusDialog {
      * The platform picker cannot be themed to arbitrary tokens, and a stock
      * blue wheel in the middle of a themed app is exactly the inconsistency
      * this refactor set out to remove.
+     *
+     * Typed, not dragged. It used to be two sliders, so picking 9:05 meant
+     * dragging a 60-step track to exactly the right pixel; and it was hardcoded
+     * to 24-hour whatever the phone said. Both fields take a real number now,
+     * and a 12-hour phone gets an AM/PM pair beside them. See [TimeText].
      */
     fun timePicker(
         context: Context,
@@ -473,32 +478,77 @@ object FocusDialog {
         val (dialog, card) = shell(context, tokens)
         addTitle(context, tokens, card, title)
 
+        val twelveHour = !TimeText.uses24Hour(context)
         var hour = (initialMinutes / 60).coerceIn(0, 23)
         var minute = (initialMinutes % 60).coerceIn(0, 59)
 
-        val display = FocusUi.display(context, tokens, format(hour, minute))
+        val display = FocusUi.display(context, tokens, TimeText.ofDay(context, hour, minute))
         display.gravity = Gravity.CENTER
         display.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             topMargin = FocusUi.dp(context, 14)
-            bottomMargin = FocusUi.dp(context, 6)
+            bottomMargin = FocusUi.dp(context, 14)
         }
         card.addView(display)
 
-        card.addView(
-            FocusUi.sliderRow(context, tokens, "Hour", 0, 23, hour, { it.toString().padStart(2, '0') }) {
-                hour = it
-                display.text = format(hour, minute)
-            }
+        fun refresh() {
+            display.text = TimeText.ofDay(context, hour, minute)
+        }
+
+        val fields = FocusUi.row(context)
+        fields.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
         )
-        card.addView(
-            FocusUi.sliderRow(context, tokens, "Minute", 0, 59, minute, { it.toString().padStart(2, '0') }) {
-                minute = it
-                display.text = format(hour, minute)
-            }
-        )
+
+        // On a 12-hour clock the hour field counts 1-12 and the AM/PM pair
+        // carries the other twelve hours, so 12am and 12pm both exist and
+        // neither of them is "0".
+        val hourField = FocusUi.numberStepper(
+            context,
+            tokens,
+            value = if (twelveHour) displayHour(hour) else hour,
+            min = if (twelveHour) 1 else 0,
+            max = if (twelveHour) 12 else 23,
+            wrap = true,
+            format = { if (twelveHour) it.toString() else it.toString().padStart(2, '0') }
+        ) { typed ->
+            hour = if (twelveHour) combine(typed, hour >= 12) else typed
+            refresh()
+        }
+        hourField.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        fields.addView(hourField)
+        fields.addView(FocusUi.spacerH(context, 10))
+
+        val minuteField = FocusUi.numberStepper(
+            context,
+            tokens,
+            value = minute,
+            min = 0,
+            max = 59,
+            step = 5,
+            wrap = true
+        ) { typed ->
+            minute = typed
+            refresh()
+        }
+        minuteField.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        fields.addView(minuteField)
+        card.addView(fields)
+
+        if (twelveHour) {
+            card.addView(FocusUi.spacer(context, 10))
+            val halves = listOf(TimeText.ofDay(context, 9, 0), TimeText.ofDay(context, 21, 0))
+                .map { it.substringAfter(' ') }
+            card.addView(
+                FocusUi.chipStrip(context, tokens, halves, if (hour < 12) 0 else 1) { index ->
+                    hour = combine(displayHour(hour), index == 1)
+                    refresh()
+                }
+            )
+        }
 
         addActions(
             context, tokens, card, "Set", "Cancel", false,
@@ -508,8 +558,14 @@ object FocusDialog {
         return dialog
     }
 
-    private fun format(hour: Int, minute: Int): String =
-        String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
+    /** 0-23 as it reads on a 12-hour face: midnight and noon are both 12. */
+    private fun displayHour(hour24: Int): Int = if (hour24 % 12 == 0) 12 else hour24 % 12
+
+    /** The inverse: a 12-hour face reading plus which half of the day it is. */
+    private fun combine(displayed: Int, afternoon: Boolean): Int {
+        val base = if (displayed == 12) 0 else displayed
+        return if (afternoon) base + 12 else base
+    }
 
     /**
      * A date and time picker in the app's own language.
@@ -566,8 +622,7 @@ object FocusDialog {
         }
 
         fun refreshDisplay() {
-            display.text = java.text.SimpleDateFormat("EEE d MMM, HH:mm", Locale.getDefault())
-                .format(java.util.Date(resolved()))
+            display.text = TimeText.dateTime(context, resolved(), withWeekday = true)
         }
         refreshDisplay()
         card.addView(display)
@@ -603,20 +658,29 @@ object FocusDialog {
                 refreshDisplay()
             }
         )
-        card.addView(
-            FocusUi.sliderRow(context, tokens, "Hour", 0, 23, hour, { it.toString().padStart(2, '0') }) {
-                hour = it
-                refreshDisplay()
-            }
-        )
-        card.addView(
-            FocusUi.sliderRow(context, tokens, "Minute", 0, 55, minute - (minute % 5), {
-                it.toString().padStart(2, '0')
-            }) {
-                minute = it
-                refreshDisplay()
-            }
-        )
+        // Typed, like the time picker above - dragging a 24-step track to land
+        // on a specific hour is not a way to enter a number.
+        val clock = FocusUi.row(context)
+        clock.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FocusUi.dp(context, 10) }
+
+        val hourField = FocusUi.numberStepper(context, tokens, hour, 0, 23, wrap = true) {
+            hour = it
+            refreshDisplay()
+        }
+        hourField.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        clock.addView(hourField)
+        clock.addView(FocusUi.spacerH(context, 10))
+
+        val minuteField = FocusUi.numberStepper(context, tokens, minute, 0, 59, step = 5, wrap = true) {
+            minute = it
+            refreshDisplay()
+        }
+        minuteField.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        clock.addView(minuteField)
+        card.addView(clock)
 
         if (allowClear) {
             card.addView(

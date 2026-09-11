@@ -329,7 +329,8 @@ object SessionManager {
             return true
         }
         if (EarnSession.requiresLockTask(context)) return true
-        return isEnforcing(context) && ScheduleManager.requiresLockTask(context)
+        if (!isEnforcing(context)) return false
+        return ScheduleManager.requiresLockTask(context) || Bedtime.requiresLockTask(context)
     }
 
     /**

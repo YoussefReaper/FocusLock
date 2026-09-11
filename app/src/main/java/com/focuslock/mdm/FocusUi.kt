@@ -278,6 +278,46 @@ object FocusUi {
         return scroll
     }
 
+    /**
+     * Refills a scrolling column without throwing the reader back to the top.
+     *
+     * Every screen in the app redraws by tearing its content down and building
+     * it again - that is what makes a toggle's knock-on effects show up
+     * immediately - but an emptied `NestedScrollView` has nothing left to
+     * scroll, so its offset collapses to zero and the person lands at the top
+     * of a list they were forty rows into. Tapping an app, changing its policy
+     * and being bounced back to the start of the list was this, and so was
+     * every toggle in Rules doing the same.
+     *
+     * The offset is captured before the teardown and reapplied in a pre-draw
+     * pass, which is the first moment the rebuilt content has a real height to
+     * clamp against - a plain `post` can land before layout and silently clamp
+     * to zero, which looks exactly like not having fixed it at all.
+     */
+    fun rebuildPreservingScroll(scroll: View?, content: ViewGroup, fill: () -> Unit) {
+        val scroller = scroll as? NestedScrollView
+        val offset = scroller?.scrollY ?: 0
+
+        content.removeAllViews()
+        fill()
+
+        if (scroller == null || offset <= 0) return
+        val observer = scroller.viewTreeObserver
+        observer.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                // The listener has to come off whichever observer is alive now:
+                // the one captured above is dead if the view was reattached.
+                if (scroller.viewTreeObserver.isAlive) {
+                    scroller.viewTreeObserver.removeOnPreDrawListener(this)
+                } else {
+                    observer.removeOnPreDrawListener(this)
+                }
+                scroller.scrollTo(0, offset)
+                return true
+            }
+        })
+    }
+
     fun spacer(context: Context, heightDp: Int): View {
         val view = View(context)
         view.layoutParams = LinearLayout.LayoutParams(
@@ -1036,6 +1076,41 @@ object FocusUi {
 
     // ── Data display ──────────────────────────────────────────────
 
+    /**
+     * A row of equal-width, equal-height tiles with even gaps and no margin
+     * hanging off the end.
+     *
+     * Both of those were wrong everywhere, and they are why the app's grids
+     * looked subtly crooked:
+     *
+     * - every tile carried its own trailing margin, including the last one, so
+     *   a row of three tiles sat 8dp further from the right edge of its card
+     *   than the left. The gap only belongs *between* tiles.
+     * - tiles were WRAP_CONTENT, so one two-line label made its tile taller
+     *   than the one beside it and the "grid" stopped being a grid. Giving the
+     *   children MATCH_PARENT height inside a WRAP_CONTENT row makes
+     *   LinearLayout measure the tallest and then stretch the rest to match.
+     */
+    fun tileRow(context: Context, tiles: List<View>, gapDp: Int = 8): LinearLayout {
+        val row = LinearLayout(context)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        tiles.forEachIndexed { index, tile ->
+            val existing = tile.layoutParams as? LinearLayout.LayoutParams
+            val weight = existing?.weight?.takeIf { it > 0f } ?: 1f
+            tile.layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                weight
+            ).apply { if (index < tiles.size - 1) marginEnd = dp(context, gapDp) }
+            row.addView(tile)
+        }
+        return row
+    }
+
     fun statTile(
         context: Context,
         tokens: UiPrefs.Tokens,
@@ -1045,7 +1120,9 @@ object FocusUi {
     ): LinearLayout {
         val tile = LinearLayout(context)
         tile.orientation = LinearLayout.VERTICAL
-        tile.gravity = Gravity.CENTER_HORIZONTAL
+        // Centred on both axes so a stretched tile keeps its contents in the
+        // middle instead of pinning them to the top of the taller neighbour.
+        tile.gravity = Gravity.CENTER
         val padding = dp(context, 16)
         tile.setPadding(padding, padding, padding, padding)
         tile.background = roundedShape(
@@ -1067,8 +1144,9 @@ object FocusUi {
 
         tile.addView(valueView)
         tile.addView(labelView)
+        // No trailing margin of its own - [tileRow] owns the gaps, so the last
+        // tile in a row actually reaches the edge its neighbours start from.
         tile.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
-            .apply { marginEnd = dp(context, 8) }
         return tile
     }
 
@@ -1226,6 +1304,116 @@ object FocusUi {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = dp(context, 10) }
         return field
+    }
+
+    /**
+     * A number you can type into, with arrows for nudging it.
+     *
+     * The old stepper was arrows only: two glyphs either side of a plain
+     * TextView, so setting a schedule to 6:45 meant fifteen taps and setting it
+     * to 23:00 meant a lot more. The number is a real input now - tap it, type
+     * it, done - and the arrows stay for the one-step adjustments they are
+     * actually good at.
+     *
+     * [onChange] fires on every accepted value, already clamped to
+     * [min]..[max]. Typing something out of range (or nothing at all) leaves
+     * the stored value alone until it becomes valid, rather than snapping the
+     * field out from under the person mid-keystroke.
+     */
+    fun numberStepper(
+        context: Context,
+        tokens: UiPrefs.Tokens,
+        value: Int,
+        min: Int,
+        max: Int,
+        step: Int = 1,
+        wrap: Boolean = false,
+        format: (Int) -> String = { it.toString().padStart(2, '0') },
+        onChange: (Int) -> Unit
+    ): LinearLayout {
+        val box = row(context)
+        box.background = roundedShape(context, tokens.surfaceAlt, 14)
+        val padH = dp(context, 6)
+        box.setPadding(padH, 0, padH, 0)
+
+        val field = EditText(context)
+        field.setText(format(value))
+        field.gravity = Gravity.CENTER
+        field.setTextColor(tokens.textPrimary)
+        applyFont(field, tokens, mono = true, weight = 500)
+        field.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(20f))
+        field.inputType = InputType.TYPE_CLASS_NUMBER
+        field.maxLines = 1
+        field.background = null
+        field.setPadding(0, dp(context, 12), 0, dp(context, 12))
+        field.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+
+        /** True while we are writing the field ourselves, so the watcher doesn't echo back. */
+        var writing = false
+
+        fun show(next: Int) {
+            writing = true
+            field.setText(format(next))
+            field.setSelection(field.text.length)
+            writing = false
+        }
+
+        fun clamp(raw: Int): Int = when {
+            !wrap -> raw.coerceIn(min, max)
+            // A wrapping range is inclusive of both ends, so its span is
+            // max - min + 1 - stepping past midnight lands on 00:00, not 00:01.
+            else -> {
+                val span = max - min + 1
+                min + (((raw - min) % span) + span) % span
+            }
+        }
+
+        field.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (writing) return
+                val typed = s?.toString()?.trim()?.toIntOrNull() ?: return
+                // Not clamped while typing: "1" on the way to "15" would
+                // otherwise be rewritten to the minimum under the cursor.
+                if (typed < min || typed > max) return
+                onChange(typed)
+            }
+        })
+
+        // Whatever is in the field when focus leaves is what it means, so this
+        // is where an out-of-range or empty value gets tidied up instead.
+        field.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) return@setOnFocusChangeListener
+            val typed = field.text?.toString()?.trim()?.toIntOrNull()
+            val settled = if (typed == null) value else clamp(typed)
+            show(settled)
+            if (typed != null && settled != typed) onChange(settled)
+        }
+
+        fun arrow(glyph: String, delta: Int): TextView {
+            val view = TextView(context)
+            view.text = glyph
+            view.gravity = Gravity.CENTER
+            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(12f))
+            view.setTextColor(tokens.textSecondary)
+            view.isClickable = true
+            view.isFocusable = true
+            val pad = dp(context, 10)
+            view.setPadding(pad, pad, pad, pad)
+            view.setOnClickListener {
+                val current = field.text?.toString()?.trim()?.toIntOrNull() ?: value
+                val next = clamp(current + delta)
+                show(next)
+                onChange(next)
+            }
+            return view
+        }
+
+        box.addView(arrow("▾", -step))
+        box.addView(field)
+        box.addView(arrow("▴", step))
+        return box
     }
 
     // ── Page header ───────────────────────────────────────────────

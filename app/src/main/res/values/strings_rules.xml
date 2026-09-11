@@ -415,6 +415,18 @@
     <string name="always_allowed_section_your_list">Your list</string>
     <string name="always_allowed_section_suggestions">Suggestions</string>
 
+    <!-- Brightness, kept in the app because a pinned session removes quick settings. -->
+    <string name="always_allowed_section_phone_controls">Phone controls</string>
+    <string name="brightness_title">Screen brightness</string>
+    <string name="brightness_percent">%1$d%%</string>
+    <string name="brightness_adaptive_title">Let the phone choose</string>
+    <string name="brightness_adaptive_subtitle">Adapts to the light around you. Turn off to hold the level you set.</string>
+    <string name="brightness_why_here">A kiosk session hides the quick settings panel — Android gives no way to keep it — so brightness lives here instead.</string>
+    <string name="brightness_needs_permission">FocusLock needs permission to change system settings before it can move the brightness.</string>
+    <string name="brightness_grant_button">Allow it</string>
+    <string name="brightness_no_settings_page">This phone has no page for that permission.</string>
+    <string name="brightness_refused">Android refused that change.</string>
+
     <string name="always_allowed_honour_title">Honour this list</string>
     <string name="always_allowed_honour_subtitle">When off, a session can lock away everything, including the phone app.</string>
 
@@ -472,6 +484,20 @@
 
     <string name="schedule_overlay_toggle_title">Overlay this window</string>
     <string name="schedule_overlay_toggle_subtitle">Locks the phone for real - not even the home screen opens anything outside always-allowed and this window\'s own apps. No break, no exceptions, and every rule (including this window) is frozen until it ends.</string>
+    <string name="schedule_brick_toggle_title">Close FocusLock too</string>
+    <string name="schedule_brick_toggle_subtitle">Nothing but a countdown and your essentials — no Library, no Rules, no Tasks. Otherwise an overlay window still leaves this app to sit in.</string>
+
+    <string name="bedtime_overlay_toggle_title">Make bedtime absolute</string>
+    <string name="bedtime_overlay_toggle_subtitle">The same hard lock a schedule window can use: only always-allowed apps open, the launcher included. No break out of it.</string>
+    <string name="bedtime_brick_toggle_title">Close FocusLock too</string>
+    <string name="bedtime_brick_toggle_subtitle">For the night, this app is a countdown and your essentials, nothing else.</string>
+    <string name="bedtime_section_strength">How hard it holds</string>
+
+    <!-- The brick screen itself. -->
+    <string name="lockdown_headline">The phone is closed</string>
+    <string name="lockdown_lifts_at">It opens again at %1$s.</string>
+    <string name="lockdown_generic">It opens again when the window ends.</string>
+    <string name="lockdown_essentials_label">Still available</string>
     <string name="schedule_delete_window">Delete this window</string>
 
     <string name="schedule_which_day_of_month_title">Which day of the month?</string>

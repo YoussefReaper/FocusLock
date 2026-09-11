@@ -50,10 +50,24 @@ abstract class FocusEditorActivity : AppCompatActivity() {
         KioskPolicy.syncLockTaskState(this)
         if (freshlyCreated) {
             freshlyCreated = false
+            themeSignature = UiPrefs.signature(this)
             return
         }
-        renderScreen()
+        val signature = UiPrefs.signature(this)
+        if (signature != themeSignature) {
+            themeSignature = signature
+            renderScreen()
+        } else {
+            refresh()
+        }
     }
+
+    private var themeSignature: String = ""
+
+    /** Held so [refresh] can refill the body in place without losing the scroll offset. */
+    private var scroll: androidx.core.widget.NestedScrollView? = null
+    private var header: LinearLayout? = null
+    private var body: LinearLayout? = null
 
     protected fun renderScreen() {
         tokens = UiPrefs.resolve(this)
@@ -68,7 +82,35 @@ abstract class FocusEditorActivity : AppCompatActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT
         )
 
-        outer.addView(
+        // The header is its own container so a refresh can swap just the bar
+        // (whose Save button enables and disables as the body changes) without
+        // touching the scrolling body below it.
+        val headerHost = LinearLayout(this)
+        headerHost.orientation = LinearLayout.VERTICAL
+        header = headerHost
+        fillHeader()
+        outer.addView(headerHost)
+        outer.addView(FocusUi.divider(this, tokens))
+
+        val content = FocusUi.column(this, tokens.density.contentPaddingDp)
+        body = content
+        fillBody()
+
+        val scroller = FocusUi.scroll(this, content)
+        scroller.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        scroll = scroller
+        outer.addView(scroller)
+
+        root.addView(outer)
+        setContentView(root)
+
+        Motion.fadeIn(content, tokens)
+    }
+
+    private fun fillHeader() {
+        val host = header ?: return
+        host.removeAllViews()
+        host.addView(
             FocusUi.editorHeader(
                 this,
                 tokens,
@@ -79,26 +121,28 @@ abstract class FocusEditorActivity : AppCompatActivity() {
                 onSave = { onSave() }
             )
         )
-        outer.addView(FocusUi.divider(this, tokens))
-
-        val content = FocusUi.column(this, tokens.density.contentPaddingDp)
-        buildContent(content)
-        content.addView(FocusUi.spacer(this, 28))
-
-        val scroll = FocusUi.scroll(this, content)
-        scroll.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        outer.addView(scroll)
-
-        root.addView(outer)
-        FocusUi.dimOverlay(this, tokens)?.let { root.addView(it) }
-        setContentView(root)
-
-        Motion.fadeIn(content, tokens)
     }
 
-    /** Redraw after a change - rebuilds the whole screen, header included, so a title/canSave change shows immediately. */
+    private fun fillBody() {
+        val host = body ?: return
+        buildContent(host)
+        host.addView(FocusUi.spacer(this, 28))
+    }
+
+    /**
+     * Redraw after a change, header included so a title/canSave change shows
+     * immediately - but in place, so an accordion opening halfway down a long
+     * editor does not scroll the person back to the first field.
+     */
     protected fun refresh() {
-        renderScreen()
+        val host = body
+        if (host == null) {
+            renderScreen()
+            return
+        }
+        tokens = UiPrefs.resolve(this)
+        fillHeader()
+        FocusUi.rebuildPreservingScroll(scroll, host) { fillBody() }
     }
 
     protected fun card(build: (LinearLayout) -> Unit): View {

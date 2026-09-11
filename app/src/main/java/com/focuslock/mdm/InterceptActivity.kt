@@ -180,7 +180,6 @@ class InterceptActivity : AppCompatActivity() {
         outer.addView(bottom)
 
         root.addView(outer)
-        FocusUi.dimOverlay(this, tokens)?.let { root.addView(it) }
         setContentView(root)
 
         Motion.fadeIn(outer, tokens)

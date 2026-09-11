@@ -36,7 +36,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
-        return FocusUi.scroll(activity, container)
+        return hostScroll(FocusUi.scroll(activity, container), container)
     }
 
     override fun onShow() {
@@ -55,8 +55,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             .forEach { FocusTaskStore.markMissed(activity, it) }
     }
 
-    private fun render() {
-        container.removeAllViews()
+    private fun render(): Unit = redraw {
         val added = ArrayList<View>()
 
         fun add(view: View) {
@@ -653,7 +652,7 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
             }
         } else {
             (task.deadline ?: task.dueDate)?.let { due ->
-                val formatted = SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(due))
+                val formatted = TimeText.dateTime(activity, due)
                 parts.add(
                     if (task.deadline != null) {
                         activity.getString(R.string.tasks_describe_due_by, formatted)

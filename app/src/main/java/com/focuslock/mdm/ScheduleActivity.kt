@@ -47,9 +47,9 @@ class ScheduleActivity : FocusScreenActivity() {
         ScheduleManager.activeWindowIfEnabled(this)?.let { window ->
             card.addView(FocusUi.spacer(this, 8))
             val label = if (window.overlay) {
-                getString(R.string.schedule_overlaying_until, ScheduleManager.formatTime(window.endMinutes))
+                getString(R.string.schedule_overlaying_until, ScheduleManager.formatTime(this, window.endMinutes))
             } else {
-                getString(R.string.schedule_running_until, ScheduleManager.formatTime(window.endMinutes))
+                getString(R.string.schedule_running_until, ScheduleManager.formatTime(this, window.endMinutes))
             }
             card.addView(FocusUi.pill(this, tokens, label, if (window.overlay) tokens.warning else tokens.accent))
         }
@@ -82,8 +82,8 @@ class ScheduleActivity : FocusScreenActivity() {
                         tokens,
                         getString(
                             R.string.schedule_window_time_range,
-                            ScheduleManager.formatTime(schedule.startMinutes),
-                            ScheduleManager.formatTime(schedule.endMinutes)
+                            ScheduleManager.formatTime(this, schedule.startMinutes),
+                            ScheduleManager.formatTime(this, schedule.endMinutes)
                         ),
                         describe(schedule),
                         trailing = if (schedule.id == active) {

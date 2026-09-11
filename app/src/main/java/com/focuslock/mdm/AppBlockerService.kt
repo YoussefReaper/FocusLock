@@ -783,14 +783,14 @@ class AppBlockerService : Service() {
             return mode.label + " session, " + SessionManager.formatRemaining(this) + " left"
         }
         ScheduleManager.activeWindowIfEnabled(this)?.let { window ->
-            return "Scheduled window until " + ScheduleManager.formatTime(window.endMinutes)
+            return "Scheduled window until " + ScheduleManager.formatTime(this, window.endMinutes)
         }
-        if (Bedtime.isActive(this)) return "Bedtime until " + Bedtime.formatTime(Bedtime.endMinutes(this))
+        if (Bedtime.isActive(this)) return "Bedtime until " + Bedtime.formatTime(this, Bedtime.endMinutes(this))
         if (AppLimits.hasEnforceableBudgets(this)) return "Keeping an eye on your daily limits"
         ScheduleManager.nextWindow(this)?.let { window ->
-            return "Next quiet window at " + ScheduleManager.formatTime(window.startMinutes)
+            return "Next quiet window at " + ScheduleManager.formatTime(this, window.startMinutes)
         }
-        if (Bedtime.isEnabled(this)) return "Bedtime starts at " + Bedtime.formatTime(Bedtime.startMinutes(this))
+        if (Bedtime.isEnabled(this)) return "Bedtime starts at " + Bedtime.formatTime(this, Bedtime.startMinutes(this))
         return "Waiting for your next window"
     }
 

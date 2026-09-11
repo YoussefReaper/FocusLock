@@ -65,10 +65,15 @@ class PersonalizationActivity : FocusScreenActivity() {
         card.addView(FocusUi.secondary(this, tokens, "Four days in a row"))
         card.addView(FocusUi.spacer(this, 12))
 
-        val row = FocusUi.row(this)
-        row.addView(FocusUi.statTile(this, tokens, "2h 14m", "Screen time"))
-        row.addView(FocusUi.statTile(this, tokens, "37", "Opens"))
-        card.addView(row)
+        card.addView(
+            FocusUi.tileRow(
+                this,
+                listOf(
+                    FocusUi.statTile(this, tokens, "2h 14m", "Screen time"),
+                    FocusUi.statTile(this, tokens, "37", "Opens")
+                )
+            )
+        )
 
         card.addView(FocusUi.spacer(this, 10))
         card.addView(FocusUi.primaryButton(this, tokens, "Primary action") { })

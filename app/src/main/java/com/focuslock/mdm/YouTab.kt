@@ -24,15 +24,14 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
-        return FocusUi.scroll(activity, container)
+        return hostScroll(FocusUi.scroll(activity, container), container)
     }
 
     override fun onShow() {
         render()
     }
 
-    private fun render() {
-        container.removeAllViews()
+    private fun render(): Unit = redraw {
         val added = ArrayList<View>()
 
         fun add(view: View) {
@@ -79,8 +78,8 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         card.addView(FocusUi.heading(activity, tokens, "So far"))
         card.addView(FocusUi.spacer(activity, 10))
 
-        val row = FocusUi.row(activity)
-        row.addView(
+        val tiles = ArrayList<View>()
+        tiles.add(
             FocusUi.statTile(
                 activity,
                 tokens,
@@ -88,7 +87,7 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 "Sessions finished"
             )
         )
-        row.addView(
+        tiles.add(
             FocusUi.statTile(
                 activity,
                 tokens,
@@ -97,11 +96,11 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             )
         )
         if (Streaks.isEnabled(activity)) {
-            row.addView(
+            tiles.add(
                 FocusUi.statTile(activity, tokens, Streaks.best(activity).toString(), "Best run (days)")
             )
         }
-        card.addView(row)
+        card.addView(FocusUi.tileRow(activity, tiles))
 
         if (Streaks.isEnabled(activity) && Streaks.isPaused(activity)) {
             card.addView(FocusUi.spacer(activity, 10))
@@ -118,17 +117,17 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
      */
     private fun buildTodayStats(): View {
         val report = UsageAnalytics.today(activity)
-        val row = FocusUi.row(activity)
-        row.addView(
-            FocusUi.statTile(activity, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time")
-        )
-        row.addView(FocusUi.statTile(activity, tokens, report.opens.toString(), "App opens"))
-        row.addView(
-            FocusUi.statTile(
-                activity,
-                tokens,
-                AppRules.blockedPackages(activity).size.toString(),
-                "Apps blocked"
+        val row = FocusUi.tileRow(
+            activity,
+            listOf(
+                FocusUi.statTile(activity, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time"),
+                FocusUi.statTile(activity, tokens, report.opens.toString(), "App opens"),
+                FocusUi.statTile(
+                    activity,
+                    tokens,
+                    AppRules.blockedPackages(activity).size.toString(),
+                    "Apps blocked"
+                )
             )
         )
         row.layoutParams = LinearLayout.LayoutParams(

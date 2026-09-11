@@ -333,6 +333,22 @@ object UiPrefs {
         prefs(context).edit().putString(Constants.KEY_UI_DENSITY, id).apply()
     }
 
+    /**
+     * Whether clock times read "10:30 PM" or "22:30".
+     *
+     * Defaults to "system", i.e. whatever the phone's own 12/24 hour setting
+     * says - which is what the app should have been doing all along instead of
+     * hardcoding 24-hour everywhere. See [TimeText].
+     */
+    fun getClockFormat(context: Context): String =
+        prefs(context).getString(KEY_CLOCK_FORMAT, TimeText.CLOCK_SYSTEM) ?: TimeText.CLOCK_SYSTEM
+
+    fun setClockFormat(context: Context, value: String) {
+        prefs(context).edit().putString(KEY_CLOCK_FORMAT, value).apply()
+    }
+
+    private const val KEY_CLOCK_FORMAT = "ui_clock_format"
+
     fun getWallpaper(context: Context): UiWallpaper {
         val id = prefs(context).getString(Constants.KEY_UI_WALLPAPER, DEFAULT_WALLPAPER_ID) ?: DEFAULT_WALLPAPER_ID
         return wallpapers.firstOrNull { it.id == id } ?: wallpapers.first()
@@ -565,6 +581,29 @@ object UiPrefs {
     private fun resolveMonoTypeface(context: Context): Typeface =
         androidx.core.content.res.ResourcesCompat.getFont(context, R.font.ibm_plex_mono_family)
             ?: Typeface.MONOSPACE
+
+    /**
+     * Everything a screen's *appearance* depends on, as one comparable string.
+     *
+     * A screen that comes back from a sub-screen only needs its whole view tree
+     * rebuilt if one of these changed; otherwise refilling the column is enough
+     * and keeps the reader where they were. Deliberately excludes anything
+     * about rules or sessions - those change the content, not the layout.
+     */
+    fun signature(context: Context): String = listOf(
+        getTheme(context).id,
+        getAccent(context).id,
+        getBackground(context).id,
+        getFont(context).id,
+        getDensity(context).id,
+        getWallpaper(context).id,
+        getCardRadiusDp(context).toString(),
+        getTextScale(context).toString(),
+        highContrast(context).toString(),
+        reducedMotion(context).toString(),
+        Bedtime.isActive(context).toString(),
+        (if (Bedtime.isActive(context)) Bedtime.dimPercent(context) else 0).toString()
+    ).joinToString("|")
 
     /** Black or white, whichever is actually readable on the given colour. */
     fun readableOn(color: Int): Int {

@@ -33,7 +33,13 @@ data class ScheduleWindow(
      * launcher, not even a break pass. See [RuleEngine.decide] and
      * [KioskPolicy.buildLockTaskPackages].
      */
-    val overlay: Boolean = false
+    val overlay: Boolean = false,
+    /**
+     * Closes FocusLock's own tabs for the duration too, so an overlay window
+     * means a dead phone rather than a phone that is only this app. Only
+     * meaningful alongside [overlay]. See [Lockdown].
+     */
+    val bricksApp: Boolean = false
 )
 
 object ScheduleManager {
@@ -95,7 +101,8 @@ object ScheduleManager {
                 now.repeat != previous.repeat ||
                 now.daysOfWeek.toSet() != previous.daysOfWeek.toSet() ||
                 !previous.allowedApps.containsAll(now.allowedApps) ||
-                (previous.overlay && !now.overlay)
+                (previous.overlay && !now.overlay) ||
+                (previous.bricksApp && !now.bricksApp)
         }
         return if (weakened) EditDirection.LOOSEN else EditDirection.TIGHTEN
     }
@@ -140,7 +147,8 @@ object ScheduleManager {
         dayOfMonth: Int,
         message: String,
         allowedApps: Collection<String> = emptyList(),
-        overlay: Boolean = false
+        overlay: Boolean = false,
+        bricksApp: Boolean = false
     ): ScheduleWindow {
         return ScheduleWindow(
             id = UUID.randomUUID().toString(),
@@ -151,7 +159,8 @@ object ScheduleManager {
             dayOfMonth = dayOfMonth,
             message = message,
             allowedApps = allowedApps.map { it.trim() }.filter { it.isNotBlank() }.toSet(),
-            overlay = overlay
+            overlay = overlay,
+            bricksApp = bricksApp
         )
     }
 
@@ -190,11 +199,8 @@ object ScheduleManager {
             .minByOrNull { it.startMinutes }
     }
 
-    fun formatTime(minutes: Int): String {
-        val hour = minutes / 60
-        val minute = minutes % 60
-        return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
-    }
+    /** Needs a Context now: whether this reads "9:00 PM" or "21:00" is the user's setting. See [TimeText]. */
+    fun formatTime(context: Context, minutes: Int): String = TimeText.ofDay(context, minutes)
 
     fun durationMinutes(schedule: ScheduleWindow): Int {
         val start = schedule.startMinutes
@@ -249,6 +255,7 @@ object ScheduleManager {
             schedule.allowedApps.forEach { allowedApps.put(it) }
             obj.put("allowedApps", allowedApps)
             obj.put("overlay", schedule.overlay)
+            obj.put("bricksApp", schedule.bricksApp)
             array.put(obj)
         }
         return array.toString()
@@ -281,7 +288,8 @@ object ScheduleManager {
                     dayOfMonth = obj.optInt("dayOfMonth"),
                     message = obj.optString("message"),
                     allowedApps = allowedApps,
-                    overlay = obj.optBoolean("overlay", false)
+                    overlay = obj.optBoolean("overlay", false),
+                    bricksApp = obj.optBoolean("bricksApp", false)
                 )
             }
         } catch (_: Exception) {

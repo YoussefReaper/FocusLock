@@ -21,12 +21,84 @@ class AlwaysAllowedActivity : FocusScreenActivity() {
         val enabled = CapabilityRegistry.isEnabled(this, Capabilities.ALWAYS_ALLOWED)
 
         column.addView(buildStateCard(enabled))
+
+        // Always reachable, even with the list itself switched off: this is a
+        // phone control, not an app exemption, and the reason it is here at all
+        // is that a session can take the quick settings shade away. See
+        // [ScreenBrightness].
+        column.addView(sectionLabel(getString(R.string.always_allowed_section_phone_controls)))
+        column.addView(buildBrightnessCard())
+
         if (!enabled) return
 
         column.addView(sectionLabel(getString(R.string.always_allowed_section_your_list)))
         column.addView(buildList())
         column.addView(sectionLabel(getString(R.string.always_allowed_section_suggestions)))
         column.addView(buildSuggestions())
+    }
+
+    /**
+     * Brightness, in the app.
+     *
+     * Android's lock task mode has no feature flag for quick settings - it
+     * removes the panel for the whole pinned session and there is no way to ask
+     * for it back, which is why "Lock the status bar" appears not to work on
+     * it. Rather than leave a person unable to dim their own screen at 1am, the
+     * control lives here.
+     */
+    private fun buildBrightnessCard(): View = card { card ->
+        if (!ScreenBrightness.canControl(this)) {
+            card.addView(FocusUi.rowTitle(this, tokens, getString(R.string.brightness_title)))
+            card.addView(FocusUi.spacer(this, 4))
+            card.addView(FocusUi.secondary(this, tokens, getString(R.string.brightness_needs_permission)))
+            card.addView(FocusUi.spacer(this, 12))
+            card.addView(
+                FocusUi.secondaryButton(this, tokens, getString(R.string.brightness_grant_button)) {
+                    try {
+                        startActivity(ScreenBrightness.permissionIntent(this))
+                    } catch (_: Exception) {
+                        FocusDialog.toast(this, getString(R.string.brightness_no_settings_page))
+                    }
+                }
+            )
+            return@card
+        }
+
+        val automatic = ScreenBrightness.isAutomatic(this)
+        card.addView(
+            FocusUi.sliderRow(
+                this,
+                tokens,
+                getString(R.string.brightness_title),
+                0,
+                100,
+                ScreenBrightness.percent(this) ?: 50,
+                { getString(R.string.brightness_percent, it) }
+            ) { value ->
+                // Manual first: a level set while the sensor is in charge is
+                // overwritten within the second, which looks like the slider
+                // simply not working.
+                if (ScreenBrightness.isAutomatic(this)) ScreenBrightness.setAutomatic(this, false)
+                ScreenBrightness.setPercent(this, value)
+            }
+        )
+
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                getString(R.string.brightness_adaptive_title),
+                getString(R.string.brightness_adaptive_subtitle),
+                automatic
+            ) { value ->
+                if (!ScreenBrightness.setAutomatic(this, value)) {
+                    FocusDialog.toast(this, getString(R.string.brightness_refused))
+                }
+                refresh()
+            }
+        )
+
+        card.addView(FocusUi.caption(this, tokens, getString(R.string.brightness_why_here)))
     }
 
     private fun buildStateCard(enabled: Boolean): View = card { card ->

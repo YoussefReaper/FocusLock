@@ -61,6 +61,14 @@ class MainActivity : AppCompatActivity() {
                 lastLockTaskWanted = wanted
                 KioskPolicy.syncLockTaskState(this@MainActivity)
             }
+            // A brick window starts and ends on the clock, so the shell has to
+            // notice the transition without anyone navigating anywhere - the
+            // person may well be looking at this screen when it lifts.
+            if (Lockdown.isActive(this@MainActivity) != lockedDown) {
+                buildShell()
+                handler.postDelayed(this, 1_000L)
+                return
+            }
             tabs[currentTab]?.onTick()
             handler.postDelayed(this, 1_000L)
         }
@@ -137,19 +145,19 @@ class MainActivity : AppCompatActivity() {
 
     private var lastThemeSignature = ""
 
-    private fun themeSignature(): String = listOf(
-        UiPrefs.getTheme(this).id,
-        UiPrefs.getAccent(this).id,
-        UiPrefs.getBackground(this).id,
-        UiPrefs.getFont(this).id,
-        UiPrefs.getDensity(this).id,
-        UiPrefs.getCardRadiusDp(this).toString(),
-        UiPrefs.getTextScale(this).toString(),
-        UiPrefs.highContrast(this).toString(),
-        Bedtime.isActive(this).toString()
-    ).joinToString("|")
+    /** The shared one, so the shell and every screen agree on what counts as a theme change. */
+    private fun themeSignature(): String = UiPrefs.signature(this)
+
+    /** True while [buildLockdownScreen] owns the window, so the tab shell's views do not exist. */
+    private var lockedDown = false
 
     private fun rebuildIfThemeChanged() {
+        // Entering or leaving a brick window swaps the entire shell, so it has
+        // to force a rebuild the same way a theme change does.
+        if (Lockdown.isActive(this) != lockedDown) {
+            buildShell()
+            return
+        }
         val signature = themeSignature()
         if (signature == lastThemeSignature) return
         buildShell()
@@ -161,6 +169,15 @@ class MainActivity : AppCompatActivity() {
         tabs.clear()
         navButtons.clear()
         FocusUi.applySystemBars(window, tokens, tokens.surface)
+
+        // One screen and nothing else while a brick window holds. Drawn instead
+        // of the shell rather than over it: see [Lockdown] on why overlaying
+        // our own UI would be the fatal loop and this is not.
+        lockedDown = Lockdown.isActive(this)
+        if (lockedDown) {
+            buildLockdownScreen()
+            return
+        }
 
         val root = FocusUi.screenRoot(this, tokens)
 
@@ -183,10 +200,89 @@ class MainActivity : AppCompatActivity() {
         shell.addView(navBar)
 
         root.addView(shell)
-        FocusUi.dimOverlay(this, tokens)?.let { root.addView(it) }
         setContentView(root)
 
         selectTab(currentTab, animate = false)
+    }
+
+    /**
+     * The brick screen: what is holding the phone, when it lifts, and the
+     * essentials.
+     *
+     * Deliberately not a dead end. The always-allowed apps are launchable from
+     * here, because a lock that can stop someone making a phone call is not a
+     * lock anyone should ship - and because the lock-task allowlist already
+     * permits exactly these, tapping one works rather than bouncing.
+     */
+    private fun buildLockdownScreen() {
+        val root = FocusUi.screenRoot(this, tokens)
+
+        val column = FocusUi.column(this, tokens.density.contentPaddingDp)
+        column.gravity = Gravity.CENTER_HORIZONTAL
+
+        column.addView(FocusUi.spacer(this, 64))
+
+        val headline = FocusUi.title(this, tokens, getString(R.string.lockdown_headline))
+        headline.gravity = Gravity.CENTER
+        column.addView(headline)
+
+        column.addView(FocusUi.spacer(this, 10))
+        val detail = FocusUi.secondary(
+            this,
+            tokens,
+            Lockdown.message(this)
+                ?: Lockdown.liftsAt(this)?.let { getString(R.string.lockdown_lifts_at, it) }
+                ?: getString(R.string.lockdown_generic)
+        )
+        detail.gravity = Gravity.CENTER
+        column.addView(detail)
+
+        val essentials = AppRules.alwaysAllowed(this)
+            .filter { it != packageName && AppCatalog.isInstalled(this, it) }
+            .sortedBy { AppCatalog.label(this, it) }
+
+        if (essentials.isNotEmpty()) {
+            column.addView(FocusUi.spacer(this, 36))
+            column.addView(FocusUi.sectionLabel(this, tokens, getString(R.string.lockdown_essentials_label)))
+            val card = FocusUi.card(this, tokens)
+            essentials.forEachIndexed { index, pkg ->
+                card.addView(
+                    FocusUi.listRow(
+                        this,
+                        tokens,
+                        AppCatalog.label(this, pkg),
+                        null,
+                        trailing = FocusUi.chevron(this, tokens),
+                        leading = FocusUi.appIcon(this, tokens, pkg, 32)
+                    ) { launchEssential(pkg) }
+                )
+                if (index < essentials.size - 1) card.addView(FocusUi.divider(this, tokens))
+            }
+            column.addView(card)
+        }
+
+        column.addView(FocusUi.spacer(this, 28))
+
+        val scroll = FocusUi.scroll(this, column)
+        scroll.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        root.addView(scroll)
+        setContentView(root)
+    }
+
+    private fun launchEssential(packageName: String) {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent == null) {
+            FocusDialog.toast(this, getString(R.string.library_no_screen_toast))
+            return
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            FocusDialog.toast(this, getString(R.string.library_kiosk_holding_toast))
+        }
     }
 
     /**
@@ -302,6 +398,9 @@ class MainActivity : AppCompatActivity() {
     fun selectTab(index: Int, animate: Boolean = true) {
         val safeIndex = index.coerceIn(0, TAB_SPECS.size - 1)
         currentTab = safeIndex
+        // The tab shell's views do not exist during a brick window. Remember
+        // where they wanted to go, so it opens there when the window lifts.
+        if (lockedDown) return
 
         val tab = tabs.getOrPut(safeIndex) { createTab(safeIndex) }
         val view = tab.view
@@ -382,4 +481,32 @@ abstract class FocusTab(protected val activity: MainActivity, protected val toke
 
     /** Called once a second while this tab is the visible one. */
     open fun onTick() = Unit
+
+    /**
+     * The scrolling column this tab redraws into, and the scroller around it.
+     *
+     * Subclasses register these once in [build] and then redraw through
+     * [redraw] instead of clearing the column themselves - otherwise every
+     * toggle in Rules, every filter chip in Tasks and every state change in You
+     * silently scrolls the person back to the top of the tab, because an
+     * emptied scroll view has no height left to hold its offset.
+     */
+    private var scroller: View? = null
+    private var column: ViewGroup? = null
+
+    protected fun hostScroll(scroll: View, content: ViewGroup): View {
+        scroller = scroll
+        column = content
+        return scroll
+    }
+
+    /** Refill the tab's column, keeping the reader's place in it. */
+    protected fun redraw(fill: () -> Unit) {
+        val content = column
+        if (content == null) {
+            fill()
+            return
+        }
+        FocusUi.rebuildPreservingScroll(scroller, content, fill)
+    }
 }

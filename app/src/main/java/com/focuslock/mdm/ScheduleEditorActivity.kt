@@ -32,6 +32,7 @@ class ScheduleEditorActivity : FocusEditorActivity() {
     private var message = ""
     private var allowedApps = emptySet<String>()
     private var overlay = false
+    private var bricksApp = false
 
     private var whenExpanded = false
     private var editingEnd = false
@@ -55,6 +56,7 @@ class ScheduleEditorActivity : FocusEditorActivity() {
                 message = window.message
                 allowedApps = window.allowedApps
                 overlay = window.overlay
+                bricksApp = window.bricksApp
             }
         }
         super.onCreate(savedInstanceState)
@@ -79,7 +81,8 @@ class ScheduleEditorActivity : FocusEditorActivity() {
             dayOfMonth = dayOfMonth,
             message = message,
             allowedApps = allowedApps,
-            overlay = overlay
+            overlay = overlay,
+            bricksApp = bricksApp
         ) ?: ScheduleManager.newSchedule(
             startMinutes = start,
             endMinutes = end,
@@ -88,7 +91,8 @@ class ScheduleEditorActivity : FocusEditorActivity() {
             dayOfMonth = dayOfMonth,
             message = message,
             allowedApps = allowedApps,
-            overlay = overlay
+            overlay = overlay,
+            bricksApp = bricksApp
         )
         val saved = if (existing == null) ScheduleManager.addSchedule(this, window) else ScheduleManager.updateSchedule(this, window)
         if (!saved) {
@@ -160,31 +164,71 @@ class ScheduleEditorActivity : FocusEditorActivity() {
         }
     }
 
+    /**
+     * The three labels that restate the time being edited.
+     *
+     * Held rather than rebuilt, because the thing changing them is now a text
+     * field: calling refresh() on every keystroke would tear down the very
+     * EditText being typed into, taking the focus and the keyboard with it.
+     * Retyping "9" and having the keyboard close under you is worse than the
+     * arrows-only stepper this replaced.
+     */
+    private var summaryLabel: TextView? = null
+    private var startLabel: TextView? = null
+    private var endLabel: TextView? = null
+
     private fun whenTrailing(): View {
         val wrap = FocusUi.row(this)
         wrap.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        wrap.addView(
-            FocusUi.valueLabel(
-                this,
-                tokens,
-                getString(R.string.schedule_window_time_range, ScheduleManager.formatTime(start), ScheduleManager.formatTime(end))
-            )
+        val label = FocusUi.valueLabel(
+            this,
+            tokens,
+            getString(R.string.schedule_window_time_range, ScheduleManager.formatTime(this, start), ScheduleManager.formatTime(this, end))
         )
+        summaryLabel = label
+        wrap.addView(label)
         wrap.addView(FocusUi.spacerH(this, 8))
         wrap.addView(FocusUi.chevron(this, tokens))
         return wrap
     }
 
+    /** Repaints every restatement of the window from the current values. */
+    private fun refreshTimeLabels() {
+        summaryLabel?.text = getString(
+            R.string.schedule_window_time_range,
+            ScheduleManager.formatTime(this, start),
+            ScheduleManager.formatTime(this, end)
+        )
+        startLabel?.text = ScheduleManager.formatTime(this, start)
+        endLabel?.text = ScheduleManager.formatTime(this, end)
+    }
+
     private fun buildStartsEndsRow(): View {
         val row = FocusUi.row(this)
         row.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        row.addView(buildTimeTargetCard(getString(R.string.common_starts_label), start, !editingEnd) { editingEnd = false; refresh() })
+        row.addView(
+            buildTimeTargetCard(getString(R.string.common_starts_label), start, !editingEnd, isEnd = false) {
+                editingEnd = false
+                refresh()
+            }
+        )
         row.addView(FocusUi.spacerH(this, 10))
-        row.addView(buildTimeTargetCard(getString(R.string.common_ends_label), end, editingEnd) { editingEnd = true; refresh() })
+        row.addView(
+            buildTimeTargetCard(getString(R.string.common_ends_label), end, editingEnd, isEnd = true) {
+                editingEnd = true
+                refresh()
+            }
+        )
         return row
     }
 
-    private fun buildTimeTargetCard(label: String, minutes: Int, active: Boolean, onClick: () -> Unit): View {
+    private fun buildTimeTargetCard(
+        label: String,
+        minutes: Int,
+        active: Boolean,
+        isEnd: Boolean,
+        onClick: () -> Unit
+    ): View {
         val box = FocusUi.column(this)
         box.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         val pad = FocusUi.dp(this, 13)
@@ -207,7 +251,7 @@ class ScheduleEditorActivity : FocusEditorActivity() {
         box.addView(overline)
 
         val value = TextView(this)
-        value.text = ScheduleManager.formatTime(minutes)
+        value.text = ScheduleManager.formatTime(this, minutes)
         value.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(24f))
         value.setTextColor(if (active) tokens.textPrimary else tokens.textSecondary)
         FocusUi.applyFont(value, tokens, mono = true, weight = 500)
@@ -216,15 +260,43 @@ class ScheduleEditorActivity : FocusEditorActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = FocusUi.dp(this@ScheduleEditorActivity, 6) }
         box.addView(value)
+        if (isEnd) endLabel = value else startLabel = value
 
         return box
     }
 
+    /**
+     * Hour and minute as two typed fields, plus AM/PM where the phone uses it.
+     *
+     * These were arrow-only before: no way to type a number at all, so setting
+     * a window to 6:45 was fifteen taps on a glyph. [FocusUi.numberStepper]
+     * keeps the arrows for nudging and makes the value itself an input.
+     */
     private fun buildTimeStepperRow(): View {
+        val twelveHour = !TimeText.uses24Hour(this)
+        // Read live on every callback, never captured: the hour field and the
+        // minute field each change the same underlying value, so a captured
+        // copy goes stale the moment the other one is touched.
+        fun editing(): Int = if (editingEnd) end else start
+
         val row = FocusUi.row(this)
         row.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        val current = if (editingEnd) end else start
-        row.addView(buildStepperBox((current / 60).toString().padStart(2, '0'), 60))
+
+        val hourField = FocusUi.numberStepper(
+            this,
+            tokens,
+            value = if (twelveHour) displayHour(editing() / 60) else editing() / 60,
+            min = if (twelveHour) 1 else 0,
+            max = if (twelveHour) 12 else 23,
+            wrap = true,
+            format = { if (twelveHour) it.toString() else it.toString().padStart(2, '0') }
+        ) { typed ->
+            val nextHour = if (twelveHour) combine(typed, editing() / 60 >= 12) else typed
+            setEditingTime(nextHour * 60 + editing() % 60)
+        }
+        hourField.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(hourField)
+
         row.addView(FocusUi.spacerH(this, 8))
         val colon = TextView(this)
         colon.text = ":"
@@ -234,49 +306,56 @@ class ScheduleEditorActivity : FocusEditorActivity() {
         colon.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(18f))
         row.addView(colon)
         row.addView(FocusUi.spacerH(this, 8))
-        row.addView(buildStepperBox((current % 60).toString().padStart(2, '0'), 5))
-        return row
+
+        val minuteField = FocusUi.numberStepper(
+            this,
+            tokens,
+            value = editing() % 60,
+            min = 0,
+            max = 59,
+            step = 5,
+            wrap = true
+        ) { typed -> setEditingTime((editing() / 60) * 60 + typed) }
+        minuteField.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(minuteField)
+
+        if (!twelveHour) return row
+
+        val column = FocusUi.column(this)
+        column.addView(row)
+        column.addView(FocusUi.spacer(this, 10))
+        val halves = listOf(TimeText.ofDay(this, 9, 0), TimeText.ofDay(this, 21, 0))
+            .map { it.substringAfter(' ') }
+        column.addView(
+            FocusUi.chipStrip(this, tokens, halves, if (editing() / 60 < 12) 0 else 1) { index ->
+                setEditingTime(combine(displayHour(editing() / 60), index == 1) * 60 + editing() % 60)
+                // A chip strip does not repaint its own selection, and tapping
+                // one has already taken focus off any field, so a rebuild here
+                // costs nothing and is the only way the choice looks chosen.
+                refresh()
+            }
+        )
+        return column
     }
 
-    private fun buildStepperBox(valueText: String, stepMinutes: Int): View {
-        val box = FocusUi.row(this)
-        box.layoutParams = LinearLayout.LayoutParams(0, FocusUi.dp(this, 52), 1f)
-        box.background = FocusUi.roundedShape(this, tokens.surfaceAlt, 14)
-        val pad = FocusUi.dp(this, 10)
-        box.setPadding(pad, 0, pad, 0)
-        box.addView(stepGlyph("▾") { adjustEditingTime(-stepMinutes) })
-        val value = TextView(this)
-        value.text = valueText
-        value.gravity = Gravity.CENTER
-        value.setTextColor(tokens.textPrimary)
-        FocusUi.applyFont(value, tokens, mono = true, weight = 500)
-        value.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(20f))
-        value.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        box.addView(value)
-        box.addView(stepGlyph("▴") { adjustEditingTime(stepMinutes) })
-        return box
+    /** 0-23 as it reads on a 12-hour face: midnight and noon are both 12. */
+    private fun displayHour(hour24: Int): Int = if (hour24 % 12 == 0) 12 else hour24 % 12
+
+    private fun combine(displayed: Int, afternoon: Boolean): Int {
+        val base = if (displayed == 12) 0 else displayed
+        return if (afternoon) base + 12 else base
     }
 
-    private fun stepGlyph(glyph: String, onClick: () -> Unit): View {
-        val view = TextView(this)
-        view.text = glyph
-        view.gravity = Gravity.CENTER
-        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(12f))
-        view.setTextColor(tokens.textSecondary)
-        view.isClickable = true
-        view.isFocusable = true
-        val pad = FocusUi.dp(this, 8)
-        view.setPadding(pad, pad, pad, pad)
-        view.setOnClickListener { onClick() }
-        return view
-    }
-
-    /** Wraps within the day, so stepping past midnight rolls to the other end instead of going negative. */
-    private fun adjustEditingTime(deltaMinutes: Int) {
-        val current = if (editingEnd) end else start
-        val next = ((current + deltaMinutes) % 1_440 + 1_440) % 1_440
+    /**
+     * Wraps within the day, so stepping past midnight rolls to the other end
+     * instead of going negative.
+     *
+     * Repaints the labels rather than calling refresh(): see [summaryLabel].
+     */
+    private fun setEditingTime(minutes: Int) {
+        val next = ((minutes % 1_440) + 1_440) % 1_440
         if (editingEnd) end = next else start = next
-        refresh()
+        refreshTimeLabels()
     }
 
     private fun buildDayPills(): View {
@@ -357,8 +436,28 @@ class ScheduleEditorActivity : FocusEditorActivity() {
                 getString(R.string.schedule_overlay_toggle_title),
                 getString(R.string.schedule_overlay_toggle_subtitle),
                 overlay
-            ) { value -> overlay = value }
+            ) { value ->
+                overlay = value
+                // Bricking only means anything on top of an overlay, so it
+                // follows the flag down rather than being left set on a window
+                // that no longer pins anything.
+                if (!value) bricksApp = false
+                refresh()
+            }
         )
+
+        if (overlay) {
+            c.addView(FocusUi.divider(this, tokens))
+            c.addView(
+                FocusUi.toggleRow(
+                    this,
+                    tokens,
+                    getString(R.string.schedule_brick_toggle_title),
+                    getString(R.string.schedule_brick_toggle_subtitle),
+                    bricksApp
+                ) { value -> bricksApp = value }
+            )
+        }
     }
 
     private fun repeatLabel(type: RepeatType): String = when (type) {

@@ -28,6 +28,9 @@ class BedtimeActivity : FocusScreenActivity() {
         column.addView(sectionLabel(getString(R.string.bedtime_section_what_quiet)))
         column.addView(buildCategoryCard())
 
+        column.addView(sectionLabel(getString(R.string.bedtime_section_strength)))
+        column.addView(buildStrengthCard())
+
         column.addView(sectionLabel(getString(R.string.bedtime_section_appearance)))
         column.addView(buildAppearanceCard())
     }
@@ -54,7 +57,7 @@ class BedtimeActivity : FocusScreenActivity() {
                 FocusUi.pill(
                     this,
                     tokens,
-                    getString(R.string.bedtime_running_pill, Bedtime.formatTime(Bedtime.endMinutes(this))),
+                    getString(R.string.bedtime_running_pill, Bedtime.formatTime(this, Bedtime.endMinutes(this))),
                     tokens.accent
                 )
             )
@@ -67,7 +70,7 @@ class BedtimeActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 getString(R.string.common_starts_label),
-                Bedtime.formatTime(Bedtime.startMinutes(this)),
+                Bedtime.formatTime(this, Bedtime.startMinutes(this)),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 FocusDialog.timePicker(this, getString(R.string.bedtime_starts_picker_title), Bedtime.startMinutes(this)) { minutes ->
@@ -84,7 +87,7 @@ class BedtimeActivity : FocusScreenActivity() {
                 this,
                 tokens,
                 getString(R.string.bedtime_lifts_label),
-                Bedtime.formatTime(Bedtime.endMinutes(this)),
+                Bedtime.formatTime(this, Bedtime.endMinutes(this)),
                 trailing = FocusUi.chevron(this, tokens)
             ) {
                 FocusDialog.timePicker(this, getString(R.string.bedtime_lifts_picker_title), Bedtime.endMinutes(this)) { minutes ->
@@ -174,6 +177,53 @@ class BedtimeActivity : FocusScreenActivity() {
                 }
             )
         }
+    }
+
+    /**
+     * Bedtime as a real lock rather than a polite one.
+     *
+     * The same two-step the schedule editor offers: "absolute" is the
+     * Device-Owner pin, and "close FocusLock too" is the difference between a
+     * phone that is only this app and a phone that is genuinely put away for
+     * the night. See [Lockdown].
+     */
+    private fun buildStrengthCard(): View = card { card ->
+        val overlay = Bedtime.isOverlay(this)
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                getString(R.string.bedtime_overlay_toggle_title),
+                getString(R.string.bedtime_overlay_toggle_subtitle),
+                overlay
+            ) { value ->
+                if (!Bedtime.setOverlay(this, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                } else if (!value) {
+                    // Bricking is meaningless without the pin under it.
+                    Bedtime.setBricksApp(this, false)
+                }
+                refresh()
+            }
+        )
+
+        if (!overlay) return@card
+
+        card.addView(FocusUi.divider(this, tokens))
+        card.addView(
+            FocusUi.toggleRow(
+                this,
+                tokens,
+                getString(R.string.bedtime_brick_toggle_title),
+                getString(R.string.bedtime_brick_toggle_subtitle),
+                Bedtime.bricksApp(this)
+            ) { value ->
+                if (!Bedtime.setBricksApp(this, value)) {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
+                refresh()
+            }
+        )
     }
 
     private fun buildInfoGlyph(onClick: () -> Unit): View {

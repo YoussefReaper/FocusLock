@@ -126,6 +126,7 @@ object KioskPolicy {
         // never started anything. See [SessionManager.isEnforcing].
         val scheduleOverlay = ScheduleManager.activeWindowIfEnabled(context)
             ?.takeIf { it.overlay && SessionManager.isEnforcing(context) }
+        val bedtimeOverlay = SessionManager.isEnforcing(context) && Bedtime.requiresLockTask(context)
         val persistentHome = kioskWanted &&
             CapabilityRegistry.isEnabled(context, Capabilities.PERSISTENT_HOME)
 
@@ -139,10 +140,15 @@ object KioskPolicy {
             // Android's own lock-task home fallback (a bare list of the allowed
             // apps) is what a person sees on Home instead - there just isn't a
             // real launcher in the allowlist to escape to.
-            allowLauncherEscape = scheduleOverlay == null && !persistentHome,
+            allowLauncherEscape = scheduleOverlay == null && !bedtimeOverlay && !persistentHome,
             earnAllowed = earnNarrowing(context),
-            scheduleOverlayAllowed = scheduleOverlay?.let {
-                AppRules.alwaysAllowed(context) + it.allowedApps
+            scheduleOverlayAllowed = when {
+                scheduleOverlay != null -> AppRules.alwaysAllowed(context) + scheduleOverlay.allowedApps
+                // An overlay bedtime narrows to always-allowed and nothing
+                // else: it has no per-window app list of its own, and "the
+                // essentials only" is what a hard bedtime means.
+                bedtimeOverlay -> AppRules.alwaysAllowed(context)
+                else -> null
             }
         ).filter { pkg ->
             pkg == context.packageName || isPackageInstalled(context, pkg)

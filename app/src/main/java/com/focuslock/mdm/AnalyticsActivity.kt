@@ -162,12 +162,14 @@ class AnalyticsActivity : FocusScreenActivity() {
     }
 
     private fun buildHeadline(report: UsageReport): View {
-        val row = FocusUi.row(this)
-        row.addView(
-            FocusUi.statTile(this, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time")
+        val row = FocusUi.tileRow(
+            this,
+            listOf(
+                FocusUi.statTile(this, tokens, UsageAnalytics.formatDuration(report.totalMs), "Screen time"),
+                FocusUi.statTile(this, tokens, report.opens.toString(), "Opens"),
+                FocusUi.statTile(this, tokens, report.apps.size.toString(), "Apps used")
+            )
         )
-        row.addView(FocusUi.statTile(this, tokens, report.opens.toString(), "Opens"))
-        row.addView(FocusUi.statTile(this, tokens, report.apps.size.toString(), "Apps used"))
         row.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT

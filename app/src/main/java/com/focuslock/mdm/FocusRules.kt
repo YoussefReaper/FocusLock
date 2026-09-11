@@ -333,6 +333,22 @@ object RuleEngine {
             return allow("scheduleOverlayAllowed")
         }
 
+        // An overlay bedtime is the same absolute thing as an overlay window,
+        // so it is checked in the same place - above the break pass, Earn and
+        // everything else that could otherwise let something through. Checking
+        // it down with the ordinary bedtime block (where it used to be) would
+        // have left a break pass granted at 9pm still working at midnight.
+        if (Bedtime.isOverlay(context) && Bedtime.blocks(context, packageName)) {
+            return GuardDecision(
+                packageName,
+                GuardOutcome.BLOCK,
+                Copy.bedtimeHeadline(context),
+                Copy.bedtimeDetail(context),
+                "bedtimeOverlay",
+                offersBreak = false
+            )
+        }
+
         if (TakeABreak.hasActivePass(context, packageName)) return allow("break")
 
         // An Earn task narrows before anything else gets a say. Checking it here
@@ -379,7 +395,10 @@ object RuleEngine {
                 Copy.bedtimeHeadline(context),
                 Copy.bedtimeDetail(context),
                 "bedtime",
-                offersBreak = TakeABreak.canStart(context)
+                // An overlay bedtime is absolute, the same as an overlay
+                // schedule window: no break pass out of it, or "overlay" would
+                // just mean "a slightly firmer bedtime".
+                offersBreak = !Bedtime.isOverlay(context) && TakeABreak.canStart(context)
             )
         }
 

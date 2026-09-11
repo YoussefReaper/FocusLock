@@ -25,15 +25,14 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
 
     override fun build(): View {
         container = FocusUi.column(activity, tokens.density.contentPaddingDp)
-        return FocusUi.scroll(activity, container)
+        return hostScroll(FocusUi.scroll(activity, container), container)
     }
 
     override fun onShow() {
         render()
     }
 
-    private fun render() {
-        container.removeAllViews()
+    private fun render(): Unit = redraw {
         val added = ArrayList<View>()
 
         fun add(view: View) {
@@ -244,27 +243,18 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
     private fun buildAppGrid(apps: List<InstalledApp>): View {
         val card = FocusUi.card(activity, tokens)
         val columns = 4
-        var currentRow: LinearLayout? = null
 
-        apps.forEachIndexed { index, app ->
-            if (index % columns == 0) {
-                currentRow = FocusUi.row(activity)
-                currentRow?.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = FocusUi.dp(activity, 10) }
-                card.addView(currentRow)
-            }
-            currentRow?.addView(buildAppCell(app))
-        }
-
-        val remainder = apps.size % columns
-        if (remainder != 0) {
-            repeat(columns - remainder) {
-                val filler = View(activity)
-                filler.layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-                currentRow?.addView(filler)
-            }
+        apps.chunked(columns).forEach { chunk ->
+            val cells = chunk.map { buildAppCell(it) }
+            // Short rows are padded to four so the last row's icons line up
+            // under the ones above instead of spreading out across the card.
+            val padded = cells + List(columns - cells.size) { View(activity) }
+            val row = FocusUi.tileRow(activity, padded, gapDp = 0)
+            row.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = FocusUi.dp(activity, 10) }
+            card.addView(row)
         }
         return card
     }
@@ -289,7 +279,18 @@ class LibraryTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(acti
 
         val label = FocusUi.caption(activity, tokens, app.label)
         label.gravity = android.view.Gravity.CENTER
+        // Always two lines tall, even for a one-word name, and ellipsised
+        // rather than wrapped to a third.
+        //
+        // This is the "the library apps are literally un-equal in height
+        // because of their names" problem: a cell was as tall as its label
+        // needed, so "Maps" sat in a short cell next to "Google Calendar" in a
+        // tall one, every row was a different height, and the icons no longer
+        // lined up across the grid. Reserving both lines makes every cell
+        // identical whatever it is called.
+        label.minLines = 2
         label.maxLines = 2
+        label.ellipsize = android.text.TextUtils.TruncateAt.END
         label.setTextColor(tokens.textSecondary)
         label.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,

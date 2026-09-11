@@ -302,7 +302,7 @@ class TaskEditorActivity : FocusEditorActivity() {
     }
 
     private fun formatWhen(ms: Long): String =
-        SimpleDateFormat("EEE d MMM, HH:mm", Locale.getDefault()).format(Date(ms))
+        TimeText.dateTime(this, ms, withWeekday = true)
 
     // ── Details ───────────────────────────────────────────────────
 

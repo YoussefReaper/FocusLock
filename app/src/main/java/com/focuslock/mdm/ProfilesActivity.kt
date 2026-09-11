@@ -101,8 +101,7 @@ class ProfilesActivity : FocusScreenActivity() {
                     this,
                     tokens,
                     profile.name,
-                    "Saved " + SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
-                        .format(Date(profile.savedAtMs)),
+                    "Saved " + TimeText.dateTime(this, (profile.savedAtMs)),
                     trailing = FocusUi.smallButton(this, tokens, "Use") {
                         confirmRestore(profile.name, profile.payload)
                     }

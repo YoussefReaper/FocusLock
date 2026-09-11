@@ -114,7 +114,7 @@ object Copy {
     }
 
     fun scheduleDetail(context: Context, window: ScheduleWindow): String {
-        val until = ScheduleManager.formatTime(window.endMinutes)
+        val until = ScheduleManager.formatTime(context, window.endMinutes)
         if (!kind(context)) return context.getString(R.string.copy_schedule_detail_plain, until)
         return pickFormatted(context, R.array.copy_schedule_detail_kind, until)
     }
@@ -127,7 +127,7 @@ object Copy {
 
     /** Same shape as [scheduleDetail], but never offers a break - this window doesn't bend. */
     fun scheduleOverlayDetail(context: Context, window: ScheduleWindow): String {
-        val until = ScheduleManager.formatTime(window.endMinutes)
+        val until = ScheduleManager.formatTime(context, window.endMinutes)
         if (!kind(context)) return context.getString(R.string.copy_schedule_overlay_detail_plain, until)
         return pickFormatted(context, R.array.copy_schedule_overlay_detail_kind, until)
     }
@@ -137,7 +137,7 @@ object Copy {
         else context.getString(R.string.copy_bedtime_headline_plain)
 
     fun bedtimeDetail(context: Context): String {
-        val end = Bedtime.formatTime(Bedtime.endMinutes(context))
+        val end = Bedtime.formatTime(context, Bedtime.endMinutes(context))
         if (!kind(context)) return context.getString(R.string.copy_bedtime_detail_plain, end)
         return pickFormatted(context, R.array.copy_bedtime_detail_kind, end)
     }
