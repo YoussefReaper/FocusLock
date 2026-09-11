@@ -144,13 +144,14 @@ object AppCatalog {
     }
 
     /**
-     * Frozen-gated: an app's category decides whether a category rule catches
-     * it, so re-labelling it out of a blocked category mid-session is a
-     * bypass in disguise, not a correction. Recategorising a genuinely
-     * miscategorised app waits like every other rule edit.
+     * An app's category decides whether a category rule catches it, so
+     * re-labelling it *out* of a blocked category mid-session is a bypass in
+     * disguise rather than a correction, and waits. Moving one *into* a
+     * stricter category is the person tightening their own rules and goes
+     * through, the same as any other tightening.
      */
     fun setCategoryOverride(context: Context, packageName: String, category: AppCategory): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        if (!SessionLock.allows(context, categoryDirection(context, packageName, category))) return false
         val overrides = FocusStore.getStringMap(context, KEY_CATEGORY_OVERRIDES).toMutableMap()
         overrides[packageName] = category.id
         FocusStore.setStringMap(context, KEY_CATEGORY_OVERRIDES, overrides)
@@ -159,8 +160,24 @@ object AppCatalog {
         return true
     }
 
+    /**
+     * Whether re-labelling [packageName] as [category] leaves it at least as
+     * restricted as it is now, judged by the policy each category carries.
+     */
+    private fun categoryDirection(
+        context: Context,
+        packageName: String,
+        category: AppCategory
+    ): EditDirection {
+        val before = AppRules.categoryPolicy(context, categoryOf(context, packageName))
+            ?: AppPolicy.ALLOW
+        val after = AppRules.categoryPolicy(context, category) ?: AppPolicy.ALLOW
+        return if (after.strictness >= before.strictness) EditDirection.TIGHTEN else EditDirection.LOOSEN
+    }
+
     fun clearCategoryOverride(context: Context, packageName: String): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val natural = guessFromName(packageName) ?: AppCategory.OTHER
+        if (!SessionLock.allows(context, categoryDirection(context, packageName, natural))) return false
         val overrides = FocusStore.getStringMap(context, KEY_CATEGORY_OVERRIDES).toMutableMap()
         overrides.remove(packageName)
         FocusStore.setStringMap(context, KEY_CATEGORY_OVERRIDES, overrides)

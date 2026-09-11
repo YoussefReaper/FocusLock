@@ -122,7 +122,11 @@ class CapabilitiesActivity : FocusScreenActivity() {
     private fun buildCapabilityRow(spec: CapabilitySpec): View {
         val enabled = CapabilityRegistry.isEnabled(this, spec.id)
         val blocker = permissionBlocker(spec)
-        val frozen = SessionLock.isFrozen(this)
+        // Not "is a session running" any more, but "can this particular switch
+        // move from where it is right now" - a guard can always be switched on
+        // mid-session, and only turning one off has to wait. See
+        // CapabilityRegistry.directionFor.
+        val frozen = !CapabilityRegistry.canToggle(this, spec.id, enabled)
 
         val control = FocusUi.switchControl(this, tokens, enabled) { value ->
             if (!CapabilityRegistry.setEnabled(this, spec.id, value)) {

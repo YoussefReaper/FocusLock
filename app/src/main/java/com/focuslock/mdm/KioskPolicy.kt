@@ -121,7 +121,11 @@ object KioskPolicy {
         }
 
         val kioskWanted = SessionManager.shouldLockTask(context)
-        val scheduleOverlay = ScheduleManager.activeWindowIfEnabled(context)?.takeIf { it.overlay }
+        // Gated on a session for the same reason as everything else: a window
+        // set up weeks ago must not hard-pin the phone on an evening the person
+        // never started anything. See [SessionManager.isEnforcing].
+        val scheduleOverlay = ScheduleManager.activeWindowIfEnabled(context)
+            ?.takeIf { it.overlay && SessionManager.isEnforcing(context) }
         val persistentHome = kioskWanted &&
             CapabilityRegistry.isEnabled(context, Capabilities.PERSISTENT_HOME)
 
@@ -361,8 +365,8 @@ object KioskPolicy {
         val toRelease = previous.filterNot { it in targets }.filter { isPackageInstalled(context, it) }
         val unchanged = previous.intersect(targets)
 
-        val newlySuspended = if (toSuspend.isNotEmpty()) setSuspended(dpm, admin, toSuspend, true) else emptySet()
-        val actuallyReleased = if (toRelease.isNotEmpty()) setSuspended(dpm, admin, toRelease, false) else emptySet()
+        val newlySuspended = if (toSuspend.isNotEmpty()) setSuspended(context, dpm, admin, toSuspend, true) else emptySet()
+        val actuallyReleased = if (toRelease.isNotEmpty()) setSuspended(context, dpm, admin, toRelease, false) else emptySet()
 
         // A package Android refused to release stays tracked so the next sync
         // (every app open triggers one via PolicySync.request("mainResume"))
@@ -389,6 +393,7 @@ object KioskPolicy {
      * bug could have happened even after the return-value fix above.
      */
     private fun setSuspended(
+        context: Context,
         dpm: DevicePolicyManager,
         admin: ComponentName,
         packages: Collection<String>,
@@ -396,20 +401,51 @@ object KioskPolicy {
     ): Set<String> {
         if (packages.isEmpty()) return emptySet()
         val changed = LinkedHashSet<String>()
+        val refused = LinkedHashSet<String>()
         for (pkg in packages) {
             try {
                 val failed = dpm.setPackagesSuspended(admin, arrayOf(pkg), suspended)
                 if (failed.isNullOrEmpty()) {
                     changed.add(pkg)
                 } else {
+                    if (suspended) refused.add(pkg)
                     Log.w(TAG, "Android refused to " + (if (suspended) "suspend " else "un-suspend ") + pkg)
                 }
             } catch (e: Exception) {
+                if (suspended) refused.add(pkg)
                 Log.w(TAG, "Failed to change suspension state for $pkg", e)
             }
         }
+        if (suspended) recordUnsuspendable(context, refused, changed)
         return changed
     }
+
+    /**
+     * Remembers which packages Android will not let us suspend.
+     *
+     * Android protects a handful of packages from suspension outright - the
+     * active launcher, the default dialler and SMS app, and the installer of
+     * record, which on almost every phone means the Play Store. The call
+     * returns them in its failure list rather than throwing, so for years the
+     * only symptom was "I blocked the Play Store and it still opens": the
+     * suspend quietly did nothing and the UI carried on saying Blocked.
+     *
+     * It is still blocked - the enforcement loop intercepts it like any other
+     * app - it just cannot be stopped at the OS level, and now the app knows
+     * which apps those are so it can both say so and stop throttling their
+     * intercept. See [isUnsuspendable].
+     */
+    private fun recordUnsuspendable(context: Context, refused: Set<String>, succeeded: Set<String>) {
+        val known = FocusStore.getSet(context, KEY_UNSUSPENDABLE)
+        val next = (known + refused) - succeeded
+        if (next != known) FocusStore.setSet(context, KEY_UNSUSPENDABLE, next)
+    }
+
+    /** Packages the OS has refused to suspend, so enforcement knows not to rely on it. */
+    fun unsuspendable(context: Context): Set<String> = FocusStore.getSet(context, KEY_UNSUSPENDABLE)
+
+    fun isUnsuspendable(context: Context, packageName: String): Boolean =
+        packageName in FocusStore.getSet(context, KEY_UNSUSPENDABLE)
 
     fun syncHiddenApps(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
         if (!SetupChecks.isDeviceOwner(context)) return
@@ -539,7 +575,7 @@ object KioskPolicy {
         // lost track of at session end, with no sync ever retrying it again.
         val suspended = FocusStore.getSet(context, KEY_SUSPENDED).filter { isPackageInstalled(context, it) }
         val stillSuspended = if (suspended.isNotEmpty()) {
-            suspended.toSet() - setSuspended(dpm, admin, suspended, false)
+            suspended.toSet() - setSuspended(context, dpm, admin, suspended, false)
         } else {
             emptySet()
         }
@@ -597,4 +633,5 @@ object KioskPolicy {
 
     private const val KEY_SUSPENDED = "policy_suspended_packages"
     private const val KEY_HIDDEN = "policy_hidden_packages"
+    private const val KEY_UNSUSPENDABLE = "policy_unsuspendable_packages"
 }

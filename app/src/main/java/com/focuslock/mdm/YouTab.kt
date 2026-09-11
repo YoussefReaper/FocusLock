@@ -415,7 +415,11 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
                 "Take a break",
                 "Unlock one blocked app for a few minutes on purpose, instead of giving up on the whole session.",
                 CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK),
-                enabled = !SessionLock.isFrozen(activity)
+                enabled = CapabilityRegistry.canToggle(
+                    activity,
+                    Capabilities.TAKE_A_BREAK,
+                    CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)
+                )
             ) { value ->
                 if (!CapabilityRegistry.setEnabled(activity, Capabilities.TAKE_A_BREAK, value)) {
                     FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
@@ -492,7 +496,9 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
     private fun advancedToggle(id: String, title: String): View {
         val spec = Capabilities.spec(id)
         val enabled = CapabilityRegistry.isEnabled(activity, id)
-        val frozen = SessionLock.isFrozen(activity)
+        // Locked only in the direction that would weaken things - a guard can
+        // still be switched on mid-session.
+        val frozen = !CapabilityRegistry.canToggle(activity, id, enabled)
         val holder = FocusUi.column(activity, 0)
 
         holder.addView(

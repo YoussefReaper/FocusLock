@@ -146,10 +146,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
     }
 
     private fun addHere() {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // A new place rule only ever blocks more. PlaceRules.save judges it.
         if (!PlaceRules.hasLocationPermission(this)) {
             requestLocation()
             return
@@ -183,10 +180,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
     }
 
     private fun addWifi() {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // A new network rule only ever blocks more. PlaceRules.save judges it.
         val ssid = PlaceRules.currentWifiSsid(this)
         if (ssid == null) {
             FocusDialog.info(
@@ -212,10 +206,7 @@ class PlaceRulesActivity : FocusScreenActivity() {
     }
 
     private fun editPlace(place: Place) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Opening the editor is free; PlaceRules.save refuses an edit that loosens.
         var working = place
 
         FocusDialog.custom(

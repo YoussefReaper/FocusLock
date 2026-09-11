@@ -54,6 +54,31 @@ object PolicySync {
         worker.postDelayed(runnable, DEBOUNCE_MS)
     }
 
+    /**
+     * Hands every suspended and hidden app straight back, on the calling
+     * thread, with no debounce.
+     *
+     * Used by [SessionManager.end]: everything else here can afford to wait
+     * 250ms for the worker, but leaving an app suspended is the one failure a
+     * person reads as "FocusLock broke my phone", and the 250ms window is
+     * exactly when the process is most likely to be killed.
+     */
+    fun releaseManagedAppsNow(context: Context) {
+        val appContext = context.applicationContext
+        val dpm = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            ?: return
+        if (!SetupChecks.isDeviceOwner(appContext)) return
+        try {
+            KioskPolicy.releaseAllManagedApps(
+                appContext,
+                dpm,
+                ComponentName(appContext, AdminReceiver::class.java)
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Immediate release of managed apps failed", e)
+        }
+    }
+
     /** Re-applies every Device-Owner policy that the current capability set asks for. */
     fun applyNow(context: Context) {
         val appContext = context.applicationContext

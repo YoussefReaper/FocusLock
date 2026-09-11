@@ -37,12 +37,13 @@ class ScheduleEditorActivity : FocusEditorActivity() {
     private var editingEnd = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (SessionLock.isFrozen(this)) {
-            super.onCreate(savedInstanceState)
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            finish()
-            return
-        }
+        // The editor opens during a session now.
+        //
+        // It used to refuse outright, which meant adding a *new* quiet window
+        // mid-session - a tightening, and one of the most reasonable things a
+        // person can want on day three - was impossible. ScheduleManager works
+        // out the direction of each save for itself, so the screen can stay
+        // open and refuse only the edits that actually weaken something.
         existingId = intent.getStringExtra(EXTRA_SCHEDULE_ID)
         existingId?.let { id ->
             ScheduleManager.getSchedules(this).firstOrNull { it.id == id }?.let { window ->

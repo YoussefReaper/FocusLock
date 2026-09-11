@@ -108,7 +108,7 @@ object RuleStore {
      * the original freeze work never reached.
      */
     fun save(context: Context, rules: List<Rule>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        if (!SessionLock.allows(context, directionOf(all(context), rules))) return false
         val array = JSONArray()
         rules.forEach { rule ->
             val obj = JSONObject()
@@ -130,6 +130,42 @@ object RuleStore {
         FocusStore.setJsonArray(context, KEY_RULES, array)
         PolicySync.request(context, "rules")
         return true
+    }
+
+    /**
+     * Custom rules cut both ways, so the direction has to look at what each
+     * rule *does*, not just whether the list grew.
+     *
+     * A loosening is: dropping or disabling a rule that was blocking something,
+     * or adding a new rule that lets something through (ALLOW / "allow for a
+     * few minutes"). Everything else - a new BLOCK, a new pause, re-ordering
+     * two blocks - only ever narrows what is reachable, and goes through
+     * mid-session.
+     */
+    private fun directionOf(before: List<Rule>, after: List<Rule>): EditDirection {
+        val blocks = { rule: Rule -> rule.action == RuleAction.BLOCK || rule.action == RuleAction.FRICTION }
+        val afterById = after.associateBy { it.id }
+
+        val lostABlock = before.any { previous ->
+            if (!previous.enabled || !blocks(previous)) return@any false
+            val now = afterById[previous.id]
+            now == null || !now.enabled || !blocks(now)
+        }
+        if (lostABlock) return EditDirection.LOOSEN
+
+        val beforeIds = before.map { it.id }.toSet()
+        val gainedAnException = after.any { rule ->
+            rule.id !in beforeIds && rule.enabled && !blocks(rule)
+        }
+        if (gainedAnException) return EditDirection.LOOSEN
+
+        // An existing rule flipped from blocking to allowing keeps its id, so
+        // neither check above catches it on its own.
+        val flippedToAllow = after.any { rule ->
+            val previous = before.firstOrNull { it.id == rule.id } ?: return@any false
+            rule.enabled && !blocks(rule) && previous.enabled && blocks(previous)
+        }
+        return if (flippedToAllow) EditDirection.LOOSEN else EditDirection.TIGHTEN
     }
 
     fun add(context: Context, rule: Rule): Boolean = save(context, all(context) + rule)
@@ -265,6 +301,15 @@ object RuleEngine {
 
         if (AppRules.isAlwaysAllowed(context, packageName)) return allow("alwaysAllowed")
 
+        // The one gate everything else sits behind.
+        //
+        // This used to live near the bottom, which meant schedules, bedtime,
+        // place rules and daily budgets all fired on the clock whether or not
+        // the person had started anything - the app could take the phone away
+        // on an afternoon they never asked it to. They are rules that apply
+        // *within* a session now. See [SessionManager.isEnforcing].
+        if (!SessionManager.isEnforcing(context, sessionActiveOverride)) return allow("noSession")
+
         // An overlay window is absolute: not a break pass (even one granted
         // before the window started), not Earn, not a place or a custom rule -
         // nothing below this gets a vote. Checked before everything else that
@@ -308,9 +353,10 @@ object RuleEngine {
             }
         }
 
-        // Schedules and bedtime run on the clock and do not need a session.
-        // An overlay window already returned above, absolutely - this is only
-        // ever reached for the ordinary, escapable kind.
+        // Schedules and bedtime run on the clock, but only inside a session -
+        // the gate above has already turned everything below into a no-op when
+        // nothing is running. An overlay window already returned above,
+        // absolutely; this is only ever reached for the ordinary, escapable kind.
         ScheduleManager.activeWindowIfEnabled(context)?.takeIf { !it.overlay }?.let { window ->
             val allowed = AppRules.alwaysAllowed(context) + window.allowedApps
             if (packageName !in allowed) {
@@ -348,8 +394,9 @@ object RuleEngine {
             )
         }
 
-        // Limits bite whether or not a session is running: a daily budget that
-        // only applies during sessions is not a daily budget.
+        // A daily budget still counts every minute of the day - the usage it
+        // reads is the phone's own - it just cannot *act* outside a session,
+        // same as everything else here.
         AppLimits.exhaustedReason(context, packageName)?.let { reason ->
             return GuardDecision(
                 packageName,
@@ -402,9 +449,6 @@ object RuleEngine {
         // schedule, bedtime or a daily budget, because those are commitments
         // about *when*, and the reward was for work, not for a later bedtime.
         if (EarnBudget.isSpending(context)) return allow("earnBudget")
-
-        val sessionActive = sessionActiveOverride ?: SessionManager.isActive(context)
-        if (!sessionActive) return allow("noSession")
 
         // Kiosk inverts the model: only what you named stays open. Driven by
         // the lock-task primitive rather than the enum directly, so softening a

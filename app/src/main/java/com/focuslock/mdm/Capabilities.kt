@@ -38,6 +38,23 @@ enum class CapabilityGroup(val label: String, val blurb: String) {
 }
 
 /**
+ * Which way switching a capability on moves the lock, for [SessionLock]'s
+ * tighten/loosen question.
+ *
+ * Most switches are [GUARD]s: on means stricter, so they can be switched on
+ * mid-session and only switching them off has to wait. A few are the other way
+ * round - "let me end early", "take a break", the always-allowed list, the
+ * replacement surfaces and Earn Mode all *widen* what is reachable when they
+ * are on, so for those it is switching on that waits. [NEUTRAL] ones do not
+ * touch enforcement at all and stay editable at every moment.
+ */
+enum class CapabilityPolarity {
+    GUARD,
+    EXEMPTION,
+    NEUTRAL
+}
+
+/**
  * One user-owned switch.
  *
  * [weakenNote] is shown exactly once, as a single honest line, when the user
@@ -50,6 +67,7 @@ data class CapabilitySpec(
     val blurb: String,
     val group: CapabilityGroup,
     val default: Boolean,
+    val polarity: CapabilityPolarity = CapabilityPolarity.GUARD,
     val weakenNote: String? = null,
     val needsAccessibility: Boolean = false,
     val needsDeviceOwner: Boolean = false,
@@ -168,6 +186,7 @@ object Capabilities {
             blurb = "Shows an \"End this session\" button while a session is running.",
             group = CapabilityGroup.MODES,
             default = true,
+            polarity = CapabilityPolarity.EXEMPTION,
             weakenNote = "Off: there is no early exit. The session runs to the end of its timer, " +
                 "and in Kiosk the only way out before then is a factory reset, which wipes the phone."
         ),
@@ -228,6 +247,7 @@ object Capabilities {
             blurb = "Essentials that stay open through everything: calls, maps, notes. Nothing overrides this list.",
             group = CapabilityGroup.BLOCKING,
             default = true,
+            polarity = CapabilityPolarity.EXEMPTION,
             weakenNote = "With this off, a session can cut off calls and maps too. Most people keep this on.",
             detailScreen = Screens.ALWAYS_ALLOWED
         ),
@@ -246,6 +266,7 @@ object Capabilities {
             blurb = "Unlock a blocked app for a few minutes instead of abandoning the whole session.",
             group = CapabilityGroup.BLOCKING,
             default = true,
+            polarity = CapabilityPolarity.EXEMPTION,
             weakenNote = "Off: a blocked app stays blocked for the whole session, with no exceptions. " +
                 "Some people need exactly that. Others end the whole session instead of taking " +
                 "five minutes."
@@ -279,6 +300,7 @@ object Capabilities {
             blurb = "Finish real tasks to unlock leisure time. You set the rate, the reward and what counts as done.",
             group = CapabilityGroup.MODES,
             default = false,
+            polarity = CapabilityPolarity.EXEMPTION,
             weakenNote = "Off: tasks stay a plain to-do list and finishing one earns nothing. The list " +
                 "still works, it just does not pay.",
             needsUsageAccess = true,
@@ -401,28 +423,32 @@ object Capabilities {
             label = "Safe browser",
             blurb = "A curated internet that opens instantly and has nowhere to fall into.",
             group = CapabilityGroup.TOOLS,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.EXEMPTION
         ),
         CapabilitySpec(
             id = TEXT_SEARCH,
             label = "Text search",
             blurb = "Google with the images, videos and thumbnails stripped out. Reading, not scrolling.",
             group = CapabilityGroup.TOOLS,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.EXEMPTION
         ),
         CapabilitySpec(
             id = VIDEO_LIBRARY,
             label = "Video library",
             blurb = "Your own folder, one new unlock every 24 hours. Yours to keep once opened.",
             group = CapabilityGroup.TOOLS,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.EXEMPTION
         ),
         CapabilitySpec(
             id = REPLACEMENT_SUGGESTIONS,
             label = "Offer an alternative",
             blurb = "When something is blocked, suggest a calm thing to do instead of a dead end.",
             group = CapabilityGroup.TOOLS,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.NEUTRAL
         ),
 
         CapabilitySpec(
@@ -431,6 +457,9 @@ object Capabilities {
             blurb = "Time by app and category, kept on this phone only. Nothing leaves the device.",
             group = CapabilityGroup.INSIGHT,
             default = true,
+            // Nothing in Insight changes what is reachable, so none of it is
+            // part of the freeze - these stay editable mid-session.
+            polarity = CapabilityPolarity.NEUTRAL,
             needsUsageAccess = true,
             detailScreen = Screens.ANALYTICS
         ),
@@ -439,14 +468,16 @@ object Capabilities {
             label = "Gentle streaks",
             blurb = "Counts the days you showed up. A missed day pauses the count, it never shatters it.",
             group = CapabilityGroup.INSIGHT,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.NEUTRAL
         ),
         CapabilitySpec(
             id = SELF_COMPASSION_COPY,
             label = "Kind wording",
             blurb = "Block screens speak plainly and without blame. Turn off for blunt, minimal wording.",
             group = CapabilityGroup.INSIGHT,
-            default = true
+            default = true,
+            polarity = CapabilityPolarity.NEUTRAL
         ),
         CapabilitySpec(
             id = PROFILES,
@@ -454,6 +485,9 @@ object Capabilities {
             blurb = "Save a whole setup and switch between them: exam week, weekend, travel.",
             group = CapabilityGroup.INSIGHT,
             default = true,
+            // The switch is neutral; applying a profile still goes through every
+            // individual store, each of which enforces its own direction.
+            polarity = CapabilityPolarity.NEUTRAL,
             detailScreen = Screens.PROFILES
         ),
         CapabilitySpec(
@@ -461,7 +495,8 @@ object Capabilities {
             label = "Study friend",
             blurb = "Share a read-only session status with one person you choose. Off unless you turn it on.",
             group = CapabilityGroup.INSIGHT,
-            default = false
+            default = false,
+            polarity = CapabilityPolarity.NEUTRAL
         ),
 
         CapabilitySpec(
@@ -585,19 +620,40 @@ object CapabilityRegistry {
      */
     fun isFrozen(context: Context): Boolean =
         (SessionManager.isActive(context) && isEnabled(context, Capabilities.LOCK_RULES_IN_SESSION)) ||
-            ScheduleManager.requiresLockTask(context)
+            SessionManager.shouldLockTask(context)
 
     /**
-     * Writes a capability, unless a session has frozen the rules.
+     * Which way flipping [id] to [enabled] moves the lock.
+     *
+     * A guard switched on, or an exemption switched off, both tighten and go
+     * through mid-session. The reverse of each waits. Anything that does not
+     * touch enforcement is neutral and always editable.
+     */
+    fun directionFor(id: String, enabled: Boolean): EditDirection {
+        val spec = Capabilities.spec(id) ?: return EditDirection.LOOSEN
+        return when (spec.polarity) {
+            CapabilityPolarity.NEUTRAL -> EditDirection.TIGHTEN
+            CapabilityPolarity.GUARD -> if (enabled) EditDirection.TIGHTEN else EditDirection.LOOSEN
+            CapabilityPolarity.EXEMPTION -> if (enabled) EditDirection.LOOSEN else EditDirection.TIGHTEN
+        }
+    }
+
+    /**
+     * Writes a capability, unless a session has frozen the rules against a
+     * change in this direction.
      *
      * Returns false when the write was refused, so callers can say so instead
      * of leaving a toggle that springs back with no explanation.
      */
     fun setEnabled(context: Context, id: String, enabled: Boolean): Boolean {
-        if (isFrozen(context)) return false
+        if (!SessionLock.allows(context, directionFor(id, enabled))) return false
         writeEnabled(context, id, enabled)
         return true
     }
+
+    /** Whether the switch for [id] can be moved at all right now, in either direction. */
+    fun canToggle(context: Context, id: String, currentlyEnabled: Boolean): Boolean =
+        SessionLock.allows(context, directionFor(id, !currentlyEnabled))
 
     /**
      * The unguarded write.
@@ -685,8 +741,20 @@ object CapabilityRegistry {
         return forId.optInt(key, fallback)
     }
 
-    fun setIntParam(context: Context, id: String, key: String, value: Int): Boolean {
-        if (isFrozen(context)) return false
+    /**
+     * Parameters carry no polarity of their own - "8 seconds" is not inherently
+     * stricter than "5" without knowing what it measures - so the caller says
+     * which way it goes. Left unspecified, a parameter write is treated as a
+     * loosening, which is the safe default for a freeze.
+     */
+    fun setIntParam(
+        context: Context,
+        id: String,
+        key: String,
+        value: Int,
+        direction: EditDirection = EditDirection.LOOSEN
+    ): Boolean {
+        if (!SessionLock.allows(context, direction)) return false
         val params = FocusStore.getJsonObject(context, KEY_PARAMS)
         val forId = params.optJSONObject(id) ?: JSONObject()
         forId.put(key, value)
@@ -701,8 +769,14 @@ object CapabilityRegistry {
         return forId.optBoolean(key, fallback)
     }
 
-    fun setBoolParam(context: Context, id: String, key: String, value: Boolean): Boolean {
-        if (isFrozen(context)) return false
+    fun setBoolParam(
+        context: Context,
+        id: String,
+        key: String,
+        value: Boolean,
+        direction: EditDirection = EditDirection.LOOSEN
+    ): Boolean {
+        if (!SessionLock.allows(context, direction)) return false
         val params = FocusStore.getJsonObject(context, KEY_PARAMS)
         val forId = params.optJSONObject(id) ?: JSONObject()
         forId.put(key, value)

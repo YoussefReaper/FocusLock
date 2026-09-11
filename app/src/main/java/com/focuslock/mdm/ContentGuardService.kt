@@ -37,13 +37,16 @@ class ContentGuardService : AccessibilityService() {
             return
         }
 
-        // Content guard steps back out of a live surface, same family of act as
-        // the per-app policy ladder - it should not be doing that outside a
-        // session either. Schedules/bedtime/places stay session-independent on
-        // purpose (they run on the clock, see FocusRules.decide); this does not,
-        // it reacts to what is on screen right now inside an app the person is
-        // actively using, which is exactly the "am I in a session" question.
-        if (!SessionManager.isActive(this)) {
+        // Content guard steps back out of a live surface, the same family of act
+        // as the per-app policy ladder, and sits behind the same gate every
+        // other rule does now (see SessionManager.isEnforcing).
+        //
+        // TestMode counts here, which it did not before: "test the block" was
+        // silently a no-op for every keyword, Shorts, Reels and adult rule,
+        // because this check read isActive directly and a test deliberately
+        // never sets that. A preview that quietly skips half the rules is worse
+        // than no preview at all - it tells you the guard is off when it isn't.
+        if (!SessionManager.isEnforcing(this, TestMode.overrideFor(this))) {
             GuardState.clear()
             return
         }
@@ -236,6 +239,14 @@ class ContentGuardService : AccessibilityService() {
                     putExtra(InterceptActivity.EXTRA_PACKAGE, packageName)
                     putExtra(InterceptActivity.EXTRA_SOURCE, "contentGuard")
                     putExtra(InterceptActivity.EXTRA_PHRASE, phrase)
+                    // A step-back is reversible and is the whole thing being
+                    // demonstrated, so a test performs it for real - it just
+                    // says so, rather than letting the screen look like a
+                    // session that isn't running.
+                    putExtra(
+                        InterceptActivity.EXTRA_TEST_MODE,
+                        TestMode.isActive(this@ContentGuardService)
+                    )
                 }
             )
         } catch (_: Exception) {

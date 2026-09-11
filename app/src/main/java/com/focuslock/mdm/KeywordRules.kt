@@ -107,9 +107,18 @@ object KeywordRules {
         FocusStore.jsonArrayToStringList(FocusStore.getJsonArray(context, KEY_EXCEPTIONS))
             .map { it.lowercase(Locale.US) }
 
+    /**
+     * An exception is a hole in the guard, so the direction is inverted from
+     * the rules themselves: *removing* one tightens and goes through
+     * mid-session, *adding* one is a loosening and waits.
+     */
     fun setExceptions(context: Context, phrases: Collection<String>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
         val cleaned = phrases.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        val direction = SessionLock.forExemptionSet(
+            exceptions(context).toSet(),
+            cleaned.map { it.lowercase(Locale.US) }.toSet()
+        )
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setJsonArray(context, KEY_EXCEPTIONS, FocusStore.stringListToJsonArray(cleaned))
         PolicySync.request(context, "keywordExceptions")
         return true
@@ -124,9 +133,13 @@ object KeywordRules {
 
     // ── Write ─────────────────────────────────────────────────────
 
-    /** Frozen-gated: removing a watched phrase mid-session is exactly the moment it exists to prevent. */
+    /**
+     * Adding a phrase to watch for goes through at any time. Removing one, or
+     * switching one off, is exactly the moment the freeze exists to prevent -
+     * that waits for the session to end.
+     */
     fun save(context: Context, rules: List<KeywordRule>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        if (!SessionLock.allows(context, directionOf(all(context), rules))) return false
         val array = JSONArray()
         rules.forEach { rule ->
             val obj = JSONObject()
@@ -141,6 +154,23 @@ object KeywordRules {
         FocusStore.setJsonArray(context, KEY_RULES, array)
         PolicySync.request(context, "keywordRules")
         return true
+    }
+
+    /**
+     * A keyword list only got stricter if every phrase that was being watched
+     * before is still being watched now. A phrase that was deleted, switched
+     * off, or narrowed from "everywhere" to a named app list all count as
+     * loosening it.
+     */
+    private fun directionOf(before: List<KeywordRule>, after: List<KeywordRule>): EditDirection {
+        val afterById = after.associateBy { it.id }
+        val stillCovered = before.filter { it.enabled }.all { previous ->
+            val now = afterById[previous.id] ?: return@all false
+            now.enabled &&
+                now.phrase.equals(previous.phrase, ignoreCase = true) &&
+                (now.appliesEverywhere || now.packages.containsAll(previous.packages))
+        }
+        return if (stillCovered) EditDirection.TIGHTEN else EditDirection.LOOSEN
     }
 
     fun add(context: Context, rule: KeywordRule): Boolean = save(context, all(context) + rule)

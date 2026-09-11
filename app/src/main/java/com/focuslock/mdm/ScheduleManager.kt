@@ -56,7 +56,7 @@ object ScheduleManager {
      * original freeze work missed entirely.
      */
     fun saveSchedules(context: Context, schedules: List<ScheduleWindow>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        if (!SessionLock.allows(context, directionOf(getSchedules(context), schedules))) return false
         val json = serializeSchedules(schedules)
         prefs(context).edit().putString(Constants.KEY_SCHEDULE_JSON, json).apply()
         PolicySync.request(context, "schedules")
@@ -74,6 +74,30 @@ object ScheduleManager {
         prefs(context).edit().putString(Constants.KEY_SCHEDULE_JSON, array.toString()).apply()
         PolicySync.request(context, "schedules:import")
         return true
+    }
+
+    /**
+     * A new quiet window is a tightening; deleting one, shortening one, or
+     * widening its allowedApps is a loosening.
+     *
+     * A window's allowedApps is unioned into both the accessibility decision
+     * ([RuleEngine.decide]) and the real Device-Owner lock-task allowlist
+     * ([KioskPolicy.buildLockTaskPackages]), so widening one mid-session is a
+     * genuine escape from Kiosk rather than a settings change - which is why
+     * that particular edit is on the waiting side of the line.
+     */
+    private fun directionOf(before: List<ScheduleWindow>, after: List<ScheduleWindow>): EditDirection {
+        val afterById = after.associateBy { it.id }
+        val weakened = before.any { previous ->
+            val now = afterById[previous.id] ?: return@any true
+            now.startMinutes != previous.startMinutes ||
+                now.endMinutes != previous.endMinutes ||
+                now.repeat != previous.repeat ||
+                now.daysOfWeek.toSet() != previous.daysOfWeek.toSet() ||
+                !previous.allowedApps.containsAll(now.allowedApps) ||
+                (previous.overlay && !now.overlay)
+        }
+        return if (weakened) EditDirection.LOOSEN else EditDirection.TIGHTEN
     }
 
     fun addSchedule(context: Context, schedule: ScheduleWindow): Boolean {

@@ -152,10 +152,8 @@ class RuleEditorActivity : FocusScreenActivity() {
     // ── Creating ──────────────────────────────────────────────────
 
     private fun createRule() {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // A new rule is usually a tightening; RuleStore.save works out the direction
+        // of this particular one and refuses only if it actually weakens something.
         val rule = RuleStore.newRule(
             label = "",
             targetType = RuleTargetType.CATEGORY,
@@ -237,10 +235,7 @@ class RuleEditorActivity : FocusScreenActivity() {
     )
 
     private fun applyTemplate(template: Template) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Same as createRule: the store judges the rule that comes out of it.
         val rule = RuleStore.newRule(
             label = template.label,
             targetType = template.targetType,
@@ -260,10 +255,7 @@ class RuleEditorActivity : FocusScreenActivity() {
     // ── Editing ───────────────────────────────────────────────────
 
     private fun editRule(rule: Rule) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Opening the editor is free; RuleStore.save refuses an edit that loosens.
         var working = rule
 
         FocusDialog.custom(

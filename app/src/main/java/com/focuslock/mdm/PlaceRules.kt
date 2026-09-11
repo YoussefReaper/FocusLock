@@ -84,9 +84,23 @@ object PlaceRules {
         return out
     }
 
-    /** Frozen-gated: a place rule can also exempt apps, so it can widen access mid-session. */
+    /**
+     * Adding a place rule, or widening what one blocks, is a tightening.
+     * Deleting one, disabling one, or shrinking what it covers is a loosening
+     * and waits - a place rule can exempt apps as well as block them, so it is
+     * genuinely able to widen access mid-session.
+     */
     fun save(context: Context, places: List<Place>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val before = all(context)
+        val afterById = places.associateBy { it.id }
+        val weakened = before.any { previous ->
+            val now = afterById[previous.id] ?: return@any true
+            !now.enabled && previous.enabled ||
+                !now.blockedCategories.containsAll(previous.blockedCategories) ||
+                !now.blockedPackages.containsAll(previous.blockedPackages)
+        }
+        val direction = if (weakened) EditDirection.LOOSEN else EditDirection.TIGHTEN
+        if (!SessionLock.allows(context, direction)) return false
         val array = JSONArray()
         places.forEach { place ->
             val obj = JSONObject()

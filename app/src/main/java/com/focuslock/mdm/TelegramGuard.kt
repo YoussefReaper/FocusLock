@@ -71,9 +71,14 @@ object TelegramGuard {
     fun allowedRaw(context: Context): List<String> =
         FocusStore.jsonArrayToStringList(FocusStore.getJsonArray(context, KEY_ALLOWED))
 
+    /** An allowed-chats list is an exemption set: shortening it tightens, adding to it waits. */
     fun setAllowed(context: Context, titles: List<String>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
         val cleaned = titles.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        val direction = SessionLock.forExemptionSet(
+            allowed(context).toSet(),
+            cleaned.map { it.lowercase(Locale.US) }.toSet()
+        )
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setJsonArray(context, KEY_ALLOWED, FocusStore.stringListToJsonArray(cleaned))
         PolicySync.request(context, "telegramGuard")
         return true

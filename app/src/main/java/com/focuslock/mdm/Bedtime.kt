@@ -30,9 +30,12 @@ object Bedtime {
 
     fun endMinutes(context: Context): Int = FocusStore.getInt(context, KEY_END, DEFAULT_END)
 
-    /** Frozen-gated: narrowing tonight's window mid-session is the "Advanced" pattern applied here too. */
+    /** A longer bedtime is a tightening; shortening tonight's window mid-session waits. */
     fun setWindow(context: Context, startMinutes: Int, endMinutes: Int): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val before = windowLength(startMinutes(context), endMinutes(context))
+        val after = windowLength(startMinutes.coerceIn(0, 1439), endMinutes.coerceIn(0, 1439))
+        val direction = if (after >= before) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setInt(context, KEY_START, startMinutes.coerceIn(0, 1439))
         FocusStore.setInt(context, KEY_END, endMinutes.coerceIn(0, 1439))
         PolicySync.request(context, "bedtimeWindow")
@@ -45,8 +48,20 @@ object Bedtime {
         return stored.map { AppCategory.fromId(it) }.toSet()
     }
 
+    /** How many minutes of the day the window covers, wrapping over midnight. */
+    private fun windowLength(start: Int, end: Int): Int = when {
+        start == end -> 0
+        end > start -> end - start
+        else -> 1_440 - start + end
+    }
+
+    /** Quieting another category tightens; un-quieting one waits. */
     fun setBlockedCategories(context: Context, categories: Collection<AppCategory>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val direction = SessionLock.forRestrictionSet(
+            blockedCategories(context).map { it.id }.toSet(),
+            categories.map { it.id }.toSet()
+        )
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setSet(context, KEY_CATEGORIES, categories.map { it.id })
         PolicySync.request(context, "bedtimeCategories")
         return true
@@ -112,7 +127,13 @@ object Bedtime {
         CapabilityRegistry.getBoolParam(context, Capabilities.BEDTIME_MODE, PARAM_BLOCK_ALL, false)
 
     fun setBlocksEverything(context: Context, value: Boolean): Boolean =
-        CapabilityRegistry.setBoolParam(context, Capabilities.BEDTIME_MODE, PARAM_BLOCK_ALL, value)
+        CapabilityRegistry.setBoolParam(
+            context,
+            Capabilities.BEDTIME_MODE,
+            PARAM_BLOCK_ALL,
+            value,
+            direction = if (value) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        )
 
     /** Minutes until bedtime lifts, for the "back at 6:00" line on the block screen. */
     fun minutesUntilEnd(context: Context, now: Calendar = Calendar.getInstance()): Int {

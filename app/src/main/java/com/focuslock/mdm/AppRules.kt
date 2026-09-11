@@ -20,6 +20,21 @@ enum class AppPolicy(val id: String, val label: String, val blurb: String) {
     val stopsLaunch: Boolean get() = this == BLOCK || this == HIDE
 
     /**
+     * How strict this rung is, for [SessionLock]'s tighten/loosen question.
+     *
+     * Moving up the ladder (or staying put) is a tightening and goes through
+     * mid-session; moving down is a loosening and waits for the session to end.
+     */
+    val strictness: Int
+        get() = when (this) {
+            ALLOW -> 0
+            FRICTION -> 1
+            LIMIT -> 2
+            BLOCK -> 3
+            HIDE -> 4
+        }
+
+    /**
      * A one-word form of [label] for a pill/status chip, where "Give it a
      * budget" doesn't fit. [label] stays the full phrase everywhere the
      * ladder itself is shown - this is additive, not a replacement.
@@ -76,8 +91,23 @@ object AppRules {
         return categoryPolicy(context, category) ?: AppPolicy.ALLOW
     }
 
+    /**
+     * Which way moving [packageName] to [policy] moves the lock.
+     *
+     * Compared against the *effective* policy rather than the explicit one, so
+     * writing an explicit BLOCK over a category that already blocked it counts
+     * as a tightening (it is a no-op), and writing an explicit ALLOW over that
+     * same category is correctly seen as the loosening it really is.
+     */
+    private fun directionFor(context: Context, packageName: String, policy: AppPolicy): EditDirection =
+        if (policy.strictness >= effectivePolicy(context, packageName).strictness) {
+            EditDirection.TIGHTEN
+        } else {
+            EditDirection.LOOSEN
+        }
+
     fun setPolicy(context: Context, packageName: String, policy: AppPolicy): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        if (!SessionLock.allows(context, directionFor(context, packageName, policy))) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         policies.put(packageName, policy.id)
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
@@ -85,8 +115,15 @@ object AppRules {
         return true
     }
 
+    /**
+     * Dropping an app's own rule falls back to its category (or "open freely"),
+     * so whether this is a tightening depends entirely on what it falls back
+     * *to* - which is why it is computed rather than assumed either way.
+     */
     fun clearPolicy(context: Context, packageName: String): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val fallback = AppCatalog.categoryOf(context, packageName)
+            .let { categoryPolicy(context, it) } ?: AppPolicy.ALLOW
+        if (!SessionLock.allows(context, directionFor(context, packageName, fallback))) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         policies.remove(packageName)
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
@@ -94,8 +131,14 @@ object AppRules {
         return true
     }
 
+    /** A bulk write is a loosening if it loosens *any* of its targets. */
     fun setPolicies(context: Context, packages: Collection<String>, policy: AppPolicy): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val direction = if (packages.any { directionFor(context, it, policy) == EditDirection.LOOSEN }) {
+            EditDirection.LOOSEN
+        } else {
+            EditDirection.TIGHTEN
+        }
+        if (!SessionLock.allows(context, direction)) return false
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         packages.forEach { policies.put(it, policy.id) }
         FocusStore.setJsonObject(context, KEY_POLICIES, policies)
@@ -191,7 +234,13 @@ object AppRules {
     }
 
     fun setCategoryPolicy(context: Context, category: AppCategory, policy: AppPolicy?): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        // Clearing a category rule (null) drops back to "open freely", which is
+        // the loosest there is - so only an equal-or-stricter named policy can
+        // go through mid-session.
+        val before = categoryPolicy(context, category)?.strictness ?: AppPolicy.ALLOW.strictness
+        val after = policy?.strictness ?: AppPolicy.ALLOW.strictness
+        val direction = if (after >= before) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        if (!SessionLock.allows(context, direction)) return false
         val policies = FocusStore.getJsonObject(context, KEY_CATEGORY_POLICIES)
         if (policy == null) policies.remove(category.id) else policies.put(category.id, policy.id)
         FocusStore.setJsonObject(context, KEY_CATEGORY_POLICIES, policies)
@@ -213,12 +262,19 @@ object AppRules {
         }
     }
 
+    /**
+     * This is the purest exemption list in the app, so it gets the purest form
+     * of the rule: taking an app *off* it is a tightening and goes through
+     * mid-session; putting one *on* it is the classic 2am escape hatch and
+     * waits for the session to end.
+     */
     fun setAlwaysAllowed(context: Context, packages: Collection<String>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
         val cleaned = packages
             .map { it.trim() }
             .filter { it.isNotBlank() && it != context.packageName }
             .toSet()
+        val direction = SessionLock.forExemptionSet(alwaysAllowedRaw(context), cleaned)
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setSet(context, KEY_ALWAYS_ALLOWED, cleaned)
         PolicySync.request(context, "alwaysAllowed")
         return true
@@ -253,8 +309,10 @@ object AppRules {
     fun isKioskAllowlistMode(context: Context): Boolean =
         FocusStore.getBool(context, KEY_KIOSK_ALLOWLIST_MODE, true)
 
+    /** Switching the inversion off mid-session would widen Kiosk to a blocklist, so only switching it on is a tightening. */
     fun setKioskAllowlistMode(context: Context, value: Boolean): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val direction = if (value) EditDirection.TIGHTEN else EditDirection.LOOSEN
+        if (!SessionLock.allows(context, direction)) return false
         FocusStore.setBool(context, KEY_KIOSK_ALLOWLIST_MODE, value)
         PolicySync.request(context, "kioskAllowlistMode")
         return true
@@ -272,8 +330,10 @@ object AppRules {
     }
 
     fun setKioskAllowlist(context: Context, packages: Collection<String>): Boolean {
-        if (SessionLock.isFrozen(context)) return false
         val allowed = packages.toSet()
+        if (!SessionLock.allows(context, SessionLock.forExemptionSet(kioskAllowlist(context), allowed))) {
+            return false
+        }
         val policies = FocusStore.getJsonObject(context, KEY_POLICIES)
         AppCatalog.launchable(context).forEach { app ->
             val current = AppPolicy.fromId(policies.optString(app.packageName, ""))

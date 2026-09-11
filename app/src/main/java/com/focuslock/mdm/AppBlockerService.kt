@@ -84,8 +84,17 @@ class AppBlockerService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(statusLine()))
 
         if (!hasWorkToDo()) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            // standDown(), not a bare stopSelf().
+            //
+            // This is one of the two paths that left apps stuck showing
+            // "blocked by your organization" after a session was over. If the
+            // process was killed mid-session (a reboot, a low-memory kill) the
+            // session could expire while nothing was running to notice; the
+            // next start would find no work to do and stop here *without ever
+            // un-suspending anything*, so every app the session had suspended
+            // stayed suspended at the OS level with nothing left that would
+            // ever retry. standDown releases them first.
+            standDown()
             return
         }
 
@@ -123,22 +132,14 @@ class AppBlockerService : Service() {
      * simply staying up. The cost is paid back by [isEnforcingNow].
      */
     private fun hasWorkToDo(): Boolean {
-        if (SessionManager.isActive(this)) return true
-        if (EarnSession.isActive(this)) return true
+        // Schedules, bedtime, limits and places no longer keep this service
+        // alive on their own: none of them can act outside a session any more
+        // (see SessionManager.isEnforcing), so a watcher sitting up all night
+        // waiting for an 8pm window would be burning battery to reach a gate
+        // that is going to turn it away.
+        if (SessionManager.isEnforcing(this)) return true
         if (EarnBudget.isSpending(this)) return true
-        if (Bedtime.isEnabled(this)) return true
-        if (AppLimits.hasEnforceableBudgets(this)) return true
-        if (CapabilityRegistry.isEnabled(this, Capabilities.SCHEDULES) &&
-            ScheduleManager.getSchedules(this).isNotEmpty()
-        ) {
-            return true
-        }
-        if (CapabilityRegistry.isEnabled(this, Capabilities.LOCATION_BLOCK) &&
-            PlaceRules.all(this).isNotEmpty()
-        ) {
-            return true
-        }
-        return false
+        return TestMode.isActive(this)
     }
 
     /**
@@ -149,14 +150,10 @@ class AppBlockerService : Service() {
      * case from costing a noticeable amount of battery.
      */
     private fun isEnforcingNow(): Boolean {
-        if (SessionManager.isActive(this)) return true
-        if (EarnSession.isActive(this)) return true
-        if (EarnBudget.isSpending(this)) return true
-        if (ScheduleManager.activeWindowIfEnabled(this) != null) return true
-        if (Bedtime.isActive(this)) return true
-        if (AppLimits.hasEnforceableBudgets(this)) return true
-        if (PlaceRules.activePlaces(this).isNotEmpty()) return true
-        return false
+        if (SessionManager.isEnforcing(this)) return true
+        // A test has to run the loop at full speed or the preview it shows is
+        // not the preview a real session would give.
+        return TestMode.isActive(this)
     }
 
     // ── Loop ──────────────────────────────────────────────────────
@@ -356,7 +353,13 @@ class AppBlockerService : Service() {
                 val testing = TestMode.isActive(this)
                 if (SystemSurfaces.isLauncher(packageName)) {
                     if (testing) {
-                        showIntercept(decision)
+                        // Same cooldown as everything else. Without it this
+                        // re-launched the intercept screen every single tick.
+                        if (shouldIntercept(packageName, now)) {
+                            lastInterceptAt = now
+                            lastInterceptPackage = packageName
+                            showIntercept(decision)
+                        }
                     } else {
                         // Launcher escapes are countered instantly: a throttle
                         // here is a visible half-second of the home screen.
@@ -369,12 +372,29 @@ class AppBlockerService : Service() {
                     hideBlockerOverlay()
                     return
                 }
-                if (testing || shouldIntercept(packageName, now)) {
+                // A test shows the screen instead of shoving the person back to
+                // FocusLock, but it is still subject to the cooldown.
+                //
+                // `testing ||` here - short-circuiting the cooldown entirely -
+                // is the actual cause of "the screen kept getting a black
+                // screen and closing lots of times": the loop runs four times a
+                // second, so a test fired a fresh InterceptActivity every 250ms
+                // at whatever app was in front, and the two fought each other
+                // for the foreground until one of them lost. It is a cooldown,
+                // not a mode, and it was never optional.
+                if (shouldIntercept(packageName, now)) {
                     lastInterceptAt = now
                     lastInterceptPackage = packageName
                     showIntercept(decision)
-                } else {
-                    bringToFront(throttled = true)
+                } else if (!testing) {
+                    // A package Android refuses to suspend (the Play Store is
+                    // the usual one - it is the installer of record, and the
+                    // platform will not let even a Device Owner suspend it) has
+                    // no OS-level stop behind this loop at all. For those the
+                    // intercept is the entire enforcement, so it is countered
+                    // instantly, the same as a launcher escape, rather than
+                    // being left open for the throttle's second and a half.
+                    bringToFront(throttled = !KioskPolicy.isUnsuspendable(this, packageName))
                 }
             }
         }

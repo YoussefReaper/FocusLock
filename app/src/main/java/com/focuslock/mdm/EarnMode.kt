@@ -390,13 +390,32 @@ object EarnBudget {
     private fun applyDecayIfDue(context: Context) {
         if (!EarnMode.decaysUnspent(context)) return
         val today = dayNumber()
-        val last = FocusStore.getInt(context, KEY_LAST_DECAY_DAY, today)
+
+        // The marker defaults to 0, not to today, and the first read writes it.
+        //
+        // Defaulting it to today was why "it fades overnight" never actually
+        // faded anything: the first call found last == today and returned
+        // *without storing anything*, so the next day's call defaulted to that
+        // day and returned again, forever. The key was never written once in
+        // the feature's whole life, and the balance just sat there.
+        val last = FocusStore.getInt(context, KEY_LAST_DECAY_DAY, 0)
+        if (last <= 0) {
+            FocusStore.setInt(context, KEY_LAST_DECAY_DAY, today)
+            return
+        }
         if (last >= today) {
+            // A clock moved backwards (travel, a manual change). Re-anchor
+            // rather than decaying repeatedly on the way back to the present.
             if (last > today) FocusStore.setInt(context, KEY_LAST_DECAY_DAY, today)
             return
         }
-        val current = FocusStore.getInt(context, KEY_BALANCE, 0)
-        FocusStore.setInt(context, KEY_BALANCE, current / 2)
+
+        // One halving per night missed, so a week away does not leave the
+        // balance untouched just because nothing read it in between.
+        val nights = (today - last).coerceAtMost(MAX_DECAY_NIGHTS)
+        var balance = FocusStore.getInt(context, KEY_BALANCE, 0)
+        repeat(nights) { balance /= 2 }
+        FocusStore.setInt(context, KEY_BALANCE, balance)
         FocusStore.setInt(context, KEY_LAST_DECAY_DAY, today)
     }
 
@@ -414,5 +433,21 @@ object EarnBudget {
             calendar.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
-    private fun dayNumber(): Int = (System.currentTimeMillis() / 86_400_000L).toInt()
+    /** Halving more than this many times in one go is indistinguishable from zero. */
+    private const val MAX_DECAY_NIGHTS = 16
+
+    /**
+     * The local day, not the UTC one.
+     *
+     * Dividing epoch millis by a day rolls over at UTC midnight, which for this
+     * user is 2am - "overnight" has to mean their night, not Greenwich's.
+     */
+    private fun dayNumber(): Int {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        return (calendar.timeInMillis / 86_400_000L).toInt()
+    }
 }

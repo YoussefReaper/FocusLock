@@ -37,8 +37,13 @@ object TestMode {
         return remaining
     }
 
-    /** Refused only when a real session is already running - decide() already reflects that for real. */
-    fun canStart(context: Context): Boolean = !SessionManager.isActive(context)
+    /**
+     * Refused while anything real is already running - a session or a
+     * standalone Earn task. decide() already reflects those for real, so a
+     * "preview" on top of one would be showing the person their actual
+     * situation and calling it a test.
+     */
+    fun canStart(context: Context): Boolean = !SessionManager.isEnforcing(context)
 
     fun start(context: Context, minutes: Int = DEFAULT_MINUTES): Boolean {
         if (!canStart(context)) return false

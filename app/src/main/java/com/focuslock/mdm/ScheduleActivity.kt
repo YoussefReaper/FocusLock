@@ -141,10 +141,7 @@ class ScheduleActivity : FocusScreenActivity() {
      * opening a screen whose Save could never actually take effect.
      */
     private fun editWindow(existing: ScheduleWindow?) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Adding a quiet window mid-session is a tightening. ScheduleManager judges the save.
         startActivity(
             android.content.Intent(this, ScheduleEditorActivity::class.java).apply {
                 if (existing != null) putExtra(ScheduleEditorActivity.EXTRA_SCHEDULE_ID, existing.id)

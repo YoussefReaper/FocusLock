@@ -131,6 +131,32 @@ object SessionManager {
 
     fun isActive(context: Context): Boolean = LockManager.isKioskActive(context)
 
+    /**
+     * Whether FocusLock is allowed to hold anything back at this moment.
+     *
+     * This is the single gate every rule now sits behind, and it is the answer
+     * to "schedules and bedtime fire when nothing is running". They used to be
+     * clock-driven and entirely independent of a session, which meant the app
+     * could take the phone away on a Tuesday afternoon the person never asked
+     * it to. They are rules that apply *inside* a session now: you start one,
+     * and while it runs your windows, bedtime, places and budgets add their
+     * restrictions on top of it.
+     *
+     * A standalone Earn task counts, because it is its own lock in every way
+     * that matters - "the phone is only this until the work is done" is a
+     * session whether or not it went through the mode picker.
+     *
+     * [activeOverride] is [TestMode]'s hook: a test answers `true` here without
+     * [isActive] itself ever reporting true, so a test can preview every rule
+     * below this line while nothing physical (lock-task, suspend/hide, the
+     * freeze) can engage for real.
+     */
+    fun isEnforcing(context: Context, activeOverride: Boolean? = null): Boolean {
+        if (activeOverride != null) return activeOverride
+        if (isActive(context)) return true
+        return EarnSession.isActive(context)
+    }
+
     fun mode(context: Context): FocusMode =
         FocusMode.fromId(FocusStore.getString(context, KEY_MODE, FocusMode.KIOSK.id))
 
@@ -253,6 +279,25 @@ object SessionManager {
         PermissionGuard.clearEmergency(context)
         LockManager.stopKiosk(context)
         TakeABreak.clearAll(context)
+
+        // An allowlist that stays "locked" past the session that locked it is
+        // the same class of leftover as a suspended app, and this is the one
+        // place every ending passes through - AppBlockerService.finishSession
+        // used to clear these two and the UI's own End button did not.
+        FocusStore.setBool(context, Constants.KEY_APP_ALLOWLIST_LOCKED, false)
+        FocusStore.setBool(context, Constants.KEY_WEB_ALLOWLIST_LOCKED, false)
+
+        // Release synchronously rather than trusting the debounced sync.
+        //
+        // PolicySync.request only *schedules* the un-suspend, 250ms later, on a
+        // worker thread. If the process goes away in that window - and ending a
+        // session is exactly when it does, because the foreground service that
+        // was keeping the process alive stops moments later - the apps this
+        // session suspended stay suspended at the OS level, reading "blocked by
+        // your organization" with no session left to explain them. The request
+        // below still runs for everything else policy-related; this makes the
+        // one irreversible-looking part happen before we can be killed.
+        PolicySync.releaseManagedAppsNow(context)
         PolicySync.request(context, "session:end")
     }
 
@@ -268,9 +313,13 @@ object SessionManager {
      * Kiosk pins FocusLock as the shell, and so does a standalone Earn task:
      * "the phone is only this until the work is done" is the same primitive
      * either way. A merged Earn task rides on whatever mode is already running
-     * and does not turn lock-task on by itself. An overlay schedule window
-     * pins it too - it does not need a session running at all, which is the
-     * whole point of a window that "starts itself" (see [ScheduleWindow.overlay]).
+     * and does not turn lock-task on by itself.
+     *
+     * An overlay schedule window pins it too - but only inside a session now.
+     * It used to pin the phone with nothing running at all, which is the same
+     * bug as schedules firing unprompted, in its most extreme form: a window
+     * set up weeks earlier could hard-pin a phone on a random evening. See
+     * [isEnforcing] and [ScheduleWindow.overlay].
      */
     fun shouldLockTask(context: Context): Boolean {
         if (isActive(context) &&
@@ -280,7 +329,7 @@ object SessionManager {
             return true
         }
         if (EarnSession.requiresLockTask(context)) return true
-        return ScheduleManager.requiresLockTask(context)
+        return isEnforcing(context) && ScheduleManager.requiresLockTask(context)
     }
 
     /**

@@ -181,10 +181,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
     // ── Editing ───────────────────────────────────────────────────
 
     private fun addRule(group: String?) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Adding a phrase to watch for is a tightening. KeywordRules.save judges it.
         FocusDialog.textInput(
             this,
             title = getString(R.string.keyword_guard_watch_title),
@@ -201,10 +198,7 @@ class KeywordGuardActivity : FocusScreenActivity() {
     }
 
     private fun editRule(rule: KeywordRule) {
-        if (SessionLock.isFrozen(this)) {
-            FocusDialog.toast(this, SessionLock.refusalMessage(this))
-            return
-        }
+        // Opening the editor is free; KeywordRules.save refuses an edit that loosens.
         var working = rule
 
         FocusDialog.custom(

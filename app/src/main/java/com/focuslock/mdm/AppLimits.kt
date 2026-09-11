@@ -31,9 +31,16 @@ object AppLimits {
         return if (value > 0) value else null
     }
 
-    /** Frozen-gated: raising or clearing your own daily budget mid-session defeats the budget. */
+    /**
+     * Tightening a budget (a smaller number of minutes) goes through at any
+     * time. Raising or clearing one mid-session defeats the budget, so that
+     * waits for the session to end.
+     */
     fun setMinuteLimit(context: Context, packageName: String, minutes: Int?): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val before = FocusStore.getIntMap(context, KEY_MINUTE_LIMITS)[packageName]?.takeIf { it > 0 }
+        if (!SessionLock.allows(context, SessionLock.forBudget(before, minutes?.takeIf { it > 0 }))) {
+            return false
+        }
         val map = FocusStore.getIntMap(context, KEY_MINUTE_LIMITS).toMutableMap()
         if (minutes == null || minutes <= 0) map.remove(packageName) else map[packageName] = minutes
         FocusStore.setIntMap(context, KEY_MINUTE_LIMITS, map)
@@ -51,7 +58,10 @@ object AppLimits {
     }
 
     fun setOpenLimit(context: Context, packageName: String, opens: Int?): Boolean {
-        if (SessionLock.isFrozen(context)) return false
+        val before = FocusStore.getIntMap(context, KEY_OPEN_LIMITS)[packageName]?.takeIf { it > 0 }
+        if (!SessionLock.allows(context, SessionLock.forBudget(before, opens?.takeIf { it > 0 }))) {
+            return false
+        }
         val map = FocusStore.getIntMap(context, KEY_OPEN_LIMITS).toMutableMap()
         if (opens == null || opens <= 0) map.remove(packageName) else map[packageName] = opens
         FocusStore.setIntMap(context, KEY_OPEN_LIMITS, map)
