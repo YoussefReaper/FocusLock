@@ -71,6 +71,7 @@ abstract class FocusEditorActivity : AppCompatActivity() {
 
     protected fun renderScreen() {
         tokens = UiPrefs.resolve(this)
+        themeSignature = UiPrefs.signature(this)
         FocusUi.applySystemBars(window, tokens)
 
         val root = FocusUi.screenRoot(this, tokens)
@@ -137,6 +138,14 @@ abstract class FocusEditorActivity : AppCompatActivity() {
     protected fun refresh() {
         val host = body
         if (host == null) {
+            renderScreen()
+            return
+        }
+        // Same reasoning as FocusScreenActivity.refresh: a theme change has to
+        // repaint the root and the system bars, which only renderScreen does.
+        val signature = UiPrefs.signature(this)
+        if (signature != themeSignature) {
+            themeSignature = signature
             renderScreen()
             return
         }

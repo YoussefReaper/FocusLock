@@ -64,6 +64,7 @@ abstract class FocusScreenActivity : AppCompatActivity() {
 
     protected fun renderScreen() {
         tokens = UiPrefs.resolve(this)
+        themeSignature = UiPrefs.signature(this)
         FocusUi.applySystemBars(window, tokens)
 
         val root = FocusUi.screenRoot(this, tokens)
@@ -103,6 +104,17 @@ abstract class FocusScreenActivity : AppCompatActivity() {
      */
     protected fun refresh() {
         if (!this::content.isInitialized) {
+            renderScreen()
+            return
+        }
+        // A screen that changes the theme from inside itself - Personalisation
+        // is the whole reason this case exists - needs the full pass: the root
+        // background, the wallpaper and the system bars are painted by
+        // renderScreen, and refilling the column alone would leave a new theme
+        // half-applied until you navigated away and back.
+        val signature = UiPrefs.signature(this)
+        if (signature != themeSignature) {
+            themeSignature = signature
             renderScreen()
             return
         }

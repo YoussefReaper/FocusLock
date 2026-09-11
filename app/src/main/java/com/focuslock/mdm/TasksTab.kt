@@ -643,13 +643,39 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
         return box
     }
 
+    /**
+     * The one line under a task title.
+     *
+     * It used to concatenate everything it knew - deadline, overdue flag,
+     * estimate, verification method, reward, recurrence and every tag - into a
+     * single "·"-joined string that routinely ran to three wrapped lines and
+     * made a list of six tasks look like a wall. Almost none of it is what you
+     * are scanning the list for.
+     *
+     * Two facts, at most: *when* (the only urgent one) and *what it pays*, and
+     * only when Earn Mode is actually on. Everything else is still one tap
+     * away in the editor, which is where you go when you care about it.
+     */
     private fun describe(task: FocusTask): String {
         val parts = ArrayList<String>()
 
         if (task.completed) {
             task.completedAt?.let {
-                parts.add(activity.getString(R.string.tasks_describe_done, SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(it))))
+                parts.add(
+                    activity.getString(
+                        R.string.tasks_describe_done,
+                        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(it))
+                    )
+                )
             }
+            return parts.joinToString(" · ")
+        }
+
+        // Overdue replaces the date rather than following it: "overdue" is the
+        // fact, and repeating a date the person has already missed next to it
+        // is just a longer way of saying the same thing.
+        if (task.isOverdue) {
+            parts.add(activity.getString(R.string.tasks_describe_overdue))
         } else {
             (task.deadline ?: task.dueDate)?.let { due ->
                 val formatted = TimeText.dateTime(activity, due)
@@ -661,22 +687,19 @@ class TasksTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activi
                     }
                 )
             }
-            if (task.isOverdue) parts.add(activity.getString(R.string.tasks_describe_overdue))
         }
-
-        task.timeEstimateMin?.let { parts.add(activity.getString(R.string.tasks_describe_minutes, it)) }
-        parts.add(task.verification.label.lowercase())
 
         if (EarnMode.isEnabled(activity)) {
             when {
                 task.enjoyable -> parts.add(activity.getString(R.string.tasks_describe_no_reward))
                 task.rewardMin != null -> parts.add(activity.getString(R.string.tasks_describe_reward_min, task.rewardMin))
-                else -> parts.add(activity.getString(R.string.tasks_describe_earns_at_rate))
+                else -> task.timeEstimateMin?.let {
+                    // Only worth saying when it is the thing that decides the
+                    // payout; on its own, an estimate is editor detail.
+                    parts.add(activity.getString(R.string.tasks_describe_minutes, it))
+                }
             }
         }
-
-        if (task.recurrence != Recurrence.NONE) parts.add(task.recurrence.label.lowercase())
-        if (task.tags.isNotEmpty()) parts.add(task.tags.joinToString(" "))
 
         return parts.joinToString(" · ")
     }

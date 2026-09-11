@@ -35,7 +35,8 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
         column.addView(buildBulkCard())
     }
 
-    private fun locked(): Boolean = SessionManager.isActive(this)
+    /** Whether *adding* to the list would be refused right now. Removing never is. */
+    private fun locked(): Boolean = !SessionLock.allows(this, EditDirection.LOOSEN)
 
     private fun buildStateCard(): View = card { card ->
         card.addView(
@@ -145,6 +146,7 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
     }
 
     private fun remove(url: String) {
+        // Always permitted: taking a site off the allowlist is a tightening.
         AllowlistStore.removeWebUrl(this, url)
         renderList()
     }
@@ -170,7 +172,9 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
                 FocusDialog.toast(this, getString(R.string.web_allowlist_invalid_address_toast))
                 return@textInput
             }
-            AllowlistStore.addWebUrl(this, normalized)
+            if (!AllowlistStore.addWebUrl(this, normalized)) {
+                FocusDialog.toast(this, SessionLock.refusalMessage(this))
+            }
             refresh()
         }
     }
@@ -212,8 +216,11 @@ class WebAllowlistEditorActivity : FocusScreenActivity() {
                     return@secondaryButton
                 }
 
-                AllowlistStore.setWebAllowlistUrls(this, urls)
-                FocusDialog.toast(this, getString(R.string.web_allowlist_sites_saved_toast, urls.size))
+                if (AllowlistStore.setWebAllowlistUrls(this, urls)) {
+                    FocusDialog.toast(this, getString(R.string.web_allowlist_sites_saved_toast, urls.size))
+                } else {
+                    FocusDialog.toast(this, SessionLock.refusalMessage(this))
+                }
                 refresh()
             }
         )

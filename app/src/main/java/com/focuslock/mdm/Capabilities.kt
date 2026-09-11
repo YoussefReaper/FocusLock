@@ -520,8 +520,18 @@ object Capabilities {
         ),
         CapabilitySpec(
             id = STATUS_BAR_LOCK,
-            label = "Lock the status bar",
-            blurb = "Disables the notification shade and quick settings during a kiosk session.",
+            label = "Lock the notification shade",
+            // Says notifications, not quick settings, because quick settings is
+            // not this switch's to give. Android's lock task mode has a feature
+            // flag for notifications and none for quick settings: the panel is
+            // gone for the whole of any pinned session and no setting brings it
+            // back. Promising it here is what made this toggle look broken -
+            // people turned it off and quick settings stayed missing, because
+            // it was never the reason. Brightness moved into the app instead;
+            // see ScreenBrightness and AlwaysAllowedActivity.
+            blurb = "Holds back the notification shade during a kiosk session. Quick settings is " +
+                "already unavailable in any kiosk session — Android gives no way to keep it — so " +
+                "brightness lives in Always-allowed instead.",
             group = CapabilityGroup.HARDENING,
             default = false,
             weakenNote = "Leaving this off keeps the shade reachable, a common way back out mid-session.",

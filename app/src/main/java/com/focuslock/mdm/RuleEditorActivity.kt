@@ -68,6 +68,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                             refresh()
                         }
                     )
+                    controls.addView(FocusUi.spacerH(this, 8))
                 }
                 if (index < rules.size - 1 && !frozen) {
                     controls.addView(
@@ -76,6 +77,7 @@ class RuleEditorActivity : FocusScreenActivity() {
                             refresh()
                         }
                     )
+                    controls.addView(FocusUi.spacerH(this, 8))
                 }
                 controls.addView(
                     FocusUi.switchControl(this, tokens, rule.enabled) { value ->

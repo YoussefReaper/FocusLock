@@ -50,6 +50,14 @@ object TestMode {
         val bounded = minutes.coerceIn(1, MAX_MINUTES)
         FocusStore.setLong(context, KEY_TEST_UNTIL_MS, System.currentTimeMillis() + bounded * 60_000L)
         PolicySync.request(context, "testMode:start")
+        // Start the watcher, the same as starting a real session does.
+        //
+        // It never did, and used to get away with it: the service stayed up for
+        // any configured schedule or bedtime, so a test usually found it already
+        // running. Now that nothing keeps it alive outside a session, a test
+        // with no session would have had no loop to run in at all - "test the
+        // block" would simply never have shown a block.
+        AppBlockerService.start(context)
         return true
     }
 

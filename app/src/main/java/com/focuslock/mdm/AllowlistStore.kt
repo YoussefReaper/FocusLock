@@ -43,29 +43,33 @@ object AllowlistStore {
         return seeded
     }
 
-    // Deliberately NOT gated on SessionLock.isFrozen() here, unlike every other
-    // store in this audit: this list has its own older, more specific rule -
-    // WebAllowlistEditorActivity blocks *additions* unconditionally during any
-    // active session (stricter than the freeze, and independent of the
-    // LOCK_RULES_IN_SESSION capability), while deliberately always allowing
-    // *removals* even mid-session ("removing is fine, adding waits"). A blanket
-    // freeze check here would have silently broken that removal path the first
-    // time this function was reached from a session with rules frozen.
-    fun setWebAllowlistUrls(context: Context, urls: Collection<String>) {
+    /**
+     * This list's rule - "removing is fine, adding waits" - is the one the rest
+     * of the app was eventually rebuilt around, so it now says so in the same
+     * vocabulary as every other store rather than being enforced by hand in one
+     * editor screen. See [EditDirection].
+     *
+     * Stating it here rather than in the editor also covers the routes that
+     * never went through the editor at all: the bulk paste field, the ADB
+     * receiver, and a restored profile.
+     */
+    fun setWebAllowlistUrls(context: Context, urls: Collection<String>): Boolean {
         val cleaned = urls.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        val direction = SessionLock.forExemptionSet(getWebAllowlistUrls(context), cleaned)
+        if (!SessionLock.allows(context, direction)) return false
         prefs(context).edit().putStringSet(Constants.KEY_WEB_ALLOWLIST, cleaned).apply()
         PolicySync.request(context, "webAllowlist")
+        return true
     }
 
-    fun addWebUrl(context: Context, url: String) {
+    fun addWebUrl(context: Context, url: String): Boolean {
         val cleaned = normalizeUrl(url)
-        if (cleaned.isBlank()) return
-        setWebAllowlistUrls(context, getWebAllowlistUrls(context) + cleaned)
+        if (cleaned.isBlank()) return false
+        return setWebAllowlistUrls(context, getWebAllowlistUrls(context) + cleaned)
     }
 
-    fun removeWebUrl(context: Context, url: String) {
+    fun removeWebUrl(context: Context, url: String): Boolean =
         setWebAllowlistUrls(context, getWebAllowlistUrls(context) - normalizeUrl(url))
-    }
 
     fun normalizeUrl(value: String): String {
         val trimmed = value.trim()

@@ -402,7 +402,13 @@ class AppBlockerService : Service() {
 
     private fun shouldIntercept(packageName: String, now: Long): Boolean {
         if (packageName != lastInterceptPackage) return true
-        return now - lastInterceptAt >= INTERCEPT_COOLDOWN_MS
+        // A test gets a much longer cooldown on the same app. A real block
+        // re-asserts itself every few seconds because it is actually stopping
+        // you; a test has already made its point, and putting the same preview
+        // back every 2.5 seconds while you carry on using the app would be
+        // indistinguishable from the loop this cooldown exists to prevent.
+        val cooldown = if (TestMode.isActive(this)) TEST_INTERCEPT_COOLDOWN_MS else INTERCEPT_COOLDOWN_MS
+        return now - lastInterceptAt >= cooldown
     }
 
     // ── Policy ────────────────────────────────────────────────────
@@ -843,6 +849,7 @@ class AppBlockerService : Service() {
         private const val IDLE_TICK_MS = 5_000L
         private const val POLICY_REFRESH_MS = 15_000L
         private const val INTERCEPT_COOLDOWN_MS = 2_500L
+        private const val TEST_INTERCEPT_COOLDOWN_MS = 45_000L
 
         /** Long enough to cover an activity handoff, short enough that a real
          *  app launch is still caught almost immediately. Two ticks. */

@@ -526,7 +526,9 @@ class TaskEditorActivity : FocusEditorActivity() {
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT
         )
         row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_file_button)) { pickFile("*/*") })
+        row.addView(FocusUi.spacerH(this, 8))
         row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_image_button)) { pickFile("image/*") })
+        row.addView(FocusUi.spacerH(this, 8))
         row.addView(FocusUi.smallButton(this, tokens, getString(R.string.task_editor_add_link_button)) { addLink() })
         card.addView(FocusUi.horizontalScroll(this, row))
     }

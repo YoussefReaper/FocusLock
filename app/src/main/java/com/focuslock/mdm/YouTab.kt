@@ -54,9 +54,6 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         add(FocusUi.sectionLabel(activity, tokens, "Setup and help"))
         add(buildHelpCard())
 
-        add(buildAdvancedHeader())
-        add(buildAdvancedCard())
-
         if (CapabilityRegistry.isEnabled(activity, Capabilities.SOCIAL)) {
             add(FocusUi.sectionLabel(activity, tokens, "Study friend"))
             add(buildSocialCard())
@@ -148,8 +145,14 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
     // ── Appearance ────────────────────────────────────────────────
 
     /**
-     * Live, in-place theming: every control here redraws the whole shell as
-     * soon as it changes, so choosing a theme is a preview rather than a guess.
+     * Theme, accent, and a way into everything else.
+     *
+     * This was four stacked chip strips, two sliders, an Apply button and three
+     * toggles - the tallest card in the app, for settings most people touch
+     * once. Theme and accent stay inline because they are the two you actually
+     * browse and they preview themselves live; type, spacing, text size,
+     * rounding, motion and contrast are one row away, on the screen that
+     * already existed for "the rest of the appearance settings".
      */
     private fun buildAppearanceCard(): View {
         val card = FocusUi.card(activity, tokens)
@@ -171,92 +174,18 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         card.addView(FocusUi.caption(activity, tokens, "ACCENT"))
         card.addView(buildAccentRow())
 
-        card.addView(FocusUi.spacer(activity, 10))
-        card.addView(FocusUi.caption(activity, tokens, "TYPE"))
-        card.addView(
-            FocusUi.chipStrip(
-                activity,
-                tokens,
-                UiPrefs.fonts.map { it.label },
-                UiPrefs.fonts.indexOfFirst { it.id == UiPrefs.getFont(activity).id }
-            ) { index ->
-                UiPrefs.setFontId(activity, UiPrefs.fonts[index].id)
-                activity.requestShellRebuild()
-            }
-        )
-
-        card.addView(FocusUi.spacer(activity, 10))
-        card.addView(FocusUi.caption(activity, tokens, "SPACING"))
-        card.addView(
-            FocusUi.chipStrip(
-                activity,
-                tokens,
-                UiPrefs.densities.map { it.label },
-                UiPrefs.densities.indexOfFirst { it.id == UiPrefs.getDensity(activity).id }
-            ) { index ->
-                UiPrefs.setDensityId(activity, UiPrefs.densities[index].id)
-                activity.requestShellRebuild()
-            }
-        )
-
-        card.addView(
-            FocusUi.sliderRow(
-                activity,
-                tokens,
-                "Text size",
-                80,
-                140,
-                (UiPrefs.getTextScale(activity) * 100).toInt(),
-                { it.toString() + "%" }
-            ) { value ->
-                UiPrefs.setTextScale(activity, value / 100f)
-            }
-        )
-        card.addView(
-            FocusUi.sliderRow(
-                activity,
-                tokens,
-                "Corner rounding",
-                0,
-                32,
-                UiPrefs.getCardRadiusDp(activity),
-                { it.toString() + "dp" }
-            ) { value ->
-                UiPrefs.setCardRadiusDp(activity, value)
-            }
-        )
-        card.addView(
-            FocusUi.smallButton(activity, tokens, "Apply size and rounding") {
-                activity.requestShellRebuild()
-            }
-        )
-
-        card.addView(FocusUi.spacer(activity, 8))
+        card.addView(FocusUi.spacer(activity, 12))
         card.addView(FocusUi.divider(activity, tokens))
 
         card.addView(
-            FocusUi.toggleRow(
+            FocusUi.listRow(
                 activity,
                 tokens,
-                "Reduce motion",
-                "Turns off fades and the breathing animation on the pause screen.",
-                UiPrefs.reducedMotion(activity)
-            ) { value ->
-                UiPrefs.setReducedMotion(activity, value)
-                activity.requestShellRebuild()
-            }
-        )
-        card.addView(
-            FocusUi.toggleRow(
-                activity,
-                tokens,
-                "Higher contrast",
-                "Pushes text and dividers further from the background.",
-                UiPrefs.highContrast(activity)
-            ) { value ->
-                UiPrefs.setHighContrast(activity, value)
-                activity.requestShellRebuild()
-            }
+                "Type and spacing",
+                UiPrefs.getFont(activity).label + " · " + UiPrefs.getDensity(activity).label +
+                    " · " + (UiPrefs.getTextScale(activity) * 100).toInt() + "%",
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, PersonalizationActivity::class.java)) }
         )
 
         card.addView(FocusUi.divider(activity, tokens))
@@ -275,12 +204,41 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             FocusUi.listRow(
                 activity,
                 tokens,
-                "Wallpaper, background and sections",
-                "The rest of the appearance settings",
+                "Clock",
+                clockLabel(UiPrefs.getClockFormat(activity)),
                 trailing = FocusUi.chevron(activity, tokens)
-            ) { activity.startActivity(Intent(activity, PersonalizationActivity::class.java)) }
+            ) { pickClockFormat() }
         )
         return card
+    }
+
+    private fun clockLabel(value: String): String = when (value) {
+        TimeText.CLOCK_12 -> "12-hour (2:30 PM)"
+        TimeText.CLOCK_24 -> "24-hour (14:30)"
+        else -> "Match the phone"
+    }
+
+    /**
+     * The app used to print 24-hour times whatever the phone said, which is
+     * what "why is it in weird 24 hours format" was about. It follows the
+     * system setting now; this is for the case where the phone and the person
+     * disagree.
+     */
+    private fun pickClockFormat() {
+        FocusDialog.singleChoice(
+            activity,
+            "Clock",
+            "How times read on schedules, bedtime and deadlines.",
+            listOf(
+                FocusDialog.Choice(TimeText.CLOCK_SYSTEM, clockLabel(TimeText.CLOCK_SYSTEM)),
+                FocusDialog.Choice(TimeText.CLOCK_12, clockLabel(TimeText.CLOCK_12)),
+                FocusDialog.Choice(TimeText.CLOCK_24, clockLabel(TimeText.CLOCK_24))
+            ),
+            UiPrefs.getClockFormat(activity)
+        ) { selected ->
+            UiPrefs.setClockFormat(activity, selected)
+            render()
+        }
     }
 
     private fun languageLabel(tag: String): String = when (tag) {
@@ -343,201 +301,31 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
         return FocusUi.horizontalScroll(activity, strip)
     }
 
-    // ── Advanced ──────────────────────────────────────────────────
-
-    /** Section label with a "?" beside it, since this is the page that needs one. */
-    private fun buildAdvancedHeader(): View {
-        val row = FocusUi.row(activity)
-        val icon = FocusUi.categoryIcon(activity, tokens, R.drawable.ic_glyph_focus, sizeDp = 16)
-        (icon.layoutParams as LinearLayout.LayoutParams).marginEnd = FocusUi.dp(activity, 8)
-        row.addView(icon)
-        val label = FocusUi.sectionLabel(activity, tokens, "Advanced")
-        label.layoutParams = LinearLayout.LayoutParams(
-            0,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            1f
-        )
-        row.addView(label)
-        row.addView(
-            FocusUi.smallButton(activity, tokens, "What is this?") {
-                activity.startActivity(Intent(activity, AdvancedHelpActivity::class.java))
-            }
-        )
-        return row
-    }
-
-    /**
-     * The switchboard.
-     *
-     * A mode sets these; this is where you disagree with it. Every row says
-     * what turns off with it, because a switch whose consequence you have to
-     * discover by being locked out of your phone is not a real choice.
-     */
-    private fun buildAdvancedCard(): View {
-        val card = FocusUi.card(activity, tokens)
-        val mode = SessionManager.mode(activity)
-        val sessionRunning = SessionManager.isActive(activity)
-
-        card.addView(
-            FocusUi.body(
-                activity,
-                tokens,
-                if (sessionRunning && SessionLock.isFrozen(activity)) {
-                    "A " + mode.label + " session is running, and you asked for your rules to be " +
-                        "held still while it does. These come back when it ends, in " +
-                        SessionManager.formatRemaining(activity) + "."
-                } else if (sessionRunning) {
-                    "A " + mode.label + " session is running. Changes here take effect straight away."
-                } else {
-                    "Your last template was " + mode.label + ". Picking a different mode loads that " +
-                        "mode's version of these; anything you change here stays until then."
-                }
-            )
-        )
-        card.addView(FocusUi.spacer(activity, 14))
-
-        card.addView(FocusUi.sectionLabel(activity, tokens, "Leaving a session"))
-        card.addView(advancedToggle(Capabilities.CAN_END_EARLY, "End a session early"))
-
-        card.addView(FocusUi.divider(activity, tokens))
-        card.addView(FocusUi.sectionLabel(activity, tokens, "How hard it blocks"))
-        card.addView(advancedToggle(Capabilities.HARD_BLOCK, "Actually stop blocked apps"))
-        card.addView(advancedToggle(Capabilities.SUSPEND_BLOCKED_APPS, "Silence blocked apps"))
-        card.addView(advancedToggle(Capabilities.HIDE_BLOCKED_APPS, "Hide them from the launcher"))
-
-        card.addView(FocusUi.divider(activity, tokens))
-        card.addView(FocusUi.sectionLabel(activity, tokens, "Breaks"))
-        card.addView(
-            FocusUi.toggleRow(
-                activity,
-                tokens,
-                "Take a break",
-                "Unlock one blocked app for a few minutes on purpose, instead of giving up on the whole session.",
-                CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK),
-                enabled = CapabilityRegistry.canToggle(
-                    activity,
-                    Capabilities.TAKE_A_BREAK,
-                    CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)
-                )
-            ) { value ->
-                if (!CapabilityRegistry.setEnabled(activity, Capabilities.TAKE_A_BREAK, value)) {
-                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                }
-                render()
-            }
-        )
-
-        if (CapabilityRegistry.isEnabled(activity, Capabilities.TAKE_A_BREAK)) {
-            card.addView(
-                FocusUi.sliderRow(
-                    activity,
-                    tokens,
-                    "How long a break lasts",
-                    1,
-                    30,
-                    TakeABreak.breakMinutes(activity),
-                    { it.toString() + " min" }
-                ) { value -> TakeABreak.setBreakMinutes(activity, value) }
-            )
-            card.addView(
-                FocusUi.sliderRow(
-                    activity,
-                    tokens,
-                    "Breaks a day",
-                    0,
-                    10,
-                    TakeABreak.dailyMax(activity),
-                    { if (it == 0) "None" else it.toString() }
-                ) { value -> TakeABreak.setDailyMax(activity, value) }
-            )
-            card.addView(
-                FocusUi.caption(
-                    activity,
-                    tokens,
-                    TakeABreak.remainingToday(activity).toString() + " left today. Taking one is not a failure."
-                )
-            )
-        } else {
-            card.addView(
-                FocusUi.caption(
-                    activity,
-                    tokens,
-                    "Off: a blocked app stays blocked for the whole session, with no exceptions."
-                )
-            )
-        }
-
-        if (!SessionManager.matchesPreset(activity, mode)) {
-            card.addView(FocusUi.spacer(activity, 16))
-            card.addView(
-                FocusUi.secondaryButton(activity, tokens, "Put " + mode.label + "'s defaults back") {
-                    if (SessionManager.resetToPreset(activity, mode)) {
-                        FocusDialog.toast(activity, mode.label + " defaults restored.")
-                    } else {
-                        FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                    }
-                    render()
-                }
-            )
-            // Same reasoning as advancedToggle(): this button rewrites every
-            // flag above it in one tap, so it must be just as frozen as they
-            // are - the header text above already promises the rules are
-            // held still, and this button was the one thing not honouring it.
-            if (SessionLock.isFrozen(activity)) {
-                card.addView(FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity)))
-            }
-        }
-
-        return card
-    }
-
-    /** One capability, its plain-language name, and what switching it off costs. */
-    private fun advancedToggle(id: String, title: String): View {
-        val spec = Capabilities.spec(id)
-        val enabled = CapabilityRegistry.isEnabled(activity, id)
-        // Locked only in the direction that would weaken things - a guard can
-        // still be switched on mid-session.
-        val frozen = !CapabilityRegistry.canToggle(activity, id, enabled)
-        val holder = FocusUi.column(activity, 0)
-
-        holder.addView(
-            FocusUi.toggleRow(
-                activity,
-                tokens,
-                title,
-                spec?.blurb,
-                enabled,
-                enabled = !frozen
-            ) { value ->
-                if (!CapabilityRegistry.setEnabled(activity, id, value)) {
-                    FocusDialog.toast(activity, SessionLock.refusalMessage(activity))
-                }
-                render()
-            }
-        )
-
-        // A greyed switch with no reason next to it reads as a bug. Say why.
-        if (frozen) {
-            val locked = FocusUi.caption(activity, tokens, Copy.rulesFrozenHint(activity))
-            locked.setPadding(0, FocusUi.dp(activity, 2), 0, FocusUi.dp(activity, 8))
-            holder.addView(locked)
-        }
-
-        // The consequence line, shown when the switch is off — the moment it
-        // is actually load-bearing.
-        val note = spec?.weakenNote
-        if (!enabled && !note.isNullOrBlank()) {
-            val caption = FocusUi.caption(activity, tokens, note)
-            caption.setTextColor(tokens.warning)
-            holder.addView(caption)
-        }
-        return holder
-    }
-
     // ── Help ──────────────────────────────────────────────────────
 
     private fun buildHelpCard(): View {
         val card = FocusUi.card(activity, tokens)
+
+        // The switchboard, as one row.
+        //
+        // This tab used to carry its own copy of it: a prose paragraph, four
+        // capability toggles each with its full blurb, the break settings with
+        // two sliders, a consequence line under every switch that was off, and
+        // a reset button - about two hundred lines of screen. Every one of
+        // those switches already lives in CapabilitiesActivity, which is the
+        // screen built for them. Two places to change the same flag is not a
+        // convenience, it is a second place to look when one of them is wrong.
+        val enabledCount = Capabilities.all.count { CapabilityRegistry.isEnabled(activity, it.id) }
+        card.addView(
+            FocusUi.listRow(
+                activity,
+                tokens,
+                "What FocusLock may do",
+                advancedSummary(enabledCount),
+                trailing = FocusUi.chevron(activity, tokens)
+            ) { activity.startActivity(Intent(activity, CapabilitiesActivity::class.java)) }
+        )
+        card.addView(FocusUi.divider(activity, tokens))
 
         card.addView(
             FocusUi.listRow(
@@ -615,6 +403,18 @@ class YouTab(activity: MainActivity, tokens: UiPrefs.Tokens) : FocusTab(activity
             ) { if (!adbDisabled) confirmDisableAdb() }
         )
         return card
+    }
+
+    /** One line where a paragraph used to be: the template, and whether it still matches. */
+    private fun advancedSummary(enabledCount: Int): String {
+        val mode = SessionManager.mode(activity)
+        val base = enabledCount.toString() + " of " + Capabilities.all.size + " on · " + mode.label + " template"
+        return when {
+            SessionLock.isFrozen(activity) ->
+                base + " · held until the session ends"
+            !SessionManager.matchesPreset(activity, mode) -> base + " · edited"
+            else -> base
+        }
     }
 
     private fun permissionSummary(): String {

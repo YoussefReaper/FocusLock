@@ -601,10 +601,19 @@ object FocusUi {
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, tokens.scaled(13f))
         val horizontal = dp(context, 14)
         view.setPadding(horizontal, 0, horizontal, 0)
+        // No trailing margin.
+        //
+        // It used to carry `marginEnd = 8` unconditionally, which is wrong in
+        // the place these are most often used: as a `listRow` trailing control.
+        // A row ending in a small button sat 8dp further from the card's right
+        // edge than the row above it ending in a chevron or a pill, so lists
+        // that mixed the two (always-allowed, the suggestions list, the
+        // capability rows) had a visibly ragged right edge. Rows of several
+        // small buttons ask for their own spacing with [spacerH] instead.
         view.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             dp(context, tokens.density.quickButtonHeightDp)
-        ).apply { marginEnd = dp(context, 8) }
+        )
         return view
     }
 
@@ -628,8 +637,13 @@ object FocusUi {
         rowView.orientation = LinearLayout.HORIZONTAL
         rowView.gravity = Gravity.CENTER_VERTICAL
         val padV = dp(context, 13)
-        val padH = dp(context, 2)
-        rowView.setPadding(padH, padV, padH, padV)
+        // No horizontal padding of its own: the card already provides the
+        // inset, and adding 2dp on top of it put every row - and so every
+        // leading icon and every trailing switch - two pixels inside the
+        // headings, dividers and buttons stacked around them in the same card.
+        // Two pixels is invisible on any one row and unmistakable down a list
+        // of twenty, which is most of what "the wrappers aren't equal" is.
+        rowView.setPadding(0, padV, 0, padV)
         rowView.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1046,7 +1060,15 @@ object FocusUi {
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         labels.forEachIndexed { index, label ->
-            strip.addView(chip(context, tokens, label, index == selectedIndex) { onSelect(index) })
+            val view = chip(context, tokens, label, index == selectedIndex) { onSelect(index) }
+            // The gap belongs between chips. Left on the last one it made the
+            // strip 6dp wider than its contents, so scrolling to the end
+            // stopped 6dp short of the edge and the strip never quite lined up
+            // with the card it sits in.
+            if (index == labels.size - 1) {
+                (view.layoutParams as? LinearLayout.LayoutParams)?.marginEnd = 0
+            }
+            strip.addView(view)
         }
         val scroll = horizontalScroll(context, strip)
         scroll.layoutParams = LinearLayout.LayoutParams(
