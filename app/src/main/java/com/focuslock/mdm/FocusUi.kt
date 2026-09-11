@@ -1373,6 +1373,17 @@ object FocusUi {
         /** True while we are writing the field ourselves, so the watcher doesn't echo back. */
         var writing = false
 
+        /**
+         * The last value actually reported through [onChange].
+         *
+         * Not the parameter: that is only ever the value the control was built
+         * with. Falling back to it when the field is left empty would show the
+         * number the person started from while the caller is still holding the
+         * one they typed before clearing it - two different values on screen
+         * and in state at once.
+         */
+        var committed = value
+
         fun show(next: Int) {
             writing = true
             field.setText(format(next))
@@ -1399,6 +1410,7 @@ object FocusUi {
                 // Not clamped while typing: "1" on the way to "15" would
                 // otherwise be rewritten to the minimum under the cursor.
                 if (typed < min || typed > max) return
+                committed = typed
                 onChange(typed)
             }
         })
@@ -1408,9 +1420,12 @@ object FocusUi {
         field.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) return@setOnFocusChangeListener
             val typed = field.text?.toString()?.trim()?.toIntOrNull()
-            val settled = if (typed == null) value else clamp(typed)
+            val settled = if (typed == null) committed else clamp(typed)
             show(settled)
-            if (typed != null && settled != typed) onChange(settled)
+            if (settled != committed) {
+                committed = settled
+                onChange(settled)
+            }
         }
 
         fun arrow(glyph: String, delta: Int): TextView {
@@ -1424,9 +1439,10 @@ object FocusUi {
             val pad = dp(context, 10)
             view.setPadding(pad, pad, pad, pad)
             view.setOnClickListener {
-                val current = field.text?.toString()?.trim()?.toIntOrNull() ?: value
+                val current = field.text?.toString()?.trim()?.toIntOrNull() ?: committed
                 val next = clamp(current + delta)
                 show(next)
+                committed = next
                 onChange(next)
             }
             return view

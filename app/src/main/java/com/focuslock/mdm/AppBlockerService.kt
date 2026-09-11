@@ -84,7 +84,7 @@ class AppBlockerService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(statusLine()))
 
         if (!hasWorkToDo()) {
-            // standDown(), not a bare stopSelf().
+            // Release before stopping, rather than just stopping.
             //
             // This is one of the two paths that left apps stuck showing
             // "blocked by your organization" after a session was over. If the
@@ -93,8 +93,15 @@ class AppBlockerService : Service() {
             // next start would find no work to do and stop here *without ever
             // un-suspending anything*, so every app the session had suspended
             // stayed suspended at the OS level with nothing left that would
-            // ever retry. standDown releases them first.
-            standDown()
+            // ever retry.
+            //
+            // Via PolicySync rather than standDown(): onCreate runs on the main
+            // thread, and standDown's DPM work is one synchronous binder call
+            // per suspended package.
+            PolicySync.releaseManagedAppsNow(this)
+            hideBlockerOverlay()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
             return
         }
 

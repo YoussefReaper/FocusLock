@@ -55,27 +55,46 @@ object PolicySync {
     }
 
     /**
-     * Hands every suspended and hidden app straight back, on the calling
-     * thread, with no debounce.
+     * Hands every suspended and hidden app straight back, ahead of any pending
+     * debounce.
      *
-     * Used by [SessionManager.end]: everything else here can afford to wait
-     * 250ms for the worker, but leaving an app suspended is the one failure a
-     * person reads as "FocusLock broke my phone", and the 250ms window is
-     * exactly when the process is most likely to be killed.
+     * Used by [SessionManager.end] and by the guard service's own startup path.
+     * Leaving an app suspended is the one failure a person reads as "FocusLock
+     * broke my phone", so this jumps the 250ms queue that everything else
+     * waits in - the moment a session ends is exactly when the process is most
+     * likely to be killed, and a release still sitting in a debounce when that
+     * happens never runs at all.
+     *
+     * Posted to the worker rather than run inline, even though the caller is
+     * usually in a hurry. `setPackagesSuspended` is a synchronous binder call
+     * made once per package, and both callers are on the main thread - the End
+     * button, and Service.onCreate - so a phone with thirty blocked apps would
+     * be doing thirty round trips to system_server with the UI frozen behind
+     * them. The remaining gap is covered: the guard service releases on startup
+     * whenever it finds nothing to do, and MainActivity re-syncs on every
+     * resume, both of which retry anything left behind.
      */
+    @Synchronized
     fun releaseManagedAppsNow(context: Context) {
         val appContext = context.applicationContext
-        val dpm = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
-            ?: return
-        if (!SetupChecks.isDeviceOwner(appContext)) return
-        try {
-            KioskPolicy.releaseAllManagedApps(
-                appContext,
-                dpm,
-                ComponentName(appContext, AdminReceiver::class.java)
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Immediate release of managed apps failed", e)
+        // Cancel the pending debounce first: it was scheduled from the state
+        // *before* the session ended, and letting it run after this would be
+        // harmless but pointless duplicate work.
+        pending?.let { worker.removeCallbacks(it) }
+        pending = null
+        worker.post {
+            val dpm = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+                ?: return@post
+            if (!SetupChecks.isDeviceOwner(appContext)) return@post
+            try {
+                KioskPolicy.releaseAllManagedApps(
+                    appContext,
+                    dpm,
+                    ComponentName(appContext, AdminReceiver::class.java)
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Immediate release of managed apps failed", e)
+            }
         }
     }
 

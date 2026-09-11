@@ -6,12 +6,19 @@ import java.util.Calendar
 /**
  * The night shift.
  *
- * Bedtime runs on the clock - it dims the screen, forces the quiet theme and
- * holds back the categories the user named once the cut-off passes - but only
- * while a session is running. It used to fire regardless, which meant the app
- * could take the phone away on a night nobody had asked it to; see
- * [SessionManager.isEnforcing]. Everything about it is a setting, including
- * which categories.
+ * Bedtime runs on the clock, and the line between its two halves matters:
+ *
+ * - **What it holds back** - the categories the user named, and the hard lock
+ *   if [isOverlay] is on - only bites while a session is running. It used to
+ *   fire regardless, which meant the app could take the phone away on a night
+ *   nobody had asked it to. See [SessionManager.isEnforcing].
+ * - **How it looks** - the dim and the quiet theme - is not gated, because it
+ *   is comfort rather than enforcement. Dimming the screen at midnight takes
+ *   nothing away from anyone, and gating it would leave the whole bedtime
+ *   screen doing nothing at all for the many people who never start a session
+ *   at night.
+ *
+ * Everything about it is a setting, including which categories.
  */
 object Bedtime {
 
