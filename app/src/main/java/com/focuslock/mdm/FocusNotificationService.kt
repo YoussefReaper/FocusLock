@@ -53,10 +53,14 @@ class FocusNotificationService : NotificationListenerService() {
         if (AppRules.isAlwaysAllowed(this, packageName)) return false
         if (TakeABreak.hasActivePass(this, packageName)) return false
 
-        val sessionActive = SessionManager.isActive(this)
-        val scheduleActive = ScheduleManager.activeWindowIfEnabled(this) != null
-        val bedtimeActive = Bedtime.isActive(this)
-        if (!sessionActive && !scheduleActive && !bedtimeActive) return false
+        // One gate, the same as everywhere else. This used to say "a session
+        // OR a schedule window OR bedtime", which was the old clock-driven
+        // model: it would hold back notifications on a Tuesday evening nobody
+        // had started anything on. RuleEngine.decide below already refuses to
+        // block outside a session, so this was merely redundant rather than
+        // harmful - but a redundant check that states the wrong rule is how
+        // the wrong rule creeps back in.
+        if (!SessionManager.isEnforcing(this)) return false
 
         return RuleEngine.decide(this, packageName).isBlocked
     }

@@ -368,7 +368,9 @@ object KioskPolicy {
         val previous = FocusStore.getSet(context, KEY_SUSPENDED)
 
         val toSuspend = targets.filterNot { it in previous }
-        val toRelease = previous.filterNot { it in targets }.filter { isPackageInstalled(context, it) }
+        val toRelease = (previous + strays(context, dpm, admin, targets, shouldSuspend))
+            .filterNot { it in targets }
+            .filter { isPackageInstalled(context, it) }
         val unchanged = previous.intersect(targets)
 
         val newlySuspended = if (toSuspend.isNotEmpty()) setSuspended(context, dpm, admin, toSuspend, true) else emptySet()
@@ -398,6 +400,49 @@ object KioskPolicy {
      * second, independent way the earlier "not allowed by your organization"
      * bug could have happened even after the return-value fix above.
      */
+    /**
+     * Packages the OS still has suspended that FocusLock has forgotten about.
+     *
+     * The release path walks the set FocusLock *remembers* suspending, which
+     * is fine right up until that memory and reality disagree - a suspend that
+     * landed but whose bookkeeping never did because the process was killed in
+     * between, or state from a build before the return value of
+     * setPackagesSuspended was being checked at all. Once a package falls out
+     * of that set nothing ever looks at it again, so it stays suspended
+     * forever, showing "blocked by your organization" with no session running
+     * and nothing in the app that can undo it.
+     *
+     * So when nothing should be suspended, ask the OS directly rather than
+     * trusting the bookkeeping. Scoped to the blocklist rather than every
+     * installed app: those are the only packages FocusLock could ever have
+     * suspended, and sweeping two hundred packages on every sync would cost
+     * two hundred binder calls to fix a rare case.
+     */
+    private fun strays(
+        context: Context,
+        dpm: DevicePolicyManager,
+        admin: ComponentName,
+        targets: Set<String>,
+        shouldSuspend: Boolean
+    ): Set<String> {
+        if (shouldSuspend) return emptySet()
+        val candidates = AppRules.blockedPackages(context) - targets
+        if (candidates.isEmpty()) return emptySet()
+        val found = LinkedHashSet<String>()
+        for (pkg in candidates) {
+            if (!isPackageInstalled(context, pkg)) continue
+            try {
+                if (dpm.isPackageSuspended(admin, pkg)) found.add(pkg)
+            } catch (_: Exception) {
+                // NameNotFoundException, or an OEM that refuses the query.
+            }
+        }
+        if (found.isNotEmpty()) {
+            Log.w(TAG, "Found suspended packages FocusLock had lost track of, releasing: $found")
+        }
+        return found
+    }
+
     private fun setSuspended(
         context: Context,
         dpm: DevicePolicyManager,
@@ -465,7 +510,11 @@ object KioskPolicy {
         val previous = FocusStore.getSet(context, KEY_HIDDEN)
 
         val toHide = targets.filterNot { it in previous }
-        val toShow = previous.filterNot { it in targets }
+        // Same stray sweep as suspension: a hidden app FocusLock has forgotten
+        // about is invisible in the launcher with nothing left that would ever
+        // bring it back.
+        val toShow = (previous + hiddenStrays(context, dpm, admin, targets, shouldHide))
+            .filterNot { it in targets }
         val unchanged = previous.intersect(targets)
 
         val newlyHidden = toHide.filter { setHidden(dpm, admin, it, true) }.toSet()
@@ -478,6 +527,32 @@ object KioskPolicy {
             Log.w(TAG, "Still hidden after a reveal attempt, will retry next sync: $stillStuck")
         }
         FocusStore.setSet(context, KEY_HIDDEN, unchanged + newlyHidden + stillStuck)
+    }
+
+    /** Packages the OS still has hidden that FocusLock no longer tracks. See [strays]. */
+    private fun hiddenStrays(
+        context: Context,
+        dpm: DevicePolicyManager,
+        admin: ComponentName,
+        targets: Set<String>,
+        shouldHide: Boolean
+    ): Set<String> {
+        if (shouldHide) return emptySet()
+        val candidates = AppRules.blockedPackages(context) - targets
+        if (candidates.isEmpty()) return emptySet()
+        val found = LinkedHashSet<String>()
+        for (pkg in candidates) {
+            if (!isPackageInstalled(context, pkg)) continue
+            try {
+                if (dpm.isApplicationHidden(admin, pkg)) found.add(pkg)
+            } catch (_: Exception) {
+                // An OEM that refuses the query; nothing to recover here.
+            }
+        }
+        if (found.isNotEmpty()) {
+            Log.w(TAG, "Found hidden packages FocusLock had lost track of, revealing: $found")
+        }
+        return found
     }
 
     private fun setHidden(
@@ -512,7 +587,19 @@ object KioskPolicy {
     fun syncBrowserSandbox(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
         if (!SetupChecks.isDeviceOwner(context)) return
 
-        val enforce = CapabilityRegistry.isEnabled(context, Capabilities.WEB_BLOCK)
+        // Gated on a session, like every other rule.
+        //
+        // This was the last piece of enforcement still running on the
+        // capability switch alone, and it is the most invisible one: Chrome's
+        // URLBlocklist/URLAllowlist is applied through setApplicationRestrictions,
+        // which *persists inside Chrome* until something changes it. So once
+        // Web blocking had ever been switched on, Chrome stayed pinned to the
+        // allowlist permanently - at breakfast, on a Sunday, with nothing
+        // running - and no amount of "there is no session" made any difference,
+        // because nothing was ever asking. That is "the web block works before
+        // the session starts".
+        val enforce = CapabilityRegistry.isEnabled(context, Capabilities.WEB_BLOCK) &&
+            SessionManager.isEnforcing(context)
         val restrictions = Bundle()
         if (enforce) {
             restrictions.putStringArray("URLBlocklist", arrayOf("*"))
